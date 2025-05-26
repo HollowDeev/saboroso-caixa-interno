@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus, Edit, AlertTriangle } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,6 +24,14 @@ export const Ingredients = () => {
     cost: 0,
     supplier: ''
   });
+
+  const unitOptions = [
+    { value: 'kg', label: 'Quilograma (kg)' },
+    { value: 'g', label: 'Grama (g)' },
+    { value: 'unidade', label: 'Unidade' },
+    { value: 'L', label: 'Litro (L)' },
+    { value: 'ml', label: 'Mililitro (ml)' }
+  ];
 
   const resetForm = () => {
     setFormData({
@@ -104,14 +113,22 @@ export const Ingredients = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="unit">Unidade</Label>
-                  <Input
-                    id="unit"
+                  <Label htmlFor="unit">Unidade de Medida</Label>
+                  <Select
                     value={formData.unit}
-                    onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                    placeholder="kg, g, L, unidade"
-                    required
-                  />
+                    onValueChange={(value) => setFormData({...formData, unit: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a unidade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               
@@ -121,7 +138,7 @@ export const Ingredients = () => {
                   <Input
                     id="currentStock"
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     value={formData.currentStock}
                     onChange={(e) => setFormData({...formData, currentStock: parseFloat(e.target.value) || 0})}
                     required
@@ -132,7 +149,7 @@ export const Ingredients = () => {
                   <Input
                     id="minStock"
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     value={formData.minStock}
                     onChange={(e) => setFormData({...formData, minStock: parseFloat(e.target.value) || 0})}
                     required
@@ -142,7 +159,7 @@ export const Ingredients = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="cost">Custo (R$)</Label>
+                  <Label htmlFor="cost">Custo por {formData.unit || 'unidade'} (R$)</Label>
                   <Input
                     id="cost"
                     type="number"
@@ -211,9 +228,10 @@ export const Ingredients = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Nome</TableHead>
+                <TableHead>Unidade</TableHead>
                 <TableHead>Estoque Atual</TableHead>
                 <TableHead>Estoque Mínimo</TableHead>
-                <TableHead>Custo</TableHead>
+                <TableHead>Custo Unitário</TableHead>
                 <TableHead>Fornecedor</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ações</TableHead>
@@ -223,6 +241,9 @@ export const Ingredients = () => {
               {ingredients.map((ingredient) => (
                 <TableRow key={ingredient.id}>
                   <TableCell className="font-medium">{ingredient.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{ingredient.unit}</Badge>
+                  </TableCell>
                   <TableCell>
                     {ingredient.currentStock} {ingredient.unit}
                   </TableCell>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -88,10 +87,26 @@ export const Products = () => {
 
   const getIngredientName = (ingredientId: string) => {
     const ingredient = ingredients.find(ing => ing.id === ingredientId);
-    return ingredient ? `${ingredient.name} (${ingredient.unit})` : 'Ingrediente não encontrado';
+    return ingredient ? ingredient.name : 'Ingrediente não encontrado';
   };
 
-  const categories = [...new Set(products.map(p => p.category))];
+  const getIngredientUnit = (ingredientId: string) => {
+    const ingredient = ingredients.find(ing => ing.id === ingredientId);
+    return ingredient ? ingredient.unit : '';
+  };
+
+  const formatIngredientQuantity = (ingredientId: string, quantity: number) => {
+    const unit = getIngredientUnit(ingredientId);
+    
+    // Formatação baseada na unidade
+    if (unit === 'g' && quantity >= 1000) {
+      return `${(quantity / 1000).toFixed(2)} kg`;
+    } else if (unit === 'ml' && quantity >= 1000) {
+      return `${(quantity / 1000).toFixed(2)} L`;
+    } else {
+      return `${quantity} ${unit}`;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -187,44 +202,47 @@ export const Products = () => {
                   </Button>
                 </div>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {selectedIngredients.map((ingredient, index) => (
-                    <div key={index} className="flex space-x-2 items-end">
-                      <div className="flex-1">
-                        <Select
-                          value={ingredient.ingredientId}
-                          onValueChange={(value) => updateProductIngredient(index, 'ingredientId', value)}
+                  {selectedIngredients.map((ingredient, index) => {
+                    const selectedIngredientData = ingredients.find(ing => ing.id === ingredient.ingredientId);
+                    return (
+                      <div key={index} className="flex space-x-2 items-end">
+                        <div className="flex-1">
+                          <Select
+                            value={ingredient.ingredientId}
+                            onValueChange={(value) => updateProductIngredient(index, 'ingredientId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o ingrediente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ingredients.map((ing) => (
+                                <SelectItem key={ing.id} value={ing.id}>
+                                  {ing.name} ({ing.unit})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="w-32">
+                          <Input
+                            type="number"
+                            step="0.001"
+                            placeholder={`Qtd (${selectedIngredientData?.unit || 'unidade'})`}
+                            value={ingredient.quantity}
+                            onChange={(e) => updateProductIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => removeIngredientFromProduct(index)}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o ingrediente" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ingredients.map((ing) => (
-                              <SelectItem key={ing.id} value={ing.id}>
-                                {ing.name} ({ing.unit})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div className="w-24">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Qtd"
-                          value={ingredient.quantity}
-                          onChange={(e) => updateProductIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => removeIngredientFromProduct(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
               
@@ -278,7 +296,7 @@ export const Products = () => {
                   <p className="text-xs font-medium">Ingredientes:</p>
                   {product.ingredients.map((ing, index) => (
                     <p key={index} className="text-xs text-gray-600">
-                      {ing.quantity} x {getIngredientName(ing.ingredientId)}
+                      {formatIngredientQuantity(ing.ingredientId, ing.quantity)} de {getIngredientName(ing.ingredientId)}
                     </p>
                   ))}
                 </div>
