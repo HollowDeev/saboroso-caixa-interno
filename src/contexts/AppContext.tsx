@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { User, Ingredient, Product, Order, Sale } from '@/types';
+import { User, Ingredient, Product, Order, Sale, ServiceTax } from '@/types';
 
 interface AppContextType {
   currentUser: User | null;
@@ -7,6 +7,7 @@ interface AppContextType {
   products: Product[];
   orders: Order[];
   sales: Sale[];
+  serviceTaxes: ServiceTax[];
   setCurrentUser: (user: User | null) => void;
   addIngredient: (ingredient: Omit<Ingredient, 'id' | 'lastUpdated'>) => void;
   updateIngredient: (id: string, ingredient: Partial<Ingredient>) => void;
@@ -17,6 +18,9 @@ interface AppContextType {
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
   updateSale: (id: string, sale: Partial<Sale>) => void;
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
+  addServiceTax: (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateServiceTax: (id: string, tax: Partial<ServiceTax>) => void;
+  deleteServiceTax: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -89,6 +93,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
 
   const addIngredient = (ingredient: Omit<Ingredient, 'id' | 'lastUpdated'>) => {
     const newIngredient: Ingredient = {
@@ -100,7 +105,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateIngredient = (id: string, ingredient: Partial<Ingredient>) => {
-    setIngredients(prev => prev.map(ing => 
+    setIngredients(prev => prev.map(ing =>
       ing.id === id ? { ...ing, ...ingredient, lastUpdated: new Date() } : ing
     ));
   };
@@ -114,7 +119,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateProduct = (id: string, product: Partial<Product>) => {
-    setProducts(prev => prev.map(prod => 
+    setProducts(prev => prev.map(prod =>
       prod.id === id ? { ...prod, ...product } : prod
     ));
   };
@@ -129,11 +134,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setOrders(prev => [...prev, newOrder]);
   };
 
+  const calculateOrderTotal = (subtotal: number) => {
+    const activeTaxes = serviceTaxes.filter(tax => tax.isActive);
+    const taxesTotal = activeTaxes.reduce((sum, tax) => sum + (subtotal * (tax.percentage / 100)), 0);
+    return { subtotal, taxesTotal, total: subtotal + taxesTotal };
+  };
+
   const updateOrder = (id: string, order: Partial<Order>) => {
     setOrders(prev => prev.map(ord => {
       if (ord.id === id) {
-        const updatedOrder = { ...ord, ...order, updatedAt: new Date() };
-        
+        const subtotal = order.items ?
+          order.items.reduce((sum, item) => sum + item.totalPrice, 0) :
+          ord.subtotal;
+
+        const { taxesTotal, total } = calculateOrderTotal(subtotal);
+
+        const updatedOrder = {
+          ...ord,
+          ...order,
+          subtotal,
+          tax: taxesTotal,
+          total,
+          updatedAt: new Date()
+        };
+
         // Se a comanda foi marcada como "paid", criar uma venda automaticamente
         if (order.status === 'paid' && ord.status !== 'paid') {
           const newSale: Sale = {
@@ -145,15 +169,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             userId: updatedOrder.userId
           };
           setSales(prev => [...prev, newSale]);
-          
+
           // Atualizar estoque dos ingredientes
           updatedOrder.items.forEach(item => {
             const product = products.find(p => p.id === item.productId);
             if (product) {
               product.ingredients.forEach(productIngredient => {
                 updateIngredient(productIngredient.ingredientId, {
-                  currentStock: Math.max(0, 
-                    ingredients.find(ing => ing.id === productIngredient.ingredientId)?.currentStock || 0 
+                  currentStock: Math.max(0,
+                    ingredients.find(ing => ing.id === productIngredient.ingredientId)?.currentStock || 0
                     - (productIngredient.quantity * item.quantity)
                   )
                 });
@@ -161,7 +185,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             }
           });
         }
-        
+
         return updatedOrder;
       }
       return ord;
@@ -178,9 +202,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateSale = (id: string, sale: Partial<Sale>) => {
-    setSales(prev => prev.map(s => 
+    setSales(prev => prev.map(s =>
       s.id === id ? { ...s, ...sale } : s
     ));
+  };
+
+  const addServiceTax = (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newTax: ServiceTax = {
+      ...tax,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    setServiceTaxes(prev => [...prev, newTax]);
+  };
+
+  const updateServiceTax = (id: string, tax: Partial<ServiceTax>) => {
+    setServiceTaxes(prev => prev.map(t =>
+      t.id === id ? { ...t, ...tax, updatedAt: new Date() } : t
+    ));
+  };
+
+  const deleteServiceTax = (id: string) => {
+    setServiceTaxes(prev => prev.filter(t => t.id !== id));
   };
 
   return (
@@ -190,6 +234,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       products,
       orders,
       sales,
+      serviceTaxes,
       setCurrentUser,
       addIngredient,
       updateIngredient,
@@ -199,7 +244,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateOrder,
       addSale,
       updateSale,
-      setSales
+      setSales,
+      addServiceTax,
+      updateServiceTax,
+      deleteServiceTax,
     }}>
       {children}
     </AppContext.Provider>

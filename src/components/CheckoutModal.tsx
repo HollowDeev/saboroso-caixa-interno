@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { Order, OrderItem, Product } from '@/types';
+import { Order, OrderItem, Product, ServiceTax } from '@/types';
+import { Switch } from '@/components/ui/switch';
 
 interface CheckoutModalProps {
   order: Order | null;
@@ -16,25 +16,29 @@ interface CheckoutModalProps {
 }
 
 export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
-  const { products, updateOrder, addSale, updateIngredient, ingredients } = useApp();
+  const { products, updateOrder, addSale, updateIngredient, ingredients, serviceTaxes } = useApp();
   const [additionalItems, setAdditionalItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
+  const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
+    serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id)
+  );
 
   React.useEffect(() => {
     if (order) {
       setCustomerName(order.customerName || '');
+      setSelectedTaxes(serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id));
     }
-  }, [order]);
+  }, [order, serviceTaxes]);
 
   if (!order) return null;
 
   const addAdditionalItem = (product: Product) => {
     const existingItem = additionalItems.find(item => item.productId === product.id);
-    
+
     if (existingItem) {
-      setAdditionalItems(prev => prev.map(item => 
-        item.productId === product.id 
+      setAdditionalItems(prev => prev.map(item =>
+        item.productId === product.id
           ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
           : item
       ));
@@ -59,9 +63,9 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
       removeAdditionalItem(productId);
       return;
     }
-    
-    setAdditionalItems(prev => prev.map(item => 
-      item.productId === productId 
+
+    setAdditionalItems(prev => prev.map(item =>
+      item.productId === productId
         ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
         : item
     ));
@@ -70,8 +74,23 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
   const calculateFinalTotal = () => {
     const additionalTotal = additionalItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const subtotal = order.subtotal + additionalTotal;
-    const tax = subtotal * 0.1;
-    return { subtotal, tax, total: subtotal + tax, additionalTotal };
+    const taxes = serviceTaxes
+      .filter(tax => selectedTaxes.includes(tax.id))
+      .map(tax => ({
+        id: tax.id,
+        name: tax.name,
+        value: subtotal * (tax.percentage / 100)
+      }));
+    const taxesTotal = taxes.reduce((sum, tax) => sum + tax.value, 0);
+    return { subtotal, taxes, taxesTotal, total: subtotal + taxesTotal, additionalTotal };
+  };
+
+  const toggleTax = (taxId: string) => {
+    setSelectedTaxes(prev =>
+      prev.includes(taxId)
+        ? prev.filter(id => id !== taxId)
+        : [...prev, taxId]
+    );
   };
 
   const finalizeSale = () => {
@@ -90,40 +109,13 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
 
     updateOrder(order.id, updatedOrder);
 
-    // Criar venda
-    const newSale = {
-      orderId: order.id,
-      total,
-      paymentMethod,
-      userId: order.userId
-    };
-
-    addSale(newSale);
-
-    // Atualizar estoque
-    allItems.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      if (product) {
-        product.ingredients.forEach(productIngredient => {
-          const currentIngredient = ingredients.find(ing => ing.id === productIngredient.ingredientId);
-          if (currentIngredient) {
-            updateIngredient(productIngredient.ingredientId, {
-              currentStock: Math.max(0, 
-                currentIngredient.currentStock - (productIngredient.quantity * item.quantity)
-              )
-            });
-          }
-        });
-      }
-    });
-
     onClose();
     setAdditionalItems([]);
     setCustomerName('');
     setPaymentMethod('cash');
   };
 
-  const { subtotal, tax, total, additionalTotal } = calculateFinalTotal();
+  const { subtotal, taxes, taxesTotal, total, additionalTotal } = calculateFinalTotal();
 
   return (
     <Dialog open={!!order} onOpenChange={() => onClose()}>
@@ -131,7 +123,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
         <DialogHeader>
           <DialogTitle>Finalizar Comanda</DialogTitle>
         </DialogHeader>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
@@ -159,6 +151,24 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
             </div>
 
             <div>
+              <h3 className="font-semibold mb-3">Taxas Aplicadas</h3>
+              <div className="space-y-2">
+                {serviceTaxes.map((tax) => (
+                  <div key={tax.id} className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{tax.name}</p>
+                      <p className="text-xs text-gray-600">{tax.percentage}%</p>
+                    </div>
+                    <Switch
+                      checked={selectedTaxes.includes(tax.id)}
+                      onCheckedChange={() => toggleTax(tax.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <h3 className="font-semibold mb-3">Adicionar Produtos</h3>
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {products.filter(p => p.available).map((product) => (
@@ -179,7 +189,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold mb-3">Itens da Comanda</h3>
@@ -247,24 +257,26 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
                 <span>Subtotal:</span>
                 <span>R$ {subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Taxa (10%):</span>
-                <span>R$ {tax.toFixed(2)}</span>
-              </div>
+              {taxes.map((tax) => (
+                <div key={tax.id} className="flex justify-between text-sm">
+                  <span>{tax.name}:</span>
+                  <span>R$ {tax.value.toFixed(2)}</span>
+                </div>
+              ))}
               <div className="flex justify-between font-bold text-lg">
                 <span>Total:</span>
                 <span>R$ {total.toFixed(2)}</span>
               </div>
-              
+
               <div className="flex space-x-2 mt-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={onClose}
                   className="flex-1"
                 >
                   Cancelar
                 </Button>
-                <Button 
+                <Button
                   onClick={finalizeSale}
                   className="flex-1 bg-green-500 hover:bg-green-600"
                 >

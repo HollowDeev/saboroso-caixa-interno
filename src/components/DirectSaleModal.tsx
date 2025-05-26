@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { OrderItem, Product } from '@/types';
+import { OrderItem, Product, ServiceTax } from '@/types';
+import { Switch } from '@/components/ui/switch';
 
 interface DirectSaleModalProps {
   isOpen: boolean;
@@ -15,17 +15,27 @@ interface DirectSaleModalProps {
 }
 
 export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
-  const { products, currentUser, addSale, updateIngredient, ingredients } = useApp();
+  const { products, currentUser, addSale, updateIngredient, ingredients, serviceTaxes, addOrder } = useApp();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
+  const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
+    serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id)
+  );
+
+  React.useEffect(() => {
+    if (isOpen) {
+      // Reseta as taxas selecionadas quando o modal é aberto
+      setSelectedTaxes(serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id));
+    }
+  }, [isOpen, serviceTaxes]);
 
   const addItem = (product: Product) => {
     const existingItem = selectedItems.find(item => item.productId === product.id);
-    
+
     if (existingItem) {
-      setSelectedItems(prev => prev.map(item => 
-        item.productId === product.id 
+      setSelectedItems(prev => prev.map(item =>
+        item.productId === product.id
           ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
           : item
       ));
@@ -50,9 +60,9 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
       removeItem(productId);
       return;
     }
-    
-    setSelectedItems(prev => prev.map(item => 
-      item.productId === productId 
+
+    setSelectedItems(prev => prev.map(item =>
+      item.productId === productId
         ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
         : item
     ));
@@ -60,41 +70,42 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
 
   const calculateTotal = () => {
     const subtotal = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const tax = subtotal * 0.1;
-    return { subtotal, tax, total: subtotal + tax };
+    const taxes = serviceTaxes
+      .filter(tax => selectedTaxes.includes(tax.id))
+      .map(tax => ({
+        id: tax.id,
+        name: tax.name,
+        value: subtotal * (tax.percentage / 100)
+      }));
+    const taxesTotal = taxes.reduce((sum, tax) => sum + tax.value, 0);
+    return { subtotal, taxes, taxesTotal, total: subtotal + taxesTotal };
+  };
+
+  const toggleTax = (taxId: string) => {
+    setSelectedTaxes(prev =>
+      prev.includes(taxId)
+        ? prev.filter(id => id !== taxId)
+        : [...prev, taxId]
+    );
   };
 
   const createDirectSale = () => {
     if (selectedItems.length === 0) return;
-    
+
     const { total } = calculateTotal();
 
-    // Criar venda direta
-    const newSale = {
-      orderId: `direct-${Date.now()}`, // ID especial para vendas diretas
+    // Criar venda direta como uma comanda paga
+    const newOrder = {
+      items: selectedItems,
+      subtotal: selectedItems.reduce((sum, item) => sum + item.totalPrice, 0),
       total,
+      status: 'paid' as const,
       paymentMethod,
+      customerName: customerName || undefined,
       userId: currentUser!.id
     };
 
-    addSale(newSale);
-
-    // Atualizar estoque
-    selectedItems.forEach(item => {
-      const product = products.find(p => p.id === item.productId);
-      if (product) {
-        product.ingredients.forEach(productIngredient => {
-          const currentIngredient = ingredients.find(ing => ing.id === productIngredient.ingredientId);
-          if (currentIngredient) {
-            updateIngredient(productIngredient.ingredientId, {
-              currentStock: Math.max(0, 
-                currentIngredient.currentStock - (productIngredient.quantity * item.quantity)
-              )
-            });
-          }
-        });
-      }
-    });
+    addOrder(newOrder);
 
     // Limpar e fechar
     setSelectedItems([]);
@@ -103,7 +114,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     onClose();
   };
 
-  const { subtotal, tax, total } = calculateTotal();
+  const { subtotal, taxes, taxesTotal, total } = calculateTotal();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -111,7 +122,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         <DialogHeader>
           <DialogTitle>Venda Direta</DialogTitle>
         </DialogHeader>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
@@ -139,6 +150,24 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
             </div>
 
             <div>
+              <h3 className="font-semibold mb-3">Taxas Aplicadas</h3>
+              <div className="space-y-2">
+                {serviceTaxes.map((tax) => (
+                  <div key={tax.id} className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{tax.name}</p>
+                      <p className="text-xs text-gray-600">{tax.percentage}%</p>
+                    </div>
+                    <Switch
+                      checked={selectedTaxes.includes(tax.id)}
+                      onCheckedChange={() => toggleTax(tax.id)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
               <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {products.filter(p => p.available).map((product) => (
@@ -159,7 +188,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
               </div>
             </div>
           </div>
-          
+
           <div className="space-y-4">
             <h3 className="font-semibold">Itens Selecionados</h3>
             <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -196,31 +225,33 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                 </div>
               ))}
             </div>
-            
+
             {selectedItems.length > 0 && (
               <div className="border-t pt-4 space-y-2">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
                   <span>R$ {subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Taxa (10%):</span>
-                  <span>R$ {tax.toFixed(2)}</span>
-                </div>
+                {taxes.map((tax) => (
+                  <div key={tax.id} className="flex justify-between">
+                    <span>{tax.name}:</span>
+                    <span>R$ {tax.value.toFixed(2)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total:</span>
                   <span>R$ {total.toFixed(2)}</span>
                 </div>
-                
+
                 <div className="flex space-x-2 mt-4">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={onClose}
                     className="flex-1"
                   >
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button
                     onClick={createDirectSale}
                     className="flex-1 bg-green-500 hover:bg-green-600"
                   >

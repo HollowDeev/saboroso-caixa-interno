@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -83,4 +82,14 @@ export interface Analytics {
     used: number;
     remaining: number;
   }[];
+}
+
+export interface ServiceTax {
+  id: string;
+  name: string;
+  description: string;
+  percentage: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

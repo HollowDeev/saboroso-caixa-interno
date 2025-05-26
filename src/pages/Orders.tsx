@@ -22,10 +22,10 @@ export const Orders = () => {
 
   const addProductToOrder = (product: Product) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
-    
+
     if (existingItem) {
-      setSelectedProducts(prev => prev.map(item => 
-        item.productId === product.id 
+      setSelectedProducts(prev => prev.map(item =>
+        item.productId === product.id
           ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
           : item
       ));
@@ -50,9 +50,9 @@ export const Orders = () => {
       removeProductFromOrder(productId);
       return;
     }
-    
-    setSelectedProducts(prev => prev.map(item => 
-      item.productId === productId 
+
+    setSelectedProducts(prev => prev.map(item =>
+      item.productId === productId
         ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
         : item
     ));
@@ -66,9 +66,9 @@ export const Orders = () => {
 
   const createOrder = () => {
     if (selectedProducts.length === 0) return;
-    
+
     const { subtotal, tax, total } = calculateTotal();
-    
+
     const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
       customerName: customerName || undefined,
       tableNumber: tableNumber,
@@ -79,7 +79,7 @@ export const Orders = () => {
       status: 'pending',
       userId: currentUser!.id
     };
-    
+
     addOrder(newOrder);
     setSelectedProducts([]);
     setCustomerName('');
@@ -120,7 +120,7 @@ export const Orders = () => {
           <h1 className="text-3xl font-bold text-gray-900">Comandas</h1>
           <p className="text-gray-600">Gerencie os pedidos do restaurante</p>
         </div>
-        
+
         <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600">
@@ -132,7 +132,7 @@ export const Orders = () => {
             <DialogHeader>
               <DialogTitle>Nova Comanda</DialogTitle>
             </DialogHeader>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -156,7 +156,7 @@ export const Orders = () => {
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
@@ -178,7 +178,7 @@ export const Orders = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h3 className="font-semibold">Itens do Pedido</h3>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
@@ -215,7 +215,7 @@ export const Orders = () => {
                     </div>
                   ))}
                 </div>
-                
+
                 {selectedProducts.length > 0 && (
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex justify-between">
@@ -230,7 +230,7 @@ export const Orders = () => {
                       <span>Total:</span>
                       <span>R$ {total.toFixed(2)}</span>
                     </div>
-                    <Button 
+                    <Button
                       className="w-full bg-orange-500 hover:bg-orange-600"
                       onClick={createOrder}
                     >
@@ -250,7 +250,7 @@ export const Orders = () => {
           <TabsTrigger value="completed">Comandas Finalizadas</TabsTrigger>
           <TabsTrigger value="all">Todas as Comandas</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="active" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders
@@ -289,8 +289,8 @@ export const Orders = () => {
                         Total: R$ {order.total.toFixed(2)}
                       </div>
                       <div className="flex space-x-2 mt-4">
-                        <Select 
-                          value={order.status} 
+                        <Select
+                          value={order.status}
                           onValueChange={(status) => updateOrder(order.id, { status: status as Order['status'] })}
                         >
                           <SelectTrigger className="flex-1">
@@ -319,7 +319,7 @@ export const Orders = () => {
               ))}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="completed" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders
@@ -363,7 +363,7 @@ export const Orders = () => {
               ))}
           </div>
         </TabsContent>
-        
+
         <TabsContent value="all" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders.map((order) => (
@@ -410,7 +410,7 @@ export const Orders = () => {
         </TabsContent>
       </Tabs>
 
-      <CheckoutModal 
+      <CheckoutModal
         order={checkoutOrder}
         onClose={() => setCheckoutOrder(null)}
       />

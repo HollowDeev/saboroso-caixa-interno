@@ -1,18 +1,24 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Receipt, 
-  BarChart3, 
-  Users, 
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Receipt,
+  BarChart3,
+  Users,
   Settings,
   ChefHat,
-  Package2
+  Package2,
+  X,
+  Calculator
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from './ui/button';
+
+interface SidebarProps {
+  onClose?: () => void;
+}
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -21,25 +27,35 @@ const navigation = [
   { name: 'Ingredientes', href: '/ingredients', icon: ChefHat },
   { name: 'Estoque', href: '/stock', icon: Package2 },
   { name: 'Vendas', href: '/sales', icon: ShoppingCart },
+  { name: 'Calculadora', href: '/calculator', icon: Calculator },
   { name: 'Relatórios', href: '/analytics', icon: BarChart3 },
   { name: 'Usuários', href: '/users', icon: Users },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
-export const Sidebar = () => {
+export const Sidebar = ({ onClose }: SidebarProps) => {
   return (
-    <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200">
-      <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200">
+    <div className="flex h-full w-[280px] flex-col bg-white border-r border-gray-200">
+      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
         <div className="flex items-center">
           <ChefHat className="h-8 w-8 text-orange-500" />
-          <span className="ml-2 text-xl font-bold text-gray-900">RestaurantOS</span>
+          <span className="ml-2 text-xl font-bold text-gray-900">VarandaOS</span>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={onClose}
+        >
+          <X className="h-5 w-5" />
+        </Button>
       </div>
-      <nav className="flex-1 px-4 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
         {navigation.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
+            onClick={() => onClose?.()}
             className={({ isActive }) =>
               cn(
                 'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
