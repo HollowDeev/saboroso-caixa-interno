@@ -4,14 +4,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, TrendingUp, ShoppingCart, Calendar } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingCart, Calendar, Edit, Trash2, Plus } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DirectSaleModal } from '@/components/DirectSaleModal';
+import { EditSaleModal } from '@/components/EditSaleModal';
+import { Sale } from '@/types';
 
 export const Sales = () => {
-  const { sales, orders } = useApp();
+  const { sales, orders, setSales } = useApp();
   const [selectedPeriod, setSelectedPeriod] = useState('today');
+  const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
 
   const getFilteredSales = () => {
     const now = new Date();
@@ -72,6 +78,10 @@ export const Sales = () => {
     return orders.find(order => order.id === orderId);
   };
 
+  const deleteSale = (saleId: string) => {
+    setSales(prev => prev.filter(sale => sale.id !== saleId));
+  };
+
   const stats = [
     {
       title: 'Receita Total',
@@ -104,17 +114,27 @@ export const Sales = () => {
           <p className="text-gray-600">Análise e histórico de vendas</p>
         </div>
         
-        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="week">Últimos 7 dias</SelectItem>
-            <SelectItem value="month">Este mês</SelectItem>
-            <SelectItem value="all">Todas</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex space-x-2">
+          <Button
+            onClick={() => setIsDirectSaleOpen(true)}
+            className="bg-green-500 hover:bg-green-600"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Venda Direta
+          </Button>
+          
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="week">Últimos 7 dias</SelectItem>
+              <SelectItem value="month">Este mês</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -178,13 +198,13 @@ export const Sales = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="list" className="w-full">
+      <Tabs defaultValue="history" className="w-full">
         <TabsList>
-          <TabsTrigger value="list">Lista de Vendas</TabsTrigger>
-          <TabsTrigger value="details">Detalhes</TabsTrigger>
+          <TabsTrigger value="history">Histórico de Vendas</TabsTrigger>
+          <TabsTrigger value="analysis">Análise Detalhada</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="list" className="mt-6">
+        <TabsContent value="history" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Histórico de Vendas</CardTitle>
@@ -194,10 +214,11 @@ export const Sales = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Data/Hora</TableHead>
-                    <TableHead>Comanda</TableHead>
+                    <TableHead>Cliente/Mesa</TableHead>
                     <TableHead>Valor</TableHead>
                     <TableHead>Pagamento</TableHead>
-                    <TableHead>Vendedor</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -210,7 +231,7 @@ export const Sales = () => {
                           {new Date(sale.createdAt).toLocaleTimeString()}
                         </TableCell>
                         <TableCell>
-                          {order?.customerName || `Mesa ${order?.tableNumber}` || 'N/A'}
+                          {order?.customerName || `Mesa ${order?.tableNumber}` || 'Venda Direta'}
                         </TableCell>
                         <TableCell className="font-semibold">
                           R$ {sale.total.toFixed(2)}
@@ -221,7 +242,43 @@ export const Sales = () => {
                              sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
                           </Badge>
                         </TableCell>
-                        <TableCell>Usuário #{sale.userId}</TableCell>
+                        <TableCell>
+                          <Badge variant={order ? "default" : "secondary"}>
+                            {order ? 'Comanda' : 'Direta'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingSale(sale)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => deleteSale(sale.id)}>
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -238,7 +295,7 @@ export const Sales = () => {
           </Card>
         </TabsContent>
         
-        <TabsContent value="details" className="mt-6">
+        <TabsContent value="analysis" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Análise Detalhada</CardTitle>
@@ -299,6 +356,16 @@ export const Sales = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <DirectSaleModal 
+        isOpen={isDirectSaleOpen}
+        onClose={() => setIsDirectSaleOpen(false)}
+      />
+
+      <EditSaleModal 
+        sale={editingSale}
+        onClose={() => setEditingSale(null)}
+      />
     </div>
   );
 };

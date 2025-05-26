@@ -15,6 +15,8 @@ interface AppContextType {
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateOrder: (id: string, order: Partial<Order>) => void;
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
+  updateSale: (id: string, sale: Partial<Sale>) => void;
+  setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -175,6 +177,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setSales(prev => [...prev, newSale]);
   };
 
+  const updateSale = (id: string, sale: Partial<Sale>) => {
+    setSales(prev => prev.map(s => 
+      s.id === id ? { ...s, ...sale } : s
+    ));
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -189,7 +197,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateProduct,
       addOrder,
       updateOrder,
-      addSale
+      addSale,
+      updateSale,
+      setSales
     }}>
       {children}
     </AppContext.Provider>

@@ -5,18 +5,20 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Edit, Trash2, User, Hash } from 'lucide-react';
+import { Plus, Edit, Trash2, User, Hash, CreditCard } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Order, OrderItem, Product } from '@/types';
+import { CheckoutModal } from '@/components/CheckoutModal';
 
 export const Orders = () => {
-  const { orders, products, currentUser, addOrder, updateOrder } = useApp();
+  const { orders, products, currentUser, addOrder, updateOrder, addSale } = useApp();
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | undefined>();
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
+  const [checkoutOrder, setCheckoutOrder] = useState<Order | null>(null);
 
   const addProductToOrder = (product: Product) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
@@ -289,36 +291,27 @@ export const Orders = () => {
                       <div className="flex space-x-2 mt-4">
                         <Select 
                           value={order.status} 
-                          onValueChange={(status) => {
-                            if (status === 'paid') {
-                              const paymentMethod = prompt('Selecione o método de pagamento:\n1 - Dinheiro\n2 - Cartão\n3 - PIX\n\nDigite 1, 2 ou 3:');
-                              const methodMap: { [key: string]: 'cash' | 'card' | 'pix' } = {
-                                '1': 'cash',
-                                '2': 'card', 
-                                '3': 'pix'
-                              };
-                              const selectedMethod = methodMap[paymentMethod || '1'] || 'cash';
-                              updateOrder(order.id, { 
-                                status: status as Order['status'],
-                                paymentMethod: selectedMethod
-                              });
-                            } else {
-                              updateOrder(order.id, { status: status as Order['status'] });
-                            }
-                          }}
+                          onValueChange={(status) => updateOrder(order.id, { status: status as Order['status'] })}
                         >
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger className="flex-1">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="pending">Pendente</SelectItem>
                             <SelectItem value="preparing">Preparando</SelectItem>
                             <SelectItem value="ready">Pronto</SelectItem>
-                            <SelectItem value="delivered">Entregue</SelectItem>
-                            <SelectItem value="paid">Pago</SelectItem>
                             <SelectItem value="cancelled">Cancelado</SelectItem>
                           </SelectContent>
                         </Select>
+                        {order.status === 'ready' && (
+                          <Button
+                            onClick={() => setCheckoutOrder(order)}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            <CreditCard className="h-4 w-4 mr-1" />
+                            Finalizar
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -416,6 +409,11 @@ export const Orders = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <CheckoutModal 
+        order={checkoutOrder}
+        onClose={() => setCheckoutOrder(null)}
+      />
     </div>
   );
 };
