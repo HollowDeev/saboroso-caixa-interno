@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User, Ingredient, Product, Order, Sale } from '@/types';
 
@@ -129,9 +128,42 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateOrder = (id: string, order: Partial<Order>) => {
-    setOrders(prev => prev.map(ord => 
-      ord.id === id ? { ...ord, ...order, updatedAt: new Date() } : ord
-    ));
+    setOrders(prev => prev.map(ord => {
+      if (ord.id === id) {
+        const updatedOrder = { ...ord, ...order, updatedAt: new Date() };
+        
+        // Se a comanda foi marcada como "paid", criar uma venda automaticamente
+        if (order.status === 'paid' && ord.status !== 'paid') {
+          const newSale: Sale = {
+            id: Date.now().toString(),
+            orderId: id,
+            total: updatedOrder.total,
+            paymentMethod: updatedOrder.paymentMethod || 'cash',
+            createdAt: new Date(),
+            userId: updatedOrder.userId
+          };
+          setSales(prev => [...prev, newSale]);
+          
+          // Atualizar estoque dos ingredientes
+          updatedOrder.items.forEach(item => {
+            const product = products.find(p => p.id === item.productId);
+            if (product) {
+              product.ingredients.forEach(productIngredient => {
+                updateIngredient(productIngredient.ingredientId, {
+                  currentStock: Math.max(0, 
+                    ingredients.find(ing => ing.id === productIngredient.ingredientId)?.currentStock || 0 
+                    - (productIngredient.quantity * item.quantity)
+                  )
+                });
+              });
+            }
+          });
+        }
+        
+        return updatedOrder;
+      }
+      return ord;
+    }));
   };
 
   const addSale = (sale: Omit<Sale, 'id' | 'createdAt'>) => {

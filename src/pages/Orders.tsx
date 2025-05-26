@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -290,7 +289,23 @@ export const Orders = () => {
                       <div className="flex space-x-2 mt-4">
                         <Select 
                           value={order.status} 
-                          onValueChange={(status) => updateOrder(order.id, { status: status as Order['status'] })}
+                          onValueChange={(status) => {
+                            if (status === 'paid') {
+                              const paymentMethod = prompt('Selecione o método de pagamento:\n1 - Dinheiro\n2 - Cartão\n3 - PIX\n\nDigite 1, 2 ou 3:');
+                              const methodMap: { [key: string]: 'cash' | 'card' | 'pix' } = {
+                                '1': 'cash',
+                                '2': 'card', 
+                                '3': 'pix'
+                              };
+                              const selectedMethod = methodMap[paymentMethod || '1'] || 'cash';
+                              updateOrder(order.id, { 
+                                status: status as Order['status'],
+                                paymentMethod: selectedMethod
+                              });
+                            } else {
+                              updateOrder(order.id, { status: status as Order['status'] });
+                            }
+                          }}
                         >
                           <SelectTrigger className="w-full">
                             <SelectValue />
