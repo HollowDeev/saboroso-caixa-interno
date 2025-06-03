@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -92,12 +93,13 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
   const createDirectSale = () => {
     if (selectedItems.length === 0) return;
 
-    const { total } = calculateTotal();
+    const { subtotal, taxesTotal, total } = calculateTotal();
 
     // Criar venda direta como uma comanda paga
     const newOrder = {
       items: selectedItems,
-      subtotal: selectedItems.reduce((sum, item) => sum + item.totalPrice, 0),
+      subtotal,
+      tax: taxesTotal,
       total,
       status: 'paid' as const,
       paymentMethod,

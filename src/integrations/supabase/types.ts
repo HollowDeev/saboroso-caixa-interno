@@ -9,13 +9,88 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      employees: {
+        Row: {
+          access_key: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          owner_id: string
+          password_hash: string
+          updated_at: string
+        }
+        Insert: {
+          access_key: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          owner_id: string
+          password_hash: string
+          updated_at?: string
+        }
+        Update: {
+          access_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          owner_id?: string
+          password_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_employee: {
+        Args: {
+          p_owner_id: string
+          p_access_key: string
+          p_password: string
+          p_name: string
+        }
+        Returns: string
+      }
+      verify_employee_credentials: {
+        Args: { p_access_key: string; p_password: string }
+        Returns: {
+          employee_id: string
+          employee_name: string
+          owner_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
