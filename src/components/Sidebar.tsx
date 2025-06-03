@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
@@ -29,7 +30,7 @@ const navigation = [
   { name: 'Vendas', href: '/sales', icon: ShoppingCart },
   { name: 'Calculadora', href: '/calculator', icon: Calculator },
   { name: 'Relatórios', href: '/analytics', icon: BarChart3 },
-  { name: 'Usuários', href: '/users', icon: Users },
+  { name: 'Funcionários', href: '/users', icon: Users },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 

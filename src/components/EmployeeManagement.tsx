@@ -26,10 +26,16 @@ interface EmployeeManagementProps {
 export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     accessKey: '',
+    password: ''
+  });
+  const [editFormData, setEditFormData] = useState({
+    name: '',
     password: ''
   });
   const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
@@ -94,6 +100,54 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         setError('Erro ao criar funcionário. Tente novamente.');
       }
     }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEmployee) return;
+
+    setError('');
+    setSuccess('');
+
+    try {
+      // Atualizar nome
+      const { error: nameError } = await supabase
+        .from('employees')
+        .update({ name: editFormData.name })
+        .eq('id', editingEmployee.id);
+
+      if (nameError) throw nameError;
+
+      // Atualizar senha se fornecida
+      if (editFormData.password.trim()) {
+        const { error: passwordError } = await supabase
+          .from('employees')
+          .update({ 
+            password_hash: `crypt('${editFormData.password}', gen_salt('bf'))` 
+          })
+          .eq('id', editingEmployee.id);
+
+        if (passwordError) throw passwordError;
+      }
+
+      setSuccess('Funcionário atualizado com sucesso!');
+      setEditFormData({ name: '', password: '' });
+      setIsEditDialogOpen(false);
+      setEditingEmployee(null);
+      fetchEmployees();
+    } catch (err: any) {
+      console.error('Erro ao atualizar funcionário:', err);
+      setError('Erro ao atualizar funcionário. Tente novamente.');
+    }
+  };
+
+  const openEditDialog = (employee: Employee) => {
+    setEditingEmployee(employee);
+    setEditFormData({
+      name: employee.name,
+      password: ''
+    });
+    setIsEditDialogOpen(true);
   };
 
   const toggleEmployeeStatus = async (employeeId: string, isActive: boolean) => {
@@ -244,6 +298,62 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         </Dialog>
       </div>
 
+      {/* Dialog para editar funcionário */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Funcionário</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="editName">Nome do Funcionário</Label>
+              <Input
+                id="editName"
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                placeholder="Digite o nome completo"
+                required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="editPassword">Nova Senha (opcional)</Label>
+              <Input
+                id="editPassword"
+                type="password"
+                value={editFormData.password}
+                onChange={(e) => setEditFormData({...editFormData, password: e.target.value})}
+                placeholder="Digite uma nova senha ou deixe em branco"
+                minLength={6}
+              />
+              <p className="text-xs text-gray-600 mt-1">
+                Deixe em branco para manter a senha atual
+              </p>
+            </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex space-x-2">
+              <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
+                Atualizar Funcionário
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {success && (
         <Alert className="border-green-200 bg-green-50">
           <AlertDescription className="text-green-800">{success}</AlertDescription>
@@ -258,7 +368,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Funcionários</CardTitle>
+          <CardTitle>Lista de Funcionários ({employees.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {employees.length === 0 ? (
@@ -304,6 +414,13 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditDialog(employee)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="sm"
                           variant="destructive"
