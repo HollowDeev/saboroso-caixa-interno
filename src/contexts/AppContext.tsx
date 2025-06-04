@@ -109,9 +109,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const loadCurrentUser = async () => {
       try {
+        console.log('=== INICIANDO CARREGAMENTO DO USUÁRIO ===');
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Sessão atual:', session);
 
         if (session?.user) {
+          console.log('Dados do usuário na sessão:', {
+            id: session.user.id,
+            email: session.user.email,
+            role: session.user.role,
+            aud: session.user.aud,
+          });
+
           // Buscar dados do perfil
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -119,17 +128,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             .eq('id', session.user.id)
             .single();
 
+          console.log('Dados do perfil:', profile);
+          console.log('Erro ao buscar perfil:', profileError);
+
           if (profileError) throw profileError;
 
           if (profile) {
-            setCurrentUser({
+            const userData = {
               id: session.user.id,
               name: profile.name || 'Admin',
               email: session.user.email || '',
               role: profile.role || 'admin',
               createdAt: new Date(profile.created_at)
-            });
+            };
+
+            console.log('Dados finais do usuário:', userData);
+            setCurrentUser(userData);
           }
+        } else {
+          console.log('Nenhuma sessão encontrada');
         }
       } catch (error) {
         console.error('Erro ao carregar usuário:', error);
@@ -201,7 +218,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const checkCashRegisterAccess = () => {
-    return currentUser?.role === 'admin';
+    console.log('=== VERIFICANDO ACESSO AO CAIXA ===');
+    console.log('Dados do usuário atual:', currentUser);
+    console.log('Role do usuário:', currentUser?.role);
+    const hasAccess = currentUser?.role?.toLowerCase() === 'admin' || currentUser?.role?.toLowerCase() === 'manager';
+    console.log('Tem acesso ao caixa:', hasAccess);
+    return hasAccess;
   };
 
   const addIngredient = (ingredient: Omit<Ingredient, 'id' | 'lastUpdated'>) => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,33 +6,37 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ChefHat, User, Users, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { toast } from '@/components/ui/use-toast';
 
 interface LoginProps {
-  onAdminLogin: (admin: { id: string; name: string; email: string }) => void;
+  onAdminLogin: (admin: { id: string; name: string; email: string; role: string }) => void;
   onEmployeeLogin: (employee: { id: string; name: string; owner_id: string }) => void;
 }
 
 export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
   const [loginType, setLoginType] = useState<'admin' | 'employee'>('admin');
-  
+
   // Admin login states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   // Employee login states
   const [accessKey, setAccessKey] = useState('');
   const [employeePassword, setEmployeePassword] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const navigate = useNavigate();
 
   // Verificar se já existe uma sessão ativa ao carregar
   useEffect(() => {
     const checkExistingSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session?.user) {
           // Buscar dados do perfil do admin
           const { data: profile, error: profileError } = await supabase
@@ -46,7 +49,8 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
             onAdminLogin({
               id: session.user.id,
               name: profile.name || 'Admin',
-              email: session.user.email || ''
+              email: session.user.email || '',
+              role: profile.role || 'admin'
             });
             return;
           }
@@ -61,42 +65,43 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
     checkExistingSession();
   }, [onAdminLogin]);
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (authError) {
-        throw authError;
-      }
+      if (error) throw error;
 
       if (data.user) {
-        // Buscar dados do perfil do admin
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
           .single();
 
-        if (profileError) {
-          throw new Error('Erro ao carregar perfil do usuário');
-        }
+        if (profileError) throw profileError;
 
         onAdminLogin({
           id: data.user.id,
           name: profile.name || 'Admin',
-          email: data.user.email || ''
+          email: data.user.email || '',
+          role: profile.role || 'admin'
         });
+
+        navigate('/');
       }
-    } catch (err: any) {
-      console.error('Erro no login do admin:', err);
-      setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
+    } catch (error: any) {
+      console.error('Erro ao fazer login:', error);
+      toast({
+        title: 'Erro ao fazer login',
+        description: error.message,
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -163,7 +168,7 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
             Acesse sua conta
           </p>
         </CardHeader>
-        
+
         <CardContent>
           {/* Login Type Selection */}
           <div className="grid grid-cols-2 gap-2 mb-6">
@@ -189,7 +194,7 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
 
           {/* Admin Login Form */}
           {loginType === 'admin' && (
-            <form onSubmit={handleAdminLogin} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email</Label>
                 <Input

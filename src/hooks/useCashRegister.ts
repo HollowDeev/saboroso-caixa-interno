@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { CashRegister } from '@/types';
@@ -11,8 +10,27 @@ export const useCashRegister = () => {
 
   const checkOpenCashRegister = async () => {
     try {
+      console.log('=== VERIFICANDO CAIXA ABERTO ===');
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('Usuário atual:', user);
+
       if (!user) {
+        console.log('Nenhum usuário autenticado');
+        setLoading(false);
+        return;
+      }
+
+      // Buscar perfil do usuário para verificar role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      console.log('Perfil do usuário:', profile);
+
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+        console.log('Usuário sem permissão:', profile?.role);
         setLoading(false);
         return;
       }
@@ -44,8 +62,25 @@ export const useCashRegister = () => {
 
   const openCashRegister = async (openingAmount: number = 0) => {
     try {
+      console.log('=== TENTANDO ABRIR CAIXA ===');
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('Usuário tentando abrir caixa:', user);
+
       if (!user) throw new Error('Usuário não autenticado');
+
+      // Verificar permissões do usuário
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      console.log('Perfil do usuário:', profile);
+
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+        console.log('Usuário sem permissão para abrir caixa:', profile?.role);
+        throw new Error('Sem permissão para abrir caixa');
+      }
 
       console.log('Abrindo caixa para o usuário:', user.id, 'com valor:', openingAmount);
 
@@ -56,6 +91,8 @@ export const useCashRegister = () => {
         .eq('owner_id', user.id)
         .eq('is_open', true)
         .maybeSingle();
+
+      console.log('Caixa existente:', existingCash);
 
       if (existingCash) {
         throw new Error('Já existe um caixa aberto. Feche-o antes de abrir um novo.');
@@ -73,7 +110,10 @@ export const useCashRegister = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao inserir novo caixa:', error);
+        throw error;
+      }
 
       console.log('Caixa aberto com sucesso:', data);
       setCurrentCashRegister(data);
@@ -97,6 +137,20 @@ export const useCashRegister = () => {
   const closeCashRegister = async (closingAmount: number) => {
     try {
       if (!currentCashRegister) throw new Error('Nenhum caixa aberto');
+
+      // Verificar permissões do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+        throw new Error('Sem permissão para fechar caixa');
+      }
 
       console.log('Fechando caixa:', currentCashRegister.id, 'com valor:', closingAmount);
 

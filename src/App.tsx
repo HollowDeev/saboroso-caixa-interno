@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +29,7 @@ const App = () => {
     id: string;
     name: string;
     email: string;
+    role: string;
   } | null>(null);
 
   const [employeeData, setEmployeeData] = useState<{
@@ -48,7 +48,7 @@ const App = () => {
         // Definir expiração da sessão para 12 horas
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 12);
-        
+
         localStorage.setItem('supabase_session_expires', expiresAt.toISOString());
       } else if (event === 'SIGNED_OUT') {
         localStorage.removeItem('supabase_session_expires');
@@ -71,7 +71,7 @@ const App = () => {
       }
 
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session?.user) {
         // Buscar dados do perfil do admin
         const { data: profile, error: profileError } = await supabase
@@ -84,7 +84,8 @@ const App = () => {
           setAdminData({
             id: session.user.id,
             name: profile.name || 'Admin',
-            email: session.user.email || ''
+            email: session.user.email || '',
+            role: profile.role || 'admin'
           });
         }
       }
@@ -95,7 +96,7 @@ const App = () => {
     }
   };
 
-  const handleAdminLogin = (admin: { id: string; name: string; email: string }) => {
+  const handleAdminLogin = (admin: { id: string; name: string; email: string; role: string }) => {
     setAdminData(admin);
     setEmployeeData(null);
   };
@@ -190,14 +191,14 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route 
-              path="*" 
+            <Route
+              path="*"
               element={
-                <Login 
+                <Login
                   onAdminLogin={handleAdminLogin}
                   onEmployeeLogin={handleEmployeeLogin}
                 />
-              } 
+              }
             />
           </Routes>
         </BrowserRouter>

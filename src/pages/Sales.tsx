@@ -17,16 +17,21 @@ import { Sale, CashRegister, CashRegisterSale } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 export const Sales = () => {
-  const { 
-    sales, 
-    orders, 
-    setSales, 
-    currentCashRegister, 
-    openCashRegister, 
-    closeCashRegister, 
-    checkCashRegisterAccess 
+  const {
+    sales,
+    orders,
+    setSales,
+    currentUser,
+    currentCashRegister,
+    openCashRegister,
+    closeCashRegister,
+    checkCashRegisterAccess
   } = useApp();
-  
+
+  console.log('=== PÁGINA DE VENDAS ===');
+  console.log('Usuário atual:', currentUser);
+  console.log('Caixa atual:', currentCashRegister);
+
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -37,6 +42,19 @@ export const Sales = () => {
   const [cashRegisterSales, setCashRegisterSales] = useState<CashRegisterSale[]>([]);
 
   const isOwner = checkCashRegisterAccess();
+  console.log('Tem permissão de dono:', isOwner);
+
+  useEffect(() => {
+    console.log('=== VERIFICANDO ESTADO DO CAIXA ===');
+    console.log('É dono:', isOwner);
+    console.log('Caixa atual:', currentCashRegister);
+
+    // Verificar se o usuário tem permissão e se não há caixa aberto
+    if (isOwner && !currentCashRegister) {
+      console.log('Abrindo modal de caixa fechado');
+      setIsNoCashModalOpen(true);
+    }
+  }, [isOwner, currentCashRegister]);
 
   const getFilteredSales = () => {
     const now = new Date();
@@ -60,11 +78,39 @@ export const Sales = () => {
   };
 
   const handleDirectSale = () => {
+    console.log('=== TENTANDO INICIAR VENDA DIRETA ===');
+    console.log('Caixa atual:', currentCashRegister);
+
     if (!currentCashRegister) {
+      console.log('Nenhum caixa aberto, mostrando modal');
       setIsNoCashModalOpen(true);
       return;
     }
     setIsDirectSaleOpen(true);
+  };
+
+  const handleOpenCash = async (openingAmount: number) => {
+    console.log('=== TENTANDO ABRIR CAIXA ===');
+    console.log('Valor inicial:', openingAmount);
+
+    try {
+      await openCashRegister(openingAmount);
+      setIsOpenCashModalOpen(false);
+      setIsNoCashModalOpen(false);
+      loadCashHistory();
+    } catch (error) {
+      console.error('Erro ao abrir caixa:', error);
+    }
+  };
+
+  const handleCloseCash = async (closingAmount: number) => {
+    try {
+      await closeCashRegister(closingAmount);
+      setIsCloseCashModalOpen(false);
+      loadCashHistory();
+    } catch (error) {
+      console.error('Erro ao fechar caixa:', error);
+    }
   };
 
   const loadCashHistory = async () => {
@@ -115,7 +161,7 @@ export const Sales = () => {
 
   const getDailySales = () => {
     const dailyStats: { [key: string]: { revenue: number, count: number } } = {};
-    
+
     filteredSales.forEach(sale => {
       const date = new Date(sale.createdAt).toLocaleDateString();
       if (!dailyStats[date]) {
@@ -172,7 +218,7 @@ export const Sales = () => {
           <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
           <p className="text-gray-600">Análise, histórico de vendas e gerenciamento de caixa</p>
         </div>
-        
+
         <div className="flex space-x-2">
           <Button
             onClick={handleDirectSale}
@@ -181,11 +227,11 @@ export const Sales = () => {
             <Plus className="h-4 w-4 mr-2" />
             Venda Direta
           </Button>
-          
+
           {isOwner && (
             <>
               {!currentCashRegister ? (
-                <Button 
+                <Button
                   onClick={() => setIsOpenCashModalOpen(true)}
                   className="bg-blue-500 hover:bg-blue-600"
                 >
@@ -193,7 +239,7 @@ export const Sales = () => {
                   Abrir Caixa
                 </Button>
               ) : (
-                <Button 
+                <Button
                   onClick={() => setIsCloseCashModalOpen(true)}
                   variant="destructive"
                 >
@@ -203,7 +249,7 @@ export const Sales = () => {
               )}
             </>
           )}
-          
+
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-48">
               <SelectValue />
@@ -265,7 +311,7 @@ export const Sales = () => {
           <TabsTrigger value="history">Histórico de Caixas</TabsTrigger>
           <TabsTrigger value="analysis">Análise Detalhada</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="current" className="mt-6">
           <Card>
             <CardHeader>
@@ -300,8 +346,8 @@ export const Sales = () => {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {sale.paymentMethod === 'cash' ? 'Dinheiro' : 
-                             sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
+                            {sale.paymentMethod === 'cash' ? 'Dinheiro' :
+                              sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -346,7 +392,7 @@ export const Sales = () => {
                   })}
                 </TableBody>
               </Table>
-              
+
               {filteredSales.length === 0 && (
                 <div className="text-center py-8">
                   <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -381,15 +427,15 @@ export const Sales = () => {
                           {cashRegister.closed_at ? new Date(cashRegister.closed_at).toLocaleTimeString() : 'Em andamento'}
                         </p>
                       </div>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => loadCashRegisterSales(cashRegister.id)}
                       >
                         Ver Detalhes
                       </Button>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600">Valor Inicial</p>
@@ -406,8 +452,8 @@ export const Sales = () => {
                       <div>
                         <p className="text-gray-600">Valor Final</p>
                         <p className="font-semibold">
-                          {cashRegister.closing_amount ? 
-                            `R$ ${cashRegister.closing_amount.toFixed(2)}` : 
+                          {cashRegister.closing_amount ?
+                            `R$ ${cashRegister.closing_amount.toFixed(2)}` :
                             '--'
                           }
                         </p>
@@ -434,8 +480,8 @@ export const Sales = () => {
                       <span>Período:</span>
                       <span className="font-medium">
                         {selectedPeriod === 'today' ? 'Hoje' :
-                         selectedPeriod === 'week' ? 'Últimos 7 dias' :
-                         selectedPeriod === 'month' ? 'Este mês' : 'Todas'}
+                          selectedPeriod === 'week' ? 'Últimos 7 dias' :
+                            selectedPeriod === 'month' ? 'Este mês' : 'Todas'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -452,7 +498,7 @@ export const Sales = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h3 className="font-semibold mb-4">Métodos de Pagamento</h3>
                   <div className="space-y-2">
@@ -483,12 +529,12 @@ export const Sales = () => {
       </Tabs>
 
       {/* Modals */}
-      <DirectSaleModal 
+      <DirectSaleModal
         isOpen={isDirectSaleOpen}
         onClose={() => setIsDirectSaleOpen(false)}
       />
 
-      <EditSaleModal 
+      <EditSaleModal
         sale={editingSale}
         onClose={() => setEditingSale(null)}
       />
@@ -496,13 +542,13 @@ export const Sales = () => {
       <OpenCashRegisterModal
         isOpen={isOpenCashModalOpen}
         onClose={() => setIsOpenCashModalOpen(false)}
-        onConfirm={openCashRegister}
+        onConfirm={handleOpenCash}
       />
 
       <CloseCashRegisterModal
         isOpen={isCloseCashModalOpen}
         onClose={() => setIsCloseCashModalOpen(false)}
-        onConfirm={closeCashRegister}
+        onConfirm={handleCloseCash}
         cashRegister={currentCashRegister}
       />
 

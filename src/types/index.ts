@@ -1,9 +1,8 @@
-
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'cashier';
+  role: string;
   createdAt: Date;
 }
 
