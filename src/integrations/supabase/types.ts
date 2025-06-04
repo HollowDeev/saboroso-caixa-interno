@@ -134,6 +134,51 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          id: string
+          items: Json
+          payment_method: string | null
+          status: string
+          subtotal: number
+          table_number: number | null
+          tax: number
+          total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          items?: Json
+          payment_method?: string | null
+          status?: string
+          subtotal?: number
+          table_number?: number | null
+          tax?: number
+          total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          id?: string
+          items?: Json
+          payment_method?: string | null
+          status?: string
+          subtotal?: number
+          table_number?: number | null
+          tax?: number
+          total?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -158,6 +203,33 @@ export type Database = {
           name?: string | null
           role?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sales: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          payment_method: string
+          total: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          payment_method: string
+          total?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          payment_method?: string
+          total?: number
+          user_id?: string
         }
         Relationships: []
       }
