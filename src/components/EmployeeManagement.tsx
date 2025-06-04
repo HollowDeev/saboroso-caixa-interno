@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,10 +53,10 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
 
     try {
       console.log('Buscando funcionários para o usuário:', currentUserId);
-      
+
       const { data, error } = await supabase
         .from('employees')
-        .select('*')
+        .select('id, name, access_key, is_active, created_at')
         .eq('owner_id', currentUserId)
         .order('created_at', { ascending: false });
 
@@ -95,12 +94,22 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
       return;
     }
 
+    if (!formData.name || !formData.accessKey || !formData.password) {
+      setError('Todos os campos são obrigatórios');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('A senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+
     try {
       console.log('Criando funcionário para o usuário:', currentUserId);
-      
-      const { data, error } = await supabase.rpc('create_employee', {
+
+      const { data: employeeId, error } = await supabase.rpc('create_employee', {
         p_owner_id: currentUserId,
-        p_access_key: formData.accessKey,
+        p_access_key: formData.accessKey.toUpperCase(),
         p_password: formData.password,
         p_name: formData.name
       });
@@ -110,11 +119,11 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         throw error;
       }
 
-      console.log('Funcionário criado com sucesso:', data);
+      console.log('Funcionário criado com sucesso:', employeeId);
       setSuccess('Funcionário criado com sucesso!');
       setFormData({ name: '', accessKey: '', password: '' });
       setIsDialogOpen(false);
-      fetchEmployees();
+      await fetchEmployees(); // Recarregar lista de funcionários
     } catch (err: any) {
       console.error('Erro ao criar funcionário:', err);
       if (err.message.includes('duplicate key')) {
@@ -135,15 +144,15 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
     try {
       // Atualizar nome
       const updateData: any = { name: editFormData.name };
-      
+
       // Atualizar senha se fornecida
       if (editFormData.password.trim()) {
         // Primeiro, buscar o salt para a senha
         const { data: saltData, error: saltError } = await supabase
           .rpc('gen_salt', { type: 'bf' });
-        
+
         if (saltError) throw saltError;
-        
+
         updateData.password_hash = `crypt('${editFormData.password}', '${saltData}')`;
       }
 
@@ -182,7 +191,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         .eq('id', employeeId);
 
       if (error) throw error;
-      
+
       fetchEmployees();
       setSuccess('Status do funcionário atualizado!');
     } catch (err: any) {
@@ -201,7 +210,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         .eq('id', employeeId);
 
       if (error) throw error;
-      
+
       fetchEmployees();
       setSuccess('Funcionário excluído com sucesso!');
     } catch (err: any) {
@@ -248,7 +257,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                 <Input
                   id="employeeName"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Digite o nome completo"
                   required
                 />
@@ -260,14 +269,14 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                   <Input
                     id="accessKey"
                     value={formData.accessKey}
-                    onChange={(e) => setFormData({...formData, accessKey: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, accessKey: e.target.value })}
                     placeholder="Ex: ABC12345"
                     required
                   />
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => setFormData({...formData, accessKey: generateAccessKey()})}
+                    onClick={() => setFormData({ ...formData, accessKey: generateAccessKey() })}
                   >
                     Gerar
                   </Button>
@@ -283,7 +292,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                   id="password"
                   type="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="Digite uma senha segura"
                   required
                   minLength={6}
@@ -303,9 +312,9 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                 <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
                   Criar Funcionário
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setIsDialogOpen(false)}
                 >
                   Cancelar
@@ -329,7 +338,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
               <Input
                 id="editName"
                 value={editFormData.name}
-                onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                 placeholder="Digite o nome completo"
                 required
               />
@@ -341,7 +350,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                 id="editPassword"
                 type="password"
                 value={editFormData.password}
-                onChange={(e) => setEditFormData({...editFormData, password: e.target.value})}
+                onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
                 placeholder="Digite uma nova senha ou deixe em branco"
                 minLength={6}
               />
@@ -360,9 +369,9 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
               <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
                 Atualizar Funcionário
               </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setIsEditDialogOpen(false)}
               >
                 Cancelar

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Ingredient, Product, Order, Sale, ServiceTax } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -106,9 +105,43 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [currentUser]);
 
+  // Carregar usuário atual e seus dados
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          // Buscar dados do perfil
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) throw profileError;
+
+          if (profile) {
+            setCurrentUser({
+              id: session.user.id,
+              name: profile.name || 'Admin',
+              email: session.user.email || '',
+              role: profile.role || 'admin',
+              createdAt: new Date(profile.created_at)
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar usuário:', error);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
+
   const loadOrders = async () => {
     if (!currentUser?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -117,7 +150,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Converter para o formato esperado pela aplicação
       const formattedOrders = data?.map(order => ({
         id: order.id,
@@ -142,7 +175,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const loadSales = async () => {
     if (!currentUser?.id) return;
-    
+
     try {
       const { data, error } = await supabase
         .from('sales')
@@ -151,7 +184,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       const formattedSales = data?.map(sale => ({
         id: sale.id,
         orderId: sale.order_id,

@@ -1,12 +1,37 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users as UsersIcon } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { EmployeeManagement } from '@/components/EmployeeManagement';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Users = () => {
   const { currentUser } = useApp();
+  const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTotalEmployees = async () => {
+      if (!currentUser?.id) return;
+
+      try {
+        const { count, error } = await supabase
+          .from('employees')
+          .select('*', { count: 'exact', head: true })
+          .eq('owner_id', currentUser.id);
+
+        if (error) throw error;
+
+        setTotalEmployees(count || 0);
+      } catch (error) {
+        console.error('Erro ao buscar total de funcionários:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTotalEmployees();
+  }, [currentUser?.id]);
 
   return (
     <div className="space-y-6">
@@ -23,8 +48,14 @@ export const Users = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total de Funcionários</p>
-                <p className="text-2xl font-bold text-gray-900">--</p>
-                <p className="text-xs text-gray-500 mt-1">Carregando...</p>
+                {loading ? (
+                  <>
+                    <p className="text-2xl font-bold text-gray-900">--</p>
+                    <p className="text-xs text-gray-500 mt-1">Carregando...</p>
+                  </>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-900">{totalEmployees}</p>
+                )}
               </div>
               <div className="p-3 rounded-lg bg-orange-100">
                 <UsersIcon className="h-6 w-6 text-orange-600" />
