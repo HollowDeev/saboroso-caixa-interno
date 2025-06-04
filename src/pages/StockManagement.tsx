@@ -148,63 +148,64 @@ export const StockManagement = () => {
               <CardTitle>Controle de Ingredientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ingrediente</TableHead>
-                    <TableHead>Estoque Atual</TableHead>
-                    <TableHead>Estoque Mínimo</TableHead>
-                    <TableHead>Custo Unitário</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ingredients.map((ingredient) => (
-                    <TableRow key={ingredient.id}>
-                      <TableCell>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ingredients.map((ingredient) => (
+                  <Card key={ingredient.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{ingredient.name}</CardTitle>
+                        {getStockStatusBadge(ingredient.currentStock, ingredient.minStock)}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
                         <div className="flex items-center space-x-2">
                           {getStockIcon(ingredient.currentStock, ingredient.minStock)}
-                          {getStockStatusBadge(ingredient.currentStock, ingredient.minStock)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{ingredient.name}</TableCell>
-                      <TableCell>
-                        <span className={`font-medium ${getStockStatus(ingredient.currentStock, ingredient.minStock).status === 'danger' ? 'text-red-600' :
+                          <span className={`font-medium ${getStockStatus(ingredient.currentStock, ingredient.minStock).status === 'danger' ? 'text-red-600' :
                             getStockStatus(ingredient.currentStock, ingredient.minStock).status === 'warning' ? 'text-yellow-600' :
                               'text-green-600'
-                          }`}>
-                          {ingredient.currentStock} {ingredient.unit}
-                        </span>
-                      </TableCell>
-                      <TableCell>{ingredient.minStock} {ingredient.unit}</TableCell>
-                      <TableCell>R$ {ingredient.cost.toFixed(2)}</TableCell>
-                      <TableCell>{ingredient.supplier || '-'}</TableCell>
-                      <TableCell>
+                            }`}>
+                            {ingredient.currentStock} {ingredient.unit}
+                          </span>
+                          <span className="text-gray-500">/ {ingredient.minStock} {ingredient.unit} min</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Custo Unitário:</span>
+                            <span>R$ {ingredient.cost.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Fornecedor:</span>
+                            <span>{ingredient.supplier || '-'}</span>
+                          </div>
+                        </div>
+
                         <div className="flex space-x-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => openStockDialog(ingredient, 'add')}
-                            className="text-green-600 hover:text-green-700"
+                            className="flex-1 text-green-600 hover:text-green-700"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-4 w-4 mr-2" />
+                            Adicionar
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => openStockDialog(ingredient, 'remove')}
-                            className="text-red-600 hover:text-red-700"
+                            className="flex-1 text-red-600 hover:text-red-700"
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-4 w-4 mr-2" />
+                            Remover
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -222,58 +223,73 @@ export const StockManagement = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Produto</TableHead>
-                    <TableHead>Marca</TableHead>
-                    <TableHead>Estoque Atual</TableHead>
-                    <TableHead>Estoque Mínimo</TableHead>
-                    <TableHead>Custo</TableHead>
-                    <TableHead>Preço</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {externalProducts.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {externalProducts.map((product) => (
+                  <Card key={product.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{product.name}</CardTitle>
+                          <p className="text-sm text-gray-500">{product.brand}</p>
+                        </div>
+                        {getStockStatusBadge(product.currentStock, product.minStock)}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
                         <div className="flex items-center space-x-2">
                           {getStockIcon(product.currentStock, product.minStock)}
-                          {getStockStatusBadge(product.currentStock, product.minStock)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.brand}</TableCell>
-                      <TableCell>
-                        <span className={`font-medium ${getStockStatus(product.currentStock, product.minStock).status === 'danger' ? 'text-red-600' :
+                          <span className={`font-medium ${getStockStatus(product.currentStock, product.minStock).status === 'danger' ? 'text-red-600' :
                             getStockStatus(product.currentStock, product.minStock).status === 'warning' ? 'text-yellow-600' :
                               'text-green-600'
-                          }`}>
-                          {product.currentStock} un
-                        </span>
-                      </TableCell>
-                      <TableCell>{product.minStock} un</TableCell>
-                      <TableCell>R$ {product.cost.toFixed(2)}</TableCell>
-                      <TableCell>R$ {product.price.toFixed(2)}</TableCell>
-                      <TableCell>
+                            }`}>
+                            {product.currentStock} un
+                          </span>
+                          <span className="text-gray-500">/ {product.minStock} un min</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Custo:</span>
+                            <span>R$ {product.cost.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Preço:</span>
+                            <span className="font-medium">R$ {product.price.toFixed(2)}</span>
+                          </div>
+                        </div>
+
                         <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">
-                            <Plus className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Adicionar
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Minus className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Minus className="h-4 w-4 mr-2" />
+                            Remover
                           </Button>
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -291,51 +307,67 @@ export const StockManagement = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Ingredientes</TableHead>
-                    <TableHead>Custo</TableHead>
-                    <TableHead>Preço</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {products.map((product) => (
-                    <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.name}</TableCell>
-                      <TableCell>{product.category}</TableCell>
-                      <TableCell>
-                        {product.ingredients.map((ing, idx) => (
-                          <Badge key={idx} variant="secondary" className="mr-1">
-                            {ingredients.find(i => i.id === ing.ingredientId)?.name}
-                          </Badge>
-                        ))}
-                      </TableCell>
-                      <TableCell>R$ {product.cost.toFixed(2)}</TableCell>
-                      <TableCell>R$ {product.price.toFixed(2)}</TableCell>
-                      <TableCell>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {products.map((product) => (
+                  <Card key={product.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{product.name}</CardTitle>
+                          <p className="text-sm text-gray-500">{product.category}</p>
+                        </div>
                         <Badge variant={product.available ? 'default' : 'destructive'}>
                           {product.available ? 'Disponível' : 'Indisponível'}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Custo:</span>
+                            <span>R$ {product.cost.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Preço:</span>
+                            <span className="font-medium">R$ {product.price.toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-gray-500">Ingredientes:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {product.ingredients.map((ing, idx) => (
+                              <Badge key={idx} variant="secondary">
+                                {ingredients.find(i => i.id === ing.ingredientId)?.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+
                         <div className="flex space-x-2">
-                          <Button size="sm" variant="outline">
-                            <Edit className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
                           </Button>
-                          <Button size="sm" variant="outline" className="text-red-600">
-                            <Trash2 className="h-4 w-4" />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -388,43 +420,58 @@ export const StockManagement = () => {
               <CardTitle>Itens com Estoque Crítico</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Estoque Atual</TableHead>
-                    <TableHead>Estoque Mínimo</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {criticalIngredients.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>Ingrediente</TableCell>
-                      <TableCell>{item.currentStock} {item.unit}</TableCell>
-                      <TableCell>{item.minStock} {item.unit}</TableCell>
-                      <TableCell>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {criticalIngredients.map((item) => (
+                  <Card key={item.id} className="hover:shadow-lg transition-shadow border-red-200 bg-red-50">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{item.name}</CardTitle>
+                          <p className="text-sm text-red-600">Ingrediente</p>
+                        </div>
                         <Badge variant="destructive">Crítico</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {externalProducts
-                    .filter(p => getStockStatus(p.currentStock, p.minStock).status === 'danger')
-                    .map((product) => (
-                      <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>Produto</TableCell>
-                        <TableCell>{product.currentStock} un</TableCell>
-                        <TableCell>{product.minStock} un</TableCell>
-                        <TableCell>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                          <AlertTriangle className="h-4 w-4 text-red-500" />
+                          <span className="font-medium text-red-600">
+                            {item.currentStock} {item.unit}
+                          </span>
+                          <span className="text-red-500">/ {item.minStock} {item.unit} min</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {externalProducts
+                  .filter(p => getStockStatus(p.currentStock, p.minStock).status === 'danger')
+                  .map((product) => (
+                    <Card key={product.id} className="hover:shadow-lg transition-shadow border-red-200 bg-red-50">
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-lg">{product.name}</CardTitle>
+                            <p className="text-sm text-red-600">Produto Externo</p>
+                          </div>
                           <Badge variant="destructive">Crítico</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-2">
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                            <span className="font-medium text-red-600">
+                              {product.currentStock} un
+                            </span>
+                            <span className="text-red-500">/ {product.minStock} un min</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
