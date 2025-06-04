@@ -9,12 +9,12 @@ import { Plus, Edit, Trash2, User, Hash, CreditCard } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Order, OrderItem, Product } from '@/types';
+import { Order, OrderItem, Product, NewOrderItem } from '@/types';
 import { CheckoutModal } from '@/components/CheckoutModal';
 
 export const Orders = () => {
   const { orders, products, currentUser, addOrder, updateOrder, addSale } = useApp();
-  const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<NewOrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | undefined>();
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -30,7 +30,7 @@ export const Orders = () => {
           : item
       ));
     } else {
-      const newItem: OrderItem = {
+      const newItem: NewOrderItem = {
         productId: product.id,
         product,
         quantity: 1,
@@ -281,8 +281,8 @@ export const Orders = () => {
                     <div className="space-y-2">
                       {order.items.map((item, index) => (
                         <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product.name}</span>
-                          <span>R$ {item.totalPrice.toFixed(2)}</span>
+                          <span>{item.quantity}x {item.product_name}</span>
+                          <span>R$ {item.total_price.toFixed(2)}</span>
                         </div>
                       ))}
                       <div className="border-t pt-2 font-semibold">
@@ -350,8 +350,8 @@ export const Orders = () => {
                     <div className="space-y-2">
                       {order.items.map((item, index) => (
                         <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product.name}</span>
-                          <span>R$ {item.totalPrice.toFixed(2)}</span>
+                          <span>{item.quantity}x {item.product_name}</span>
+                          <span>R$ {item.total_price.toFixed(2)}</span>
                         </div>
                       ))}
                       <div className="border-t pt-2 font-semibold">
@@ -395,8 +395,8 @@ export const Orders = () => {
                   <div className="space-y-2">
                     {order.items.map((item, index) => (
                       <div key={index} className="flex justify-between text-sm">
-                        <span>{item.quantity}x {item.product.name}</span>
-                        <span>R$ {item.totalPrice.toFixed(2)}</span>
+                        <span>{item.quantity}x {item.product_name}</span>
+                        <span>R$ {item.total_price.toFixed(2)}</span>
                       </div>
                     ))}
                     <div className="border-t pt-2 font-semibold">

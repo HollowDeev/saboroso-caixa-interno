@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { Order, OrderItem, Product, ServiceTax } from '@/types';
+import { Order, OrderItem, Product, ServiceTax, NewOrderItem } from '@/types';
 import { Switch } from '@/components/ui/switch';
 
 interface CheckoutModalProps {
@@ -17,7 +17,7 @@ interface CheckoutModalProps {
 
 export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
   const { products, updateOrder, addSale, updateIngredient, ingredients, serviceTaxes } = useApp();
-  const [additionalItems, setAdditionalItems] = useState<OrderItem[]>([]);
+  const [additionalItems, setAdditionalItems] = useState<NewOrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
   const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
@@ -43,7 +43,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
           : item
       ));
     } else {
-      const newItem: OrderItem = {
+      const newItem: NewOrderItem = {
         productId: product.id,
         product,
         quantity: 1,
@@ -93,26 +93,51 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
     );
   };
 
-  const finalizeSale = () => {
-    const { total } = calculateFinalTotal();
-    const allItems = [...order.items, ...additionalItems];
+  const finalizeSale = async () => {
+    if (!order) return;
 
-    // Atualizar a comanda
-    const updatedOrder = {
-      ...order,
-      items: allItems,
-      total,
-      status: 'paid' as const,
-      paymentMethod,
-      customerName: customerName || order.customerName
-    };
+    try {
+      const { total, subtotal, taxesTotal } = calculateFinalTotal();
 
-    updateOrder(order.id, updatedOrder);
+      // Converter itens adicionais para o formato do banco
+      const convertedAdditionalItems = additionalItems.map(item => ({
+        cash_register_id: order.items[0]?.cash_register_id || '',
+        order_id: order.id,
+        product_name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.totalPrice,
+        product_cost: item.product.cost || 0,
+        profit: item.totalPrice - (item.product.cost || 0) * item.quantity,
+        sale_date: new Date(),
+        created_at: new Date()
+      }));
 
-    onClose();
-    setAdditionalItems([]);
-    setCustomerName('');
-    setPaymentMethod('cash');
+      // Preparar dados atualizados da comanda
+      const updatedOrderData = {
+        status: 'paid' as const,
+        payment_method: paymentMethod,
+        customer_name: customerName || order.customerName,
+        subtotal: subtotal,
+        tax: taxesTotal,
+        total: total
+      };
+
+      // Atualizar a comanda
+      await updateOrder(order.id, {
+        ...updatedOrderData,
+        items: [...order.items, ...convertedAdditionalItems]
+      });
+
+      // Fechar modal e limpar estados
+      onClose();
+      setAdditionalItems([]);
+      setCustomerName('');
+      setPaymentMethod('cash');
+    } catch (error) {
+      console.error('Erro ao finalizar venda:', error);
+      // Aqui você pode adicionar uma notificação de erro para o usuário
+    }
   };
 
   const { subtotal, taxes, taxesTotal, total, additionalTotal } = calculateFinalTotal();
@@ -196,8 +221,8 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {order.items.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                    <span>{item.quantity}x {item.product.name}</span>
-                    <span>R$ {item.totalPrice.toFixed(2)}</span>
+                    <span>{item.quantity}x {item.product_name}</span>
+                    <span>R$ {item.total_price.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -208,9 +233,10 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
                 <h3 className="font-semibold mb-3">Itens Adicionais</h3>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {additionalItems.map((item) => (
-                    <div key={item.productId} className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                    <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{item.product.name}</p>
+                        <p className="font-medium">{item.product.name}</p>
+                        <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Button
@@ -220,7 +246,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
                         >
                           -
                         </Button>
-                        <span className="w-6 text-center text-sm">{item.quantity}</span>
+                        <span className="w-8 text-center">{item.quantity}</span>
                         <Button
                           size="sm"
                           variant="outline"
@@ -233,7 +259,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
                           variant="destructive"
                           onClick={() => removeAdditionalItem(item.productId)}
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

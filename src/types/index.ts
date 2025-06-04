@@ -2,44 +2,68 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
-  createdAt: Date;
+  role: 'admin' | 'manager' | 'cashier';
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Ingredient {
   id: string;
   name: string;
-  unit: string;
   currentStock: number;
   minStock: number;
+  unit: string;
   cost: number;
   supplier?: string;
   lastUpdated: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface Product {
   id: string;
   name: string;
-  category: string;
+  description?: string;
   price: number;
-  description: string;
-  ingredients: {
-    ingredientId: string;
-    quantity: number;
-  }[];
-  image?: string;
+  cost: number;
+  category?: string;
   available: boolean;
-  preparationTime: number; // em minutos
+  ingredients: ProductIngredient[];
+  preparationTime?: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface ProductIngredient {
+  ingredientId: string;
+  quantity: number;
 }
 
 export interface OrderItem {
-  productId: string;
+  id?: string;
+  cash_register_id: string;
+  order_id: string;
+  product_name: string;
+  product?: Product;
+  quantity: number;
+  unit_price: number;
+  unitPrice?: number;
+  total_price: number;
+  totalPrice?: number;
+  product_cost: number;
+  profit: number;
+  sale_date: Date;
+  created_at: Date;
+}
+
+// Interface temporária para criação de novos itens
+export interface NewOrderItem {
   product: Product;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  notes?: string;
 }
+
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled';
+export type PaymentMethod = 'cash' | 'card' | 'pix';
 
 export interface Order {
   id: string;
@@ -49,8 +73,8 @@ export interface Order {
   subtotal: number;
   tax: number;
   total: number;
-  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled';
-  paymentMethod?: 'cash' | 'card' | 'pix';
+  status: OrderStatus;
+  paymentMethod?: PaymentMethod;
   createdAt: Date;
   updatedAt: Date;
   userId: string;
@@ -87,7 +111,7 @@ export interface Analytics {
 export interface ServiceTax {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   percentage: number;
   isActive: boolean;
   createdAt: Date;

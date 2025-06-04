@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Ingredient, Product, Order, Sale, ServiceTax } from '@/types';
+import {
+  User,
+  Ingredient,
+  Product,
+  Order,
+  Sale,
+  ServiceTax,
+  OrderItem,
+  NewOrderItem,
+  OrderStatus,
+  PaymentMethod
+} from '../types/index';
 import { supabase } from '@/integrations/supabase/client';
 import { useCashRegister } from '@/hooks/useCashRegister';
 
@@ -15,7 +26,7 @@ interface AppContextType {
   updateIngredient: (id: string, ingredient: Partial<Ingredient>) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Order>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
   updateSale: (id: string, sale: Partial<Sale>) => void;
@@ -53,7 +64,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       minStock: 5,
       cost: 8.50,
       supplier: 'Hortifruti Central',
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      created_at: new Date(),
+      updated_at: new Date()
     },
     {
       id: '2',
@@ -63,7 +76,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       minStock: 3,
       cost: 25.00,
       supplier: 'Laticínios Vale',
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      created_at: new Date(),
+      updated_at: new Date()
     },
     {
       id: '3',
@@ -72,7 +87,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       currentStock: 20,
       minStock: 10,
       cost: 2.50,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      created_at: new Date(),
+      updated_at: new Date()
     }
   ]);
 
@@ -82,6 +99,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       name: 'Pizza Margherita',
       category: 'Pizza',
       price: 35.90,
+      cost: 15.00,
       description: 'Pizza clássica com tomate, mussarela e manjericão',
       ingredients: [
         { ingredientId: '1', quantity: 0.2 },
@@ -89,7 +107,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         { ingredientId: '3', quantity: 1 }
       ],
       available: true,
-      preparationTime: 15
+      preparationTime: 15,
+      created_at: new Date(),
+      updated_at: new Date()
     }
   ]);
 
@@ -134,12 +154,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           if (profileError) throw profileError;
 
           if (profile) {
-            const userData = {
+            const role = profile.role?.toLowerCase();
+            const validRole = role === 'admin' || role === 'manager' || role === 'cashier' ? role : 'cashier';
+
+            const userData: User = {
               id: session.user.id,
               name: profile.name || 'Admin',
               email: session.user.email || '',
-              role: profile.role || 'admin',
-              createdAt: new Date(profile.created_at)
+              role: validRole,
+              created_at: new Date(profile.created_at),
+              updated_at: new Date(profile.updated_at || profile.created_at)
             };
 
             console.log('Dados finais do usuário:', userData);
@@ -160,25 +184,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (!currentUser?.id) return;
 
     try {
-      const { data, error } = await supabase
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (ordersError) throw ordersError;
+
+      // Buscar todos os itens das comandas da tabela cash_register_sales
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('cash_register_sales')
+        .select('*')
+        .in('order_id', ordersData.map(order => order.id));
+
+      if (itemsError) throw itemsError;
+
+      // Agrupar itens por comanda
+      const itemsByOrder = itemsData.reduce((acc: { [key: string]: any[] }, item) => {
+        if (!acc[item.order_id]) {
+          acc[item.order_id] = [];
+        }
+        acc[item.order_id].push(item);
+        return acc;
+      }, {});
 
       // Converter para o formato esperado pela aplicação
-      const formattedOrders = data?.map(order => ({
+      const formattedOrders = ordersData?.map(order => ({
         id: order.id,
         customerName: order.customer_name || '',
         tableNumber: order.table_number || 0,
-        items: Array.isArray(order.items) ? order.items : [],
+        items: (itemsByOrder[order.id] || []).map(item => ({
+          id: item.id,
+          cash_register_id: item.cash_register_id,
+          order_id: item.order_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_cost: item.product_cost,
+          profit: item.profit,
+          sale_date: new Date(item.sale_date),
+          created_at: new Date(item.created_at)
+        })),
         subtotal: order.subtotal || 0,
         tax: order.tax || 0,
         total: order.total || 0,
-        status: (order.status as 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled') || 'pending',
-        paymentMethod: (order.payment_method as 'cash' | 'card' | 'pix') || 'cash',
+        status: order.status as 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled',
+        paymentMethod: order.payment_method as 'cash' | 'card' | 'pix',
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
         userId: order.user_id
@@ -255,46 +308,136 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     ));
   };
 
-  const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!currentUser?.id) return;
+  const isValidOrderStatus = (status: string): status is OrderStatus => {
+    return ['pending', 'preparing', 'ready', 'delivered', 'paid', 'cancelled'].includes(status);
+  };
+
+  const isValidPaymentMethod = (method: string): method is PaymentMethod => {
+    return ['cash', 'card', 'pix'].includes(method);
+  };
+
+  const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order> => {
+    if (!currentUser?.id || !currentCashRegister) {
+      throw new Error('Usuário ou caixa não encontrado');
+    }
 
     try {
+      // Validar status e método de pagamento
+      const orderStatus = order.status;
+      if (!isValidOrderStatus(orderStatus)) {
+        throw new Error('Status de comanda inválido');
+      }
+
+      const paymentMethod = order.paymentMethod || 'cash';
+      if (!isValidPaymentMethod(paymentMethod)) {
+        throw new Error('Método de pagamento inválido');
+      }
+
+      // 1. Criar a comanda primeiro
       const orderData = {
         customer_name: order.customerName,
         table_number: order.tableNumber,
-        items: JSON.stringify(order.items),
         subtotal: order.subtotal,
         tax: order.tax,
         total: order.total,
-        status: order.status,
-        payment_method: order.paymentMethod,
-        user_id: currentUser.id
+        status: orderStatus,
+        payment_method: paymentMethod,
+        user_id: currentUser.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabase
+      const { data: orderResult, error: orderError } = await supabase
         .from('orders')
         .insert(orderData)
         .select()
         .single();
 
-      if (error) throw error;
+      if (orderError) {
+        console.error('Erro ao criar comanda:', orderError);
+        throw orderError;
+      }
 
+      if (!orderResult) {
+        throw new Error('Erro ao criar comanda: nenhum resultado retornado');
+      }
+
+      // 2. Preparar os itens para inserção
+      const orderItems = order.items.map(item => {
+        // Garantir que temos o nome do produto
+        if (!item.product?.name) {
+          throw new Error(`Item sem nome do produto: ${JSON.stringify(item)}`);
+        }
+
+        return {
+          cash_register_id: currentCashRegister.id,
+          order_id: orderResult.id,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.product.price,
+          total_price: item.quantity * item.product.price,
+          product_cost: item.product.cost || 0,
+          profit: (item.quantity * item.product.price) - (item.product.cost || 0) * item.quantity,
+          sale_date: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        };
+      });
+
+      // 3. Inserir os itens
+      const { error: itemsError } = await supabase
+        .from('cash_register_sales')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Erro ao inserir itens:', itemsError);
+        // Se falhar ao inserir os itens, deletar a comanda criada
+        await supabase.from('orders').delete().eq('id', orderResult.id);
+        throw itemsError;
+      }
+
+      // 4. Buscar os itens salvos para confirmar
+      const { data: savedItems, error: fetchItemsError } = await supabase
+        .from('cash_register_sales')
+        .select('*')
+        .eq('order_id', orderResult.id);
+
+      if (fetchItemsError) {
+        console.error('Erro ao buscar itens salvos:', fetchItemsError);
+        throw fetchItemsError;
+      }
+
+      // 5. Criar o objeto final da comanda com todos os dados
       const newOrder: Order = {
-        id: data.id,
-        customerName: data.customer_name || '',
-        tableNumber: data.table_number || 0,
-        items: typeof data.items === 'string' ? JSON.parse(data.items) : [],
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.total,
-        status: data.status as 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled',
-        paymentMethod: data.payment_method as 'cash' | 'card' | 'pix',
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at),
-        userId: data.user_id
+        id: orderResult.id,
+        customerName: orderResult.customer_name || '',
+        tableNumber: orderResult.table_number || 0,
+        items: savedItems.map(item => ({
+          id: item.id,
+          cash_register_id: item.cash_register_id,
+          order_id: item.order_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_cost: item.product_cost,
+          profit: item.profit,
+          sale_date: new Date(item.sale_date),
+          created_at: new Date(item.created_at)
+        })),
+        subtotal: orderResult.subtotal,
+        tax: orderResult.tax,
+        total: orderResult.total,
+        status: orderStatus,
+        paymentMethod: paymentMethod,
+        createdAt: new Date(orderResult.created_at),
+        updatedAt: new Date(orderResult.updated_at),
+        userId: orderResult.user_id
       };
 
+      // 6. Atualizar o estado local
       setOrders(prev => [...prev, newOrder]);
+
+      return newOrder;
     } catch (error) {
       console.error('Erro ao criar comanda:', error);
       throw error;
@@ -313,21 +456,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Calcular custo total dos produtos
       const salesData = order.items.map(item => {
-        const product = products.find(p => p.id === item.productId);
-        const productCost = product ? product.ingredients.reduce((cost, ingredient) => {
-          const ing = ingredients.find(i => i.id === ingredient.ingredientId);
-          return cost + (ing ? ing.cost * ingredient.quantity : 0);
-        }, 0) : 0;
-
         return {
           cash_register_id: currentCashRegister.id,
           order_id: order.id,
-          product_name: item.product.name,
+          product_name: item.product_name,
           quantity: item.quantity,
-          unit_price: item.unitPrice,
-          total_price: item.totalPrice,
-          product_cost: productCost * item.quantity,
-          profit: item.totalPrice - (productCost * item.quantity)
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_cost: item.product_cost,
+          profit: item.profit,
+          sale_date: new Date().toISOString(),
+          created_at: new Date().toISOString()
         };
       });
 
@@ -348,49 +487,118 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateOrder = async (id: string, order: Partial<Order>) => {
-    if (!currentUser?.id) return;
+  const updateOrder = async (id: string, orderUpdate: Partial<Order>) => {
+    if (!currentUser?.id || !currentCashRegister) return;
 
     try {
       const currentOrder = orders.find(o => o.id === id);
-      if (!currentOrder) return;
+      if (!currentOrder) throw new Error('Comanda não encontrada');
 
-      const subtotal = order.items ?
-        order.items.reduce((sum, item) => sum + item.totalPrice, 0) :
-        currentOrder.subtotal;
+      // Validar status e método de pagamento
+      const orderStatus = orderUpdate.status || currentOrder.status;
+      if (!isValidOrderStatus(orderStatus)) {
+        throw new Error('Status de comanda inválido');
+      }
 
-      const { taxesTotal, total } = calculateOrderTotal(subtotal);
+      const paymentMethod = orderUpdate.paymentMethod || currentOrder.paymentMethod || 'cash';
+      if (!isValidPaymentMethod(paymentMethod)) {
+        throw new Error('Método de pagamento inválido');
+      }
 
-      const updatedOrderData = {
-        customer_name: order.customerName ?? currentOrder.customerName,
-        table_number: order.tableNumber ?? currentOrder.tableNumber,
-        items: JSON.stringify(order.items ?? currentOrder.items),
-        subtotal,
-        tax: taxesTotal,
-        total,
-        status: order.status ?? currentOrder.status,
-        payment_method: order.paymentMethod ?? currentOrder.paymentMethod,
+      // Preparar dados para atualização
+      const orderData = {
+        customer_name: orderUpdate.customerName,
+        table_number: orderUpdate.tableNumber,
+        subtotal: orderUpdate.subtotal,
+        tax: orderUpdate.tax,
+        total: orderUpdate.total,
+        status: orderStatus,
+        payment_method: paymentMethod,
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      // Remover campos undefined
+      Object.keys(orderData).forEach(key => {
+        if (orderData[key] === undefined) {
+          delete orderData[key];
+        }
+      });
+
+      // Atualizar a comanda
+      const { data: orderResult, error: orderError } = await supabase
         .from('orders')
-        .update(updatedOrderData)
-        .eq('id', id);
+        .update(orderData)
+        .eq('id', id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (orderError) throw orderError;
 
-      const updatedOrder = {
+      // Se houver novos itens, atualizar a tabela cash_register_sales
+      if (orderUpdate.items && orderUpdate.items.length > 0) {
+        // Primeiro, remover os itens antigos
+        const { error: deleteError } = await supabase
+          .from('cash_register_sales')
+          .delete()
+          .eq('order_id', id);
+
+        if (deleteError) throw deleteError;
+
+        // Depois, inserir os novos itens
+        const { error: insertError } = await supabase
+          .from('cash_register_sales')
+          .insert(orderUpdate.items.map(item => ({
+            cash_register_id: currentCashRegister.id,
+            order_id: id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            product_cost: item.product_cost,
+            profit: item.profit,
+            sale_date: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          })));
+
+        if (insertError) throw insertError;
+      }
+
+      // Buscar os itens atualizados
+      const { data: savedItems, error: fetchItemsError } = await supabase
+        .from('cash_register_sales')
+        .select('*')
+        .eq('order_id', id);
+
+      if (fetchItemsError) throw fetchItemsError;
+
+      // Criar objeto da ordem atualizada
+      const updatedOrder: Order = {
         ...currentOrder,
-        ...order,
-        subtotal,
-        tax: taxesTotal,
-        total,
-        updatedAt: new Date()
+        customerName: orderResult.customer_name || currentOrder.customerName,
+        tableNumber: orderResult.table_number || currentOrder.tableNumber,
+        subtotal: orderResult.subtotal || currentOrder.subtotal,
+        tax: orderResult.tax || currentOrder.tax,
+        total: orderResult.total || currentOrder.total,
+        status: orderStatus,
+        paymentMethod: paymentMethod,
+        items: savedItems.map(item => ({
+          id: item.id,
+          cash_register_id: item.cash_register_id,
+          order_id: item.order_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          product_cost: item.product_cost,
+          profit: item.profit,
+          sale_date: new Date(item.sale_date),
+          created_at: new Date(item.created_at)
+        })),
+        updatedAt: new Date(orderResult.updated_at)
       };
 
-      // Se a comanda foi marcada como "paid", criar uma venda automaticamente
-      if (order.status === 'paid' && currentOrder.status !== 'paid') {
+      // Se a comanda foi marcada como "paid", criar uma venda e atualizar o caixa
+      if (orderUpdate.status === 'paid' && currentOrder.status !== 'paid') {
         const saleData = {
           order_id: id,
           total: updatedOrder.total,
@@ -414,27 +622,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             userId: currentUser.id
           };
           setSales(prev => [...prev, newSale]);
+
+          // Atualizar totais do caixa
+          await supabase
+            .from('cash_registers')
+            .update({
+              total_sales: currentCashRegister.total_sales + updatedOrder.total,
+              total_orders: currentCashRegister.total_orders + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', currentCashRegister.id);
         }
-
-        // Salvar no caixa
-        await saveSaleToCashRegister(updatedOrder);
-
-        // Atualizar estoque dos ingredientes
-        updatedOrder.items.forEach(item => {
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            product.ingredients.forEach(productIngredient => {
-              updateIngredient(productIngredient.ingredientId, {
-                currentStock: Math.max(0,
-                  ingredients.find(ing => ing.id === productIngredient.ingredientId)?.currentStock || 0
-                  - (productIngredient.quantity * item.quantity)
-                )
-              });
-            });
-          }
-        });
       }
 
+      // Atualizar o estado local imediatamente
       setOrders(prev => prev.map(ord => ord.id === id ? updatedOrder : ord));
     } catch (error) {
       console.error('Erro ao atualizar comanda:', error);
