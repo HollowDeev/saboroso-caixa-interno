@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Ingredient, Product, Order, Sale, ServiceTax } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useCashRegister } from '@/hooks/useCashRegister';
@@ -15,8 +16,8 @@ interface AppContextType {
   updateIngredient: (id: string, ingredient: Partial<Ingredient>) => void;
   addProduct: (product: Omit<Product, 'id'>) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
-  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateOrder: (id: string, order: Partial<Order>) => void;
+  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
   updateSale: (id: string, sale: Partial<Sale>) => void;
   setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
@@ -41,14 +42,7 @@ export const useApp = () => {
 };
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>({
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@restaurant.com',
-    role: 'admin',
-    createdAt: new Date()
-  });
-
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { currentCashRegister, openCashRegister, closeCashRegister } = useCashRegister();
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([
@@ -104,6 +98,75 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
 
+  // Carregar dados quando o usuário estiver logado
+  useEffect(() => {
+    if (currentUser?.id) {
+      loadOrders();
+      loadSales();
+    }
+  }, [currentUser]);
+
+  const loadOrders = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Converter para o formato esperado pela aplicação
+      const formattedOrders = data?.map(order => ({
+        id: order.id,
+        customerName: order.customer_name,
+        tableNumber: order.table_number,
+        items: order.items || [],
+        subtotal: order.subtotal || 0,
+        tax: order.tax || 0,
+        total: order.total || 0,
+        status: order.status,
+        paymentMethod: order.payment_method,
+        createdAt: new Date(order.created_at),
+        updatedAt: new Date(order.updated_at),
+        userId: order.user_id
+      })) || [];
+
+      setOrders(formattedOrders);
+    } catch (error) {
+      console.error('Erro ao carregar comandas:', error);
+    }
+  };
+
+  const loadSales = async () => {
+    if (!currentUser?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      const formattedSales = data?.map(sale => ({
+        id: sale.id,
+        orderId: sale.order_id,
+        total: sale.total || 0,
+        paymentMethod: sale.payment_method,
+        createdAt: new Date(sale.created_at),
+        userId: sale.user_id
+      })) || [];
+
+      setSales(formattedSales);
+    } catch (error) {
+      console.error('Erro ao carregar vendas:', error);
+    }
+  };
+
   const checkCashRegisterAccess = () => {
     return currentUser?.role === 'admin';
   };
@@ -137,14 +200,50 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     ));
   };
 
-  const addOrder = (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newOrder: Order = {
-      ...order,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    setOrders(prev => [...prev, newOrder]);
+  const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!currentUser?.id) return;
+
+    try {
+      const orderData = {
+        customer_name: order.customerName,
+        table_number: order.tableNumber,
+        items: order.items,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        total: order.total,
+        status: order.status,
+        payment_method: order.paymentMethod,
+        user_id: currentUser.id
+      };
+
+      const { data, error } = await supabase
+        .from('orders')
+        .insert(orderData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newOrder: Order = {
+        id: data.id,
+        customerName: data.customer_name,
+        tableNumber: data.table_number,
+        items: data.items,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        status: data.status,
+        paymentMethod: data.payment_method,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+        userId: data.user_id
+      };
+
+      setOrders(prev => [...prev, newOrder]);
+    } catch (error) {
+      console.error('Erro ao criar comanda:', error);
+      throw error;
+    }
   };
 
   const calculateOrderTotal = (subtotal: number) => {
@@ -154,7 +253,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const saveSaleToCashRegister = async (order: Order) => {
-    if (!currentCashRegister) return;
+    if (!currentCashRegister || !currentUser?.id) return;
 
     try {
       // Calcular custo total dos produtos
@@ -194,59 +293,98 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateOrder = (id: string, order: Partial<Order>) => {
-    setOrders(prev => prev.map(ord => {
-      if (ord.id === id) {
-        const subtotal = order.items ?
-          order.items.reduce((sum, item) => sum + item.totalPrice, 0) :
-          ord.subtotal;
+  const updateOrder = async (id: string, order: Partial<Order>) => {
+    if (!currentUser?.id) return;
 
-        const { taxesTotal, total } = calculateOrderTotal(subtotal);
+    try {
+      const currentOrder = orders.find(o => o.id === id);
+      if (!currentOrder) return;
 
-        const updatedOrder = {
-          ...ord,
-          ...order,
-          subtotal,
-          tax: taxesTotal,
-          total,
-          updatedAt: new Date()
+      const subtotal = order.items ?
+        order.items.reduce((sum, item) => sum + item.totalPrice, 0) :
+        currentOrder.subtotal;
+
+      const { taxesTotal, total } = calculateOrderTotal(subtotal);
+
+      const updatedOrderData = {
+        customer_name: order.customerName ?? currentOrder.customerName,
+        table_number: order.tableNumber ?? currentOrder.tableNumber,
+        items: order.items ?? currentOrder.items,
+        subtotal,
+        tax: taxesTotal,
+        total,
+        status: order.status ?? currentOrder.status,
+        payment_method: order.paymentMethod ?? currentOrder.paymentMethod,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updatedOrderData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      const updatedOrder = {
+        ...currentOrder,
+        ...order,
+        subtotal,
+        tax: taxesTotal,
+        total,
+        updatedAt: new Date()
+      };
+
+      // Se a comanda foi marcada como "paid", criar uma venda automaticamente
+      if (order.status === 'paid' && currentOrder.status !== 'paid') {
+        const saleData = {
+          order_id: id,
+          total: updatedOrder.total,
+          payment_method: updatedOrder.paymentMethod || 'cash',
+          user_id: currentUser.id
         };
 
-        // Se a comanda foi marcada como "paid", criar uma venda automaticamente
-        if (order.status === 'paid' && ord.status !== 'paid') {
+        const { data: saleResult, error: saleError } = await supabase
+          .from('sales')
+          .insert(saleData)
+          .select()
+          .single();
+
+        if (!saleError) {
           const newSale: Sale = {
-            id: Date.now().toString(),
+            id: saleResult.id,
             orderId: id,
             total: updatedOrder.total,
             paymentMethod: updatedOrder.paymentMethod || 'cash',
-            createdAt: new Date(),
-            userId: updatedOrder.userId
+            createdAt: new Date(saleResult.created_at),
+            userId: currentUser.id
           };
           setSales(prev => [...prev, newSale]);
-
-          // Salvar no caixa
-          saveSaleToCashRegister(updatedOrder);
-
-          // Atualizar estoque dos ingredientes
-          updatedOrder.items.forEach(item => {
-            const product = products.find(p => p.id === item.productId);
-            if (product) {
-              product.ingredients.forEach(productIngredient => {
-                updateIngredient(productIngredient.ingredientId, {
-                  currentStock: Math.max(0,
-                    ingredients.find(ing => ing.id === productIngredient.ingredientId)?.currentStock || 0
-                    - (productIngredient.quantity * item.quantity)
-                  )
-                });
-              });
-            }
-          });
         }
 
-        return updatedOrder;
+        // Salvar no caixa
+        await saveSaleToCashRegister(updatedOrder);
+
+        // Atualizar estoque dos ingredientes
+        updatedOrder.items.forEach(item => {
+          const product = products.find(p => p.id === item.productId);
+          if (product) {
+            product.ingredients.forEach(productIngredient => {
+              updateIngredient(productIngredient.ingredientId, {
+                currentStock: Math.max(0,
+                  ingredients.find(ing => ing.id === productIngredient.ingredientId)?.currentStock || 0
+                  - (productIngredient.quantity * item.quantity)
+                )
+              });
+            });
+          }
+        });
       }
-      return ord;
-    }));
+
+      setOrders(prev => prev.map(ord => ord.id === id ? updatedOrder : ord));
+    } catch (error) {
+      console.error('Erro ao atualizar comanda:', error);
+      throw error;
+    }
   };
 
   const addSale = (sale: Omit<Sale, 'id' | 'createdAt'>) => {

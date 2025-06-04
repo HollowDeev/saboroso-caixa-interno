@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,6 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
   const [loginType, setLoginType] = useState<'admin' | 'employee'>('admin');
   
   // Admin login states
-  const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
@@ -27,6 +26,40 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Verificar se já existe uma sessão ativa ao carregar
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          // Buscar dados do perfil do admin
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (!profileError && profile) {
+            onAdminLogin({
+              id: session.user.id,
+              name: profile.name || 'Admin',
+              email: session.user.email || ''
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao verificar sessão existente:', err);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkExistingSession();
+  }, [onAdminLogin]);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +135,20 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
     }
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -143,19 +190,6 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
           {/* Admin Login Form */}
           {loginType === 'admin' && (
             <form onSubmit={handleAdminLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="cpf">CPF</Label>
-                <Input
-                  id="cpf"
-                  type="text"
-                  value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
-                  placeholder="000.000.000-00"
-                  required
-                  disabled={loading}
-                />
-              </div>
-
               <div>
                 <Label htmlFor="email">Email</Label>
                 <Input

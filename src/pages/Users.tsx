@@ -34,7 +34,7 @@ export const Users = () => {
         </Card>
       </div>
 
-      {currentUser && (
+      {currentUser?.id && (
         <EmployeeManagement currentUserId={currentUser.id} />
       )}
     </div>

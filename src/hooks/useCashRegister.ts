@@ -12,7 +12,10 @@ export const useCashRegister = () => {
   const checkOpenCashRegister = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('cash_registers')
@@ -21,7 +24,7 @@ export const useCashRegister = () => {
         .eq('is_open', true)
         .order('opened_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
         console.error('Erro ao buscar caixa aberto:', error);
