@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -38,7 +38,6 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
     name: '',
     password: ''
   });
-  const [showPasswords, setShowPasswords] = useState<{[key: string]: boolean}>({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -47,18 +46,31 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
   }, [currentUserId]);
 
   const fetchEmployees = async () => {
+    if (!currentUserId) {
+      console.log('Nenhum usuário logado');
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('Buscando funcionários para o usuário:', currentUserId);
+      
       const { data, error } = await supabase
         .from('employees')
         .select('*')
         .eq('owner_id', currentUserId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro na query:', error);
+        throw error;
+      }
+
+      console.log('Funcionários encontrados:', data);
       setEmployees(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao buscar funcionários:', err);
-      setError('Erro ao carregar funcionários');
+      setError(`Erro ao carregar funcionários: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -78,7 +90,14 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
     setError('');
     setSuccess('');
 
+    if (!currentUserId) {
+      setError('Usuário não identificado');
+      return;
+    }
+
     try {
+      console.log('Criando funcionário para o usuário:', currentUserId);
+      
       const { data, error } = await supabase.rpc('create_employee', {
         p_owner_id: currentUserId,
         p_access_key: formData.accessKey,
@@ -86,8 +105,12 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         p_name: formData.name
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao criar funcionário:', error);
+        throw error;
+      }
 
+      console.log('Funcionário criado com sucesso:', data);
       setSuccess('Funcionário criado com sucesso!');
       setFormData({ name: '', accessKey: '', password: '' });
       setIsDialogOpen(false);
@@ -97,7 +120,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
       if (err.message.includes('duplicate key')) {
         setError('Esta chave de acesso já está em uso. Tente outra.');
       } else {
-        setError('Erro ao criar funcionário. Tente novamente.');
+        setError(`Erro ao criar funcionário: ${err.message}`);
       }
     }
   };
@@ -111,24 +134,25 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
 
     try {
       // Atualizar nome
-      const { error: nameError } = await supabase
-        .from('employees')
-        .update({ name: editFormData.name })
-        .eq('id', editingEmployee.id);
-
-      if (nameError) throw nameError;
-
+      const updateData: any = { name: editFormData.name };
+      
       // Atualizar senha se fornecida
       if (editFormData.password.trim()) {
-        const { error: passwordError } = await supabase
-          .from('employees')
-          .update({ 
-            password_hash: `crypt('${editFormData.password}', gen_salt('bf'))` 
-          })
-          .eq('id', editingEmployee.id);
-
-        if (passwordError) throw passwordError;
+        // Primeiro, buscar o salt para a senha
+        const { data: saltData, error: saltError } = await supabase
+          .rpc('gen_salt', { type: 'bf' });
+        
+        if (saltError) throw saltError;
+        
+        updateData.password_hash = `crypt('${editFormData.password}', '${saltData}')`;
       }
+
+      const { error } = await supabase
+        .from('employees')
+        .update(updateData)
+        .eq('id', editingEmployee.id);
+
+      if (error) throw error;
 
       setSuccess('Funcionário atualizado com sucesso!');
       setEditFormData({ name: '', password: '' });
@@ -137,7 +161,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
       fetchEmployees();
     } catch (err: any) {
       console.error('Erro ao atualizar funcionário:', err);
-      setError('Erro ao atualizar funcionário. Tente novamente.');
+      setError(`Erro ao atualizar funcionário: ${err.message}`);
     }
   };
 
@@ -160,9 +184,10 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
       if (error) throw error;
       
       fetchEmployees();
-    } catch (err) {
+      setSuccess('Status do funcionário atualizado!');
+    } catch (err: any) {
       console.error('Erro ao atualizar funcionário:', err);
-      setError('Erro ao atualizar status do funcionário');
+      setError(`Erro ao atualizar status: ${err.message}`);
     }
   };
 
@@ -179,17 +204,10 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
       
       fetchEmployees();
       setSuccess('Funcionário excluído com sucesso!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao excluir funcionário:', err);
-      setError('Erro ao excluir funcionário');
+      setError(`Erro ao excluir funcionário: ${err.message}`);
     }
-  };
-
-  const togglePasswordVisibility = (employeeId: string) => {
-    setShowPasswords(prev => ({
-      ...prev,
-      [employeeId]: !prev[employeeId]
-    }));
   };
 
   if (loading) {

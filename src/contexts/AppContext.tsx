@@ -121,14 +121,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Converter para o formato esperado pela aplicação
       const formattedOrders = data?.map(order => ({
         id: order.id,
-        customerName: order.customer_name,
-        tableNumber: order.table_number,
-        items: order.items || [],
+        customerName: order.customer_name || '',
+        tableNumber: order.table_number || 0,
+        items: Array.isArray(order.items) ? order.items : [],
         subtotal: order.subtotal || 0,
         tax: order.tax || 0,
         total: order.total || 0,
-        status: order.status,
-        paymentMethod: order.payment_method,
+        status: (order.status as 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled') || 'pending',
+        paymentMethod: (order.payment_method as 'cash' | 'card' | 'pix') || 'cash',
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
         userId: order.user_id
@@ -156,7 +156,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         id: sale.id,
         orderId: sale.order_id,
         total: sale.total || 0,
-        paymentMethod: sale.payment_method,
+        paymentMethod: (sale.payment_method as 'cash' | 'card' | 'pix') || 'cash',
         createdAt: new Date(sale.created_at),
         userId: sale.user_id
       })) || [];
@@ -207,7 +207,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const orderData = {
         customer_name: order.customerName,
         table_number: order.tableNumber,
-        items: order.items,
+        items: JSON.stringify(order.items),
         subtotal: order.subtotal,
         tax: order.tax,
         total: order.total,
@@ -226,14 +226,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       const newOrder: Order = {
         id: data.id,
-        customerName: data.customer_name,
-        tableNumber: data.table_number,
-        items: data.items,
+        customerName: data.customer_name || '',
+        tableNumber: data.table_number || 0,
+        items: typeof data.items === 'string' ? JSON.parse(data.items) : [],
         subtotal: data.subtotal,
         tax: data.tax,
         total: data.total,
-        status: data.status,
-        paymentMethod: data.payment_method,
+        status: data.status as 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled',
+        paymentMethod: data.payment_method as 'cash' | 'card' | 'pix',
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at),
         userId: data.user_id
@@ -309,7 +309,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const updatedOrderData = {
         customer_name: order.customerName ?? currentOrder.customerName,
         table_number: order.tableNumber ?? currentOrder.tableNumber,
-        items: order.items ?? currentOrder.items,
+        items: JSON.stringify(order.items ?? currentOrder.items),
         subtotal,
         tax: taxesTotal,
         total,

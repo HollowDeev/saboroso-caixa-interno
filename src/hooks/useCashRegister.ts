@@ -17,6 +17,8 @@ export const useCashRegister = () => {
         return;
       }
 
+      console.log('Verificando caixa aberto para o usuário:', user.id);
+
       const { data, error } = await supabase
         .from('cash_registers')
         .select('*')
@@ -31,6 +33,7 @@ export const useCashRegister = () => {
         return;
       }
 
+      console.log('Caixa encontrado:', data);
       setCurrentCashRegister(data || null);
     } catch (error) {
       console.error('Erro ao verificar caixa:', error);
@@ -44,11 +47,27 @@ export const useCashRegister = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      console.log('Abrindo caixa para o usuário:', user.id, 'com valor:', openingAmount);
+
+      // Verificar se já existe um caixa aberto
+      const { data: existingCash } = await supabase
+        .from('cash_registers')
+        .select('*')
+        .eq('owner_id', user.id)
+        .eq('is_open', true)
+        .maybeSingle();
+
+      if (existingCash) {
+        throw new Error('Já existe um caixa aberto. Feche-o antes de abrir um novo.');
+      }
+
       const { data, error } = await supabase
         .from('cash_registers')
         .insert({
           owner_id: user.id,
           opening_amount: openingAmount,
+          total_sales: 0,
+          total_orders: 0,
           is_open: true
         })
         .select()
@@ -56,6 +75,7 @@ export const useCashRegister = () => {
 
       if (error) throw error;
 
+      console.log('Caixa aberto com sucesso:', data);
       setCurrentCashRegister(data);
       toast({
         title: "Caixa aberto com sucesso!",
@@ -63,11 +83,11 @@ export const useCashRegister = () => {
       });
 
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao abrir caixa:', error);
       toast({
         title: "Erro ao abrir caixa",
-        description: "Tente novamente",
+        description: error.message || "Tente novamente",
         variant: "destructive",
       });
       throw error;
@@ -77,6 +97,8 @@ export const useCashRegister = () => {
   const closeCashRegister = async (closingAmount: number) => {
     try {
       if (!currentCashRegister) throw new Error('Nenhum caixa aberto');
+
+      console.log('Fechando caixa:', currentCashRegister.id, 'com valor:', closingAmount);
 
       const { error } = await supabase
         .from('cash_registers')
@@ -90,16 +112,17 @@ export const useCashRegister = () => {
 
       if (error) throw error;
 
+      console.log('Caixa fechado com sucesso');
       setCurrentCashRegister(null);
       toast({
         title: "Caixa fechado com sucesso!",
         description: `Valor final: R$ ${closingAmount.toFixed(2)}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao fechar caixa:', error);
       toast({
         title: "Erro ao fechar caixa",
-        description: "Tente novamente",
+        description: error.message || "Tente novamente",
         variant: "destructive",
       });
       throw error;
