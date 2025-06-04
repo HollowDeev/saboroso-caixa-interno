@@ -233,6 +233,167 @@ export type Database = {
         }
         Relationships: []
       }
+      ingredients: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          unit: string;
+          current_stock: number;
+          min_stock: number;
+          cost: number;
+          supplier: string | null;
+          owner_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          unit: string;
+          current_stock?: number;
+          min_stock: number;
+          cost: number;
+          supplier?: string | null;
+          owner_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          unit?: string;
+          current_stock?: number;
+          min_stock?: number;
+          cost?: number;
+          supplier?: string | null;
+          owner_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      external_products: {
+        Row: {
+          id: string;
+          name: string;
+          brand: string | null;
+          description: string | null;
+          current_stock: number;
+          min_stock: number;
+          cost: number;
+          price: number;
+          owner_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          brand?: string | null;
+          description?: string | null;
+          current_stock?: number;
+          min_stock: number;
+          cost: number;
+          price: number;
+          owner_id: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          brand?: string | null;
+          description?: string | null;
+          current_stock?: number;
+          min_stock?: number;
+          cost?: number;
+          price?: number;
+          owner_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      stock_movements: {
+        Row: {
+          id: string;
+          item_type: 'ingredient' | 'external_product';
+          item_id: string;
+          movement_type: 'add' | 'remove';
+          quantity: number;
+          previous_stock: number;
+          new_stock: number;
+          reason: string | null;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          item_type: 'ingredient' | 'external_product';
+          item_id: string;
+          movement_type: 'add' | 'remove';
+          quantity: number;
+          previous_stock: number;
+          new_stock: number;
+          reason?: string | null;
+          user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          item_type?: 'ingredient' | 'external_product';
+          item_id?: string;
+          movement_type?: 'add' | 'remove';
+          quantity?: number;
+          previous_stock?: number;
+          new_stock?: number;
+          reason?: string | null;
+          user_id?: string;
+          created_at?: string;
+        };
+      };
+      stock_entries: {
+        Row: {
+          id: string
+          ingredient_id: string
+          quantity: number
+          remaining_quantity: number
+          unit_cost: number
+          total_cost: number
+          supplier: string | null
+          invoice_number: string | null
+          notes: string | null
+          created_at: string
+          owner_id: string
+        }
+        Insert: {
+          id?: string
+          ingredient_id: string
+          quantity: number
+          remaining_quantity: number
+          unit_cost: number
+          total_cost: number
+          supplier?: string | null
+          invoice_number?: string | null
+          notes?: string | null
+          created_at?: string
+          owner_id: string
+        }
+        Update: {
+          id?: string
+          ingredient_id?: string
+          quantity?: number
+          remaining_quantity?: number
+          unit_cost?: number
+          total_cost?: number
+          supplier?: string | null
+          invoice_number?: string | null
+          notes?: string | null
+          created_at?: string
+          owner_id?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -258,6 +419,32 @@ export type Database = {
           employee_name: string
           owner_id: string
         }[]
+      }
+      add_stock: {
+        Args: {
+          p_item_type: string;
+          p_item_id: string;
+          p_quantity: number;
+          p_reason: string;
+          p_user_id: string;
+        };
+        Returns: string;
+      };
+      remove_stock: {
+        Args: {
+          p_item_type: string;
+          p_item_id: string;
+          p_quantity: number;
+          p_reason: string;
+          p_user_id: string;
+        };
+        Returns: string;
+      };
+      calculate_weighted_average_cost: {
+        Args: {
+          p_ingredient_id: string
+        }
+        Returns: number
       }
     }
     Enums: {

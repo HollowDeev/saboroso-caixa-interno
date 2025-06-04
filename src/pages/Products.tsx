@@ -24,7 +24,7 @@ export const Products = () => {
     preparationTime: 0,
     available: true
   });
-  const [selectedIngredients, setSelectedIngredients] = useState<{ingredientId: string, quantity: number}[]>([]);
+  const [selectedIngredients, setSelectedIngredients] = useState<{ ingredientId: string, quantity: number }[]>([]);
 
   const resetForm = () => {
     setFormData({
@@ -53,22 +53,27 @@ export const Products = () => {
     setSelectedIngredients(selectedIngredients.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const productData = {
       ...formData,
       ingredients: selectedIngredients.filter(ing => ing.ingredientId && ing.quantity > 0)
     };
-    
-    if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
-    } else {
-      addProduct(productData);
+
+    try {
+      if (editingProduct) {
+        await updateProduct(editingProduct.id, productData);
+      } else {
+        await addProduct(productData);
+      }
+
+      resetForm();
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      // Aqui você pode adicionar uma notificação de erro para o usuário
     }
-    
-    resetForm();
-    setIsDialogOpen(false);
   };
 
   const openEditDialog = (product: Product) => {
@@ -97,7 +102,7 @@ export const Products = () => {
 
   const formatIngredientQuantity = (ingredientId: string, quantity: number) => {
     const unit = getIngredientUnit(ingredientId);
-    
+
     // Formatação baseada na unidade
     if (unit === 'g' && quantity >= 1000) {
       return `${(quantity / 1000).toFixed(2)} kg`;
@@ -115,10 +120,10 @@ export const Products = () => {
           <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-600">Gerencie o cardápio do restaurante</p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button 
+            <Button
               className="bg-orange-500 hover:bg-orange-600"
               onClick={() => {
                 resetForm();
@@ -135,7 +140,7 @@ export const Products = () => {
                 {editingProduct ? 'Editar Produto' : 'Novo Produto'}
               </DialogTitle>
             </DialogHeader>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -143,7 +148,7 @@ export const Products = () => {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
                 </div>
@@ -152,23 +157,23 @@ export const Products = () => {
                   <Input
                     id="category"
                     value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     placeholder="Pizza, Bebida, Sobremesa..."
                     required
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="description">Descrição</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="price">Preço (R$)</Label>
@@ -177,7 +182,7 @@ export const Products = () => {
                     type="number"
                     step="0.01"
                     value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value) || 0})}
+                    onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                     required
                   />
                 </div>
@@ -187,12 +192,12 @@ export const Products = () => {
                     id="preparationTime"
                     type="number"
                     value={formData.preparationTime}
-                    onChange={(e) => setFormData({...formData, preparationTime: parseInt(e.target.value) || 0})}
+                    onChange={(e) => setFormData({ ...formData, preparationTime: parseInt(e.target.value) || 0 })}
                     required
                   />
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <Label>Ingredientes</Label>
@@ -245,24 +250,24 @@ export const Products = () => {
                   })}
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   id="available"
                   checked={formData.available}
-                  onChange={(e) => setFormData({...formData, available: e.target.checked})}
+                  onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
                 />
                 <Label htmlFor="available">Produto disponível</Label>
               </div>
-              
+
               <div className="flex space-x-2">
                 <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
                   {editingProduct ? 'Atualizar' : 'Criar'} Produto
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => setIsDialogOpen(false)}
                 >
                   Cancelar

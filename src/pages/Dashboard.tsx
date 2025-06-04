@@ -1,11 +1,10 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DollarSign, 
-  ShoppingCart, 
-  TrendingUp, 
+import {
+  DollarSign,
+  ShoppingCart,
+  TrendingUp,
   Package,
   AlertTriangle,
   Clock
@@ -13,17 +12,17 @@ import {
 import { useApp } from '@/contexts/AppContext';
 
 export const Dashboard = () => {
-  const { orders, sales, ingredients, products } = useApp();
+  const { orders = [], sales = [], ingredients = [], products = [] } = useApp();
 
-  const todaySales = sales.filter(sale => {
+  const todaySales = sales?.filter(sale => {
     const today = new Date();
     const saleDate = new Date(sale.createdAt);
     return saleDate.toDateString() === today.toDateString();
-  });
+  }) || [];
 
   const totalRevenue = todaySales.reduce((sum, sale) => sum + sale.total, 0);
-  const activeOrders = orders.filter(order => ['pending', 'preparing'].includes(order.status));
-  const lowStockIngredients = ingredients.filter(ing => ing.currentStock <= ing.minStock);
+  const activeOrders = orders?.filter(order => ['pending', 'preparing'].includes(order.status)) || [];
+  const lowStockIngredients = ingredients?.filter(ing => ing.currentStock <= ing.minStock) || [];
 
   const stats = [
     {
@@ -49,7 +48,7 @@ export const Dashboard = () => {
     },
     {
       title: 'Produtos Ativos',
-      value: products.filter(p => p.available).length.toString(),
+      value: (products?.filter(p => p.available) || []).length.toString(),
       icon: Package,
       color: 'text-purple-600',
       bg: 'bg-purple-100'
@@ -81,7 +80,7 @@ export const Dashboard = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -98,10 +97,10 @@ export const Dashboard = () => {
                       {order.customerName || `Mesa ${order.tableNumber}`}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {order.items.length} itens - R$ {order.total.toFixed(2)}
+                      {order.items?.length || 0} itens - R$ {order.total.toFixed(2)}
                     </p>
                   </div>
-                  <Badge 
+                  <Badge
                     variant={order.status === 'pending' ? 'destructive' : 'default'}
                   >
                     {order.status === 'pending' ? 'Pendente' : 'Preparando'}
