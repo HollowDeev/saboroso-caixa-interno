@@ -1,23 +1,42 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, TrendingUp, ShoppingCart, Calendar, Edit, Trash2, Plus } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingCart, Calendar, Edit, Trash2, Plus, CreditCard } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DirectSaleModal } from '@/components/DirectSaleModal';
 import { EditSaleModal } from '@/components/EditSaleModal';
-import { Sale } from '@/types';
+import { OpenCashRegisterModal } from '@/components/OpenCashRegisterModal';
+import { CloseCashRegisterModal } from '@/components/CloseCashRegisterModal';
+import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
+import { Sale, CashRegister, CashRegisterSale } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Sales = () => {
-  const { sales, orders, setSales } = useApp();
+  const { 
+    sales, 
+    orders, 
+    setSales, 
+    currentCashRegister, 
+    openCashRegister, 
+    closeCashRegister, 
+    checkCashRegisterAccess 
+  } = useApp();
+  
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [isOpenCashModalOpen, setIsOpenCashModalOpen] = useState(false);
+  const [isCloseCashModalOpen, setIsCloseCashModalOpen] = useState(false);
+  const [isNoCashModalOpen, setIsNoCashModalOpen] = useState(false);
+  const [cashHistory, setCashHistory] = useState<CashRegister[]>([]);
+  const [cashRegisterSales, setCashRegisterSales] = useState<CashRegisterSale[]>([]);
+
+  const isOwner = checkCashRegisterAccess();
 
   const getFilteredSales = () => {
     const now = new Date();
@@ -40,6 +59,47 @@ export const Sales = () => {
     });
   };
 
+  const handleDirectSale = () => {
+    if (!currentCashRegister) {
+      setIsNoCashModalOpen(true);
+      return;
+    }
+    setIsDirectSaleOpen(true);
+  };
+
+  const loadCashHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cash_registers')
+        .select('*')
+        .order('opened_at', { ascending: false });
+
+      if (error) throw error;
+      setCashHistory(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar histórico de caixas:', error);
+    }
+  };
+
+  const loadCashRegisterSales = async (cashRegisterId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('cash_register_sales')
+        .select('*')
+        .eq('cash_register_id', cashRegisterId)
+        .order('sale_date', { ascending: false });
+
+      if (error) throw error;
+      setCashRegisterSales(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar vendas do caixa:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadCashHistory();
+  }, [currentCashRegister]);
+
   const filteredSales = getFilteredSales();
   const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
   const totalSales = filteredSales.length;
@@ -52,8 +112,6 @@ export const Sales = () => {
     });
     return stats;
   };
-
-  const paymentStats = getPaymentMethodStats();
 
   const getDailySales = () => {
     const dailyStats: { [key: string]: { revenue: number, count: number } } = {};
@@ -73,6 +131,7 @@ export const Sales = () => {
   };
 
   const dailySales = getDailySales();
+  const paymentStats = getPaymentMethodStats();
 
   const getOrderForSale = (orderId: string) => {
     return orders.find(order => order.id === orderId);
@@ -111,17 +170,39 @@ export const Sales = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
-          <p className="text-gray-600">Análise e histórico de vendas</p>
+          <p className="text-gray-600">Análise, histórico de vendas e gerenciamento de caixa</p>
         </div>
         
         <div className="flex space-x-2">
           <Button
-            onClick={() => setIsDirectSaleOpen(true)}
+            onClick={handleDirectSale}
             className="bg-green-500 hover:bg-green-600"
           >
             <Plus className="h-4 w-4 mr-2" />
             Venda Direta
           </Button>
+          
+          {isOwner && (
+            <>
+              {!currentCashRegister ? (
+                <Button 
+                  onClick={() => setIsOpenCashModalOpen(true)}
+                  className="bg-blue-500 hover:bg-blue-600"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Abrir Caixa
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => setIsCloseCashModalOpen(true)}
+                  variant="destructive"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Fechar Caixa
+                </Button>
+              )}
+            </>
+          )}
           
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-48">
@@ -136,6 +217,29 @@ export const Sales = () => {
           </Select>
         </div>
       </div>
+
+      {/* Status do Caixa */}
+      {currentCashRegister && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-green-600">Caixa Aberto</h3>
+                <p className="text-sm text-gray-600">
+                  Aberto em: {new Date(currentCashRegister.opened_at).toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Valor inicial: R$ {currentCashRegister.opening_amount.toFixed(2)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold">R$ {currentCashRegister.total_sales.toFixed(2)}</p>
+                <p className="text-sm text-gray-600">{currentCashRegister.total_orders} vendas</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat, index) => (
@@ -155,56 +259,14 @@ export const Sales = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Formas de Pagamento</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span>Dinheiro</span>
-                <Badge variant="outline">{paymentStats.cash} vendas</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Cartão</span>
-                <Badge variant="outline">{paymentStats.card} vendas</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>PIX</span>
-                <Badge variant="outline">{paymentStats.pix} vendas</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Vendas por Dia</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {dailySales.map((day, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                  <span className="text-sm">{day.date}</span>
-                  <div className="text-right">
-                    <p className="font-semibold">R$ {day.revenue.toFixed(2)}</p>
-                    <p className="text-xs text-gray-600">{day.count} vendas</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="history" className="w-full">
+      <Tabs defaultValue="current" className="w-full">
         <TabsList>
-          <TabsTrigger value="history">Histórico de Vendas</TabsTrigger>
+          <TabsTrigger value="current">Vendas Atuais</TabsTrigger>
+          <TabsTrigger value="history">Histórico de Caixas</TabsTrigger>
           <TabsTrigger value="analysis">Análise Detalhada</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="history" className="mt-6">
+        <TabsContent value="current" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Histórico de Vendas</CardTitle>
@@ -294,7 +356,70 @@ export const Sales = () => {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
+        <TabsContent value="history" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico de Caixas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {cashHistory.map((cashRegister) => (
+                  <div key={cashRegister.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={cashRegister.is_open ? "default" : "secondary"}>
+                            {cashRegister.is_open ? 'Aberto' : 'Fechado'}
+                          </Badge>
+                          <span className="font-medium">
+                            {new Date(cashRegister.opened_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {new Date(cashRegister.opened_at).toLocaleTimeString()} - {' '}
+                          {cashRegister.closed_at ? new Date(cashRegister.closed_at).toLocaleTimeString() : 'Em andamento'}
+                        </p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => loadCashRegisterSales(cashRegister.id)}
+                      >
+                        Ver Detalhes
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Valor Inicial</p>
+                        <p className="font-semibold">R$ {cashRegister.opening_amount.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Total Vendas</p>
+                        <p className="font-semibold">R$ {cashRegister.total_sales.toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Nº Pedidos</p>
+                        <p className="font-semibold">{cashRegister.total_orders}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Valor Final</p>
+                        <p className="font-semibold">
+                          {cashRegister.closing_amount ? 
+                            `R$ ${cashRegister.closing_amount.toFixed(2)}` : 
+                            '--'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="analysis" className="mt-6">
           <Card>
             <CardHeader>
@@ -357,6 +482,7 @@ export const Sales = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Modals */}
       <DirectSaleModal 
         isOpen={isDirectSaleOpen}
         onClose={() => setIsDirectSaleOpen(false)}
@@ -365,6 +491,29 @@ export const Sales = () => {
       <EditSaleModal 
         sale={editingSale}
         onClose={() => setEditingSale(null)}
+      />
+
+      <OpenCashRegisterModal
+        isOpen={isOpenCashModalOpen}
+        onClose={() => setIsOpenCashModalOpen(false)}
+        onConfirm={openCashRegister}
+      />
+
+      <CloseCashRegisterModal
+        isOpen={isCloseCashModalOpen}
+        onClose={() => setIsCloseCashModalOpen(false)}
+        onConfirm={closeCashRegister}
+        cashRegister={currentCashRegister}
+      />
+
+      <NoCashRegisterModal
+        isOpen={isNoCashModalOpen}
+        onClose={() => setIsNoCashModalOpen(false)}
+        isOwner={isOwner}
+        onOpenCashRegister={() => {
+          setIsNoCashModalOpen(false);
+          setIsOpenCashModalOpen(true);
+        }}
       />
     </div>
   );

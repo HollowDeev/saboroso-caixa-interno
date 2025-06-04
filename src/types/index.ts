@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -92,4 +93,32 @@ export interface ServiceTax {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface CashRegister {
+  id: string;
+  owner_id: string;
+  opened_at: string;
+  closed_at?: string;
+  opening_amount: number;
+  closing_amount?: number;
+  total_sales: number;
+  total_orders: number;
+  is_open: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CashRegisterSale {
+  id: string;
+  cash_register_id: string;
+  order_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  product_cost: number;
+  profit: number;
+  sale_date: string;
+  created_at: string;
 }

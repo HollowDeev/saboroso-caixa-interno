@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User, Ingredient, Product, Order, Sale, ServiceTax } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useCashRegister } from '@/hooks/useCashRegister';
 
 interface AppContextType {
   currentUser: User | null;
@@ -21,6 +23,11 @@ interface AppContextType {
   addServiceTax: (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateServiceTax: (id: string, tax: Partial<ServiceTax>) => void;
   deleteServiceTax: (id: string) => void;
+  // Cash register methods
+  currentCashRegister: any;
+  openCashRegister: (amount: number) => Promise<any>;
+  closeCashRegister: (amount: number) => Promise<void>;
+  checkCashRegisterAccess: () => boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -41,6 +48,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     role: 'admin',
     createdAt: new Date()
   });
+
+  const { currentCashRegister, openCashRegister, closeCashRegister } = useCashRegister();
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     {
@@ -95,6 +104,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
 
+  const checkCashRegisterAccess = () => {
+    return currentUser?.role === 'admin';
+  };
+
   const addIngredient = (ingredient: Omit<Ingredient, 'id' | 'lastUpdated'>) => {
     const newIngredient: Ingredient = {
       ...ingredient,
@@ -140,6 +153,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return { subtotal, taxesTotal, total: subtotal + taxesTotal };
   };
 
+  const saveSaleToCashRegister = async (order: Order) => {
+    if (!currentCashRegister) return;
+
+    try {
+      // Calcular custo total dos produtos
+      const salesData = order.items.map(item => {
+        const product = products.find(p => p.id === item.productId);
+        const productCost = product ? product.ingredients.reduce((cost, ingredient) => {
+          const ing = ingredients.find(i => i.id === ingredient.ingredientId);
+          return cost + (ing ? ing.cost * ingredient.quantity : 0);
+        }, 0) : 0;
+
+        return {
+          cash_register_id: currentCashRegister.id,
+          order_id: order.id,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice,
+          product_cost: productCost * item.quantity,
+          profit: item.totalPrice - (productCost * item.quantity)
+        };
+      });
+
+      await supabase.from('cash_register_sales').insert(salesData);
+
+      // Atualizar totais do caixa
+      await supabase
+        .from('cash_registers')
+        .update({
+          total_sales: currentCashRegister.total_sales + order.total,
+          total_orders: currentCashRegister.total_orders + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentCashRegister.id);
+
+    } catch (error) {
+      console.error('Erro ao salvar venda no caixa:', error);
+    }
+  };
+
   const updateOrder = (id: string, order: Partial<Order>) => {
     setOrders(prev => prev.map(ord => {
       if (ord.id === id) {
@@ -169,6 +223,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             userId: updatedOrder.userId
           };
           setSales(prev => [...prev, newSale]);
+
+          // Salvar no caixa
+          saveSaleToCashRegister(updatedOrder);
 
           // Atualizar estoque dos ingredientes
           updatedOrder.items.forEach(item => {
@@ -248,6 +305,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       addServiceTax,
       updateServiceTax,
       deleteServiceTax,
+      currentCashRegister,
+      openCashRegister,
+      closeCashRegister,
+      checkCashRegisterAccess,
     }}>
       {children}
     </AppContext.Provider>

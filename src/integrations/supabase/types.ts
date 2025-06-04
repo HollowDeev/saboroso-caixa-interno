@@ -9,6 +9,98 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cash_register_sales: {
+        Row: {
+          cash_register_id: string
+          created_at: string
+          id: string
+          order_id: string
+          product_cost: number
+          product_name: string
+          profit: number
+          quantity: number
+          sale_date: string
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          cash_register_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          product_cost?: number
+          product_name: string
+          profit?: number
+          quantity: number
+          sale_date?: string
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          cash_register_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_cost?: number
+          product_name?: string
+          profit?: number
+          quantity?: number
+          sale_date?: string
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_register_sales_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_registers: {
+        Row: {
+          closed_at: string | null
+          closing_amount: number | null
+          created_at: string
+          id: string
+          is_open: boolean
+          opened_at: string
+          opening_amount: number | null
+          owner_id: string
+          total_orders: number | null
+          total_sales: number | null
+          updated_at: string
+        }
+        Insert: {
+          closed_at?: string | null
+          closing_amount?: number | null
+          created_at?: string
+          id?: string
+          is_open?: boolean
+          opened_at?: string
+          opening_amount?: number | null
+          owner_id: string
+          total_orders?: number | null
+          total_sales?: number | null
+          updated_at?: string
+        }
+        Update: {
+          closed_at?: string | null
+          closing_amount?: number | null
+          created_at?: string
+          id?: string
+          is_open?: boolean
+          opened_at?: string
+          opening_amount?: number | null
+          owner_id?: string
+          total_orders?: number | null
+          total_sales?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           access_key: string
@@ -81,6 +173,10 @@ export type Database = {
           p_password: string
           p_name: string
         }
+        Returns: string
+      }
+      get_open_cash_register: {
+        Args: { p_owner_id: string }
         Returns: string
       }
       verify_employee_credentials: {
