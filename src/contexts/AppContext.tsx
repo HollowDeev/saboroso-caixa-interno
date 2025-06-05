@@ -24,6 +24,7 @@ interface AppContextType {
   setCurrentUser: (user: User | null) => void;
   addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
   updateProduct: (id: string, product: Partial<Product>) => Promise<Product>;
+  deleteProduct: (id: string) => Promise<void>;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Order>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
@@ -108,16 +109,41 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Carregar produtos ao montar o componente
   useEffect(() => {
     const loadProducts = async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*');
+      try {
+        // Primeiro carrega as comidas
+        const { data: foods, error: foodsError } = await supabase
+          .from('foods')
+          .select('*')
+          .is('deleted_at', null);
 
-      if (error) {
+        if (foodsError) throw foodsError;
+
+        // Depois carrega os ingredientes de cada comida
+        const { data: foodIngredients, error: ingredientsError } = await supabase
+          .from('food_ingredients')
+          .select('*')
+          .in('food_id', foods.map(f => f.id));
+
+        if (ingredientsError) throw ingredientsError;
+
+        // Mapeia os ingredientes para cada comida
+        const productsWithIngredients = foods.map(food => ({
+          ...food,
+          ingredients: foodIngredients
+            .filter(fi => fi.food_id === food.id)
+            .map(fi => ({
+              ingredientId: fi.ingredient_id,
+              quantity: fi.quantity,
+              unit: fi.unit
+            })),
+          created_at: new Date(food.created_at),
+          updated_at: new Date(food.updated_at)
+        }));
+
+        setProducts(productsWithIngredients);
+      } catch (error) {
         console.error('Erro ao carregar produtos:', error);
-        return;
       }
-
-      setProducts(data || []);
     };
 
     loadProducts();
@@ -151,46 +177,149 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Função para adicionar produto
   const addProduct = async (product: Omit<Product, 'id'>) => {
-    const newProduct: Product = {
-      id: crypto.randomUUID(),
-      ...product,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
+    try {
+      // Primeiro, insere a comida na tabela foods
+      const { data: foodData, error: foodError } = await supabase
+        .from('foods')
+        .insert([{
+          name: product.name,
+          description: product.description,
+          category: product.category,
+          price: product.price,
+          cost: product.cost,
+          preparation_time: product.preparationTime || 0,
+          available: product.available,
+          owner_id: currentUser?.id
+        }])
+        .select()
+        .single();
 
-    const { data, error } = await supabase
-      .from('products')
-      .insert([newProduct])
-      .select()
-      .single();
+      if (foodError) throw foodError;
 
-    if (error) {
+      // Depois, insere os ingredientes na tabela food_ingredients
+      if (product.ingredients?.length > 0) {
+        const foodIngredients = product.ingredients.map(ing => ({
+          food_id: foodData.id,
+          ingredient_id: ing.ingredientId,
+          quantity: ing.quantity,
+          unit: ing.unit
+        }));
+
+        const { error: ingredientsError } = await supabase
+          .from('food_ingredients')
+          .insert(foodIngredients);
+
+        if (ingredientsError) throw ingredientsError;
+      }
+
+      // Retorna o produto completo
+      const newProduct = {
+        ...foodData,
+        ingredients: product.ingredients || [],
+        created_at: new Date(foodData.created_at),
+        updated_at: new Date(foodData.updated_at)
+      };
+
+      setProducts(prev => [...prev, newProduct]);
+      return newProduct;
+    } catch (error) {
       console.error('Erro ao salvar produto:', error);
       throw error;
     }
-
-    setProducts(prev => [...prev, data]);
-    return data;
   };
 
   // Função para atualizar produto
   const updateProduct = async (id: string, product: Partial<Product>) => {
-    const { data, error } = await supabase
-      .from('products')
-      .update({ ...product, updated_at: new Date() })
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      // Primeiro, atualiza a comida na tabela foods
+      const { data: foodData, error: foodError } = await supabase
+        .from('foods')
+        .update({
+          name: product.name,
+          description: product.description,
+          category: product.category,
+          price: product.price,
+          cost: product.cost,
+          preparation_time: product.preparationTime,
+          available: product.available,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) {
+      if (foodError) throw foodError;
+
+      // Se houver ingredientes para atualizar
+      if (product.ingredients) {
+        // Remove todos os ingredientes antigos
+        const { error: deleteError } = await supabase
+          .from('food_ingredients')
+          .delete()
+          .eq('food_id', id);
+
+        if (deleteError) throw deleteError;
+
+        // Insere os novos ingredientes
+        if (product.ingredients.length > 0) {
+          const foodIngredients = product.ingredients.map(ing => ({
+            food_id: id,
+            ingredient_id: ing.ingredientId,
+            quantity: ing.quantity,
+            unit: ing.unit
+          }));
+
+          const { error: ingredientsError } = await supabase
+            .from('food_ingredients')
+            .insert(foodIngredients);
+
+          if (ingredientsError) throw ingredientsError;
+        }
+      }
+
+      // Retorna o produto atualizado
+      const updatedProduct = {
+        ...foodData,
+        ingredients: product.ingredients || [],
+        created_at: new Date(foodData.created_at),
+        updated_at: new Date(foodData.updated_at)
+      };
+
+      setProducts(prev =>
+        prev.map(p => (p.id === id ? updatedProduct : p))
+      );
+      return updatedProduct;
+    } catch (error) {
       console.error('Erro ao atualizar produto:', error);
       throw error;
     }
+  };
 
-    setProducts(prev =>
-      prev.map(p => (p.id === id ? { ...p, ...data } : p))
-    );
-    return data;
+  // Função para excluir produto
+  const deleteProduct = async (id: string) => {
+    try {
+      // Primeiro remove os ingredientes da comida
+      const { error: deleteIngredientsError } = await supabase
+        .from('food_ingredients')
+        .delete()
+        .eq('food_id', id);
+
+      if (deleteIngredientsError) throw deleteIngredientsError;
+
+      // Depois remove a comida
+      const { error: deleteFoodError } = await supabase
+        .from('foods')
+        .delete()
+        .eq('id', id);
+
+      if (deleteFoodError) throw deleteFoodError;
+
+      // Atualiza o estado local
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir produto:', error);
+      throw error;
+    }
   };
 
   // Função para adicionar pedido
@@ -264,6 +393,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser,
         addProduct,
         updateProduct,
+        deleteProduct,
         addOrder,
         updateOrder,
         addSale,

@@ -7,8 +7,6 @@ import { AppProvider } from "./contexts/AppContext";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
 import { Orders } from "./pages/Orders";
-import { Products } from "./pages/Products";
-import { Ingredients } from "./pages/Ingredients";
 import { StockManagement } from "./pages/StockManagement";
 import { Sales } from "./pages/Sales";
 import { Users } from "./pages/Users";
@@ -166,8 +164,6 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/orders" element={<Orders />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/ingredients" element={<Ingredients />} />
                   <Route path="/stock" element={<StockManagement />} />
                   <Route path="/sales" element={<Sales />} />
                   <Route path="/users" element={<Users />} />

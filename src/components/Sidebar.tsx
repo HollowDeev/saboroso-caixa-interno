@@ -23,12 +23,9 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Comandas', href: '/orders', icon: Receipt },
-  { name: 'Produtos', href: '/products', icon: Package },
-  { name: 'Ingredientes', href: '/ingredients', icon: ChefHat },
   { name: 'Estoque', href: '/stock', icon: Package2 },
   { name: 'Vendas', href: '/sales', icon: ShoppingCart },
   { name: 'Calculadora', href: '/calculator', icon: Calculator },
-  { name: 'Relatórios', href: '/analytics', icon: BarChart3 },
   { name: 'Usuários', href: '/users', icon: Users },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];

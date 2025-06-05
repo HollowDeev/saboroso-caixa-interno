@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { supabase } from '@/integrations/supabase/client';
 
 // Interface para produtos externos (como bebidas)
 interface ExternalProduct {
@@ -77,7 +78,7 @@ const formatStockValue = (value: number, baseUnit: Unit): { value: number; unit:
 };
 
 export const StockManagement = () => {
-  const { currentUser, products, addProduct } = useApp();
+  const { currentUser, products, addProduct, updateProduct, deleteProduct } = useApp();
   const {
     ingredients,
     externalProducts,
@@ -331,12 +332,18 @@ export const StockManagement = () => {
     e.preventDefault();
 
     try {
-      await addProduct({
-        ...newFoodForm,
-        created_at: new Date(),
-        updated_at: new Date()
+      const newProduct = await addProduct({
+        name: newFoodForm.name,
+        description: newFoodForm.description,
+        category: newFoodForm.category,
+        price: newFoodForm.price,
+        cost: newFoodForm.cost,
+        available: newFoodForm.available,
+        ingredients: newFoodForm.ingredients,
+        preparationTime: 0
       });
 
+      setIsNewFoodDialogOpen(false);
       setNewFoodForm({
         name: '',
         category: '',
@@ -346,10 +353,18 @@ export const StockManagement = () => {
         available: true,
         ingredients: []
       });
-      setIsNewFoodDialogOpen(false);
+
+      toast({
+        title: 'Comida adicionada',
+        description: 'A comida foi adicionada com sucesso.',
+      });
     } catch (error) {
       console.error('Erro ao salvar comida:', error);
-      // Aqui você pode adicionar uma notificação de erro para o usuário
+      toast({
+        title: 'Erro ao salvar comida',
+        description: 'Não foi possível salvar a comida.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -511,24 +526,18 @@ export const StockManagement = () => {
     if (!selectedFood) return;
 
     try {
-      await addProduct({
-        ...newFoodForm,
-        id: selectedFood.id,
-        created_at: selectedFood.created_at,
-        updated_at: new Date()
+      await updateProduct(selectedFood.id, {
+        name: newFoodForm.name,
+        description: newFoodForm.description,
+        category: newFoodForm.category,
+        price: newFoodForm.price,
+        cost: newFoodForm.cost,
+        available: newFoodForm.available,
+        ingredients: newFoodForm.ingredients
       });
 
       setIsEditFoodDialogOpen(false);
       setSelectedFood(null);
-      setNewFoodForm({
-        name: '',
-        category: '',
-        description: '',
-        price: 0,
-        cost: 0,
-        available: true,
-        ingredients: []
-      });
 
       toast({
         title: 'Comida atualizada',
@@ -550,21 +559,25 @@ export const StockManagement = () => {
 
     try {
       if (itemToDelete.type === 'food') {
-        // Excluir comida
-        await addProduct({
-          id: itemToDelete.id,
-          name: '',
-          category: '',
-          description: '',
-          price: 0,
-          cost: 0,
-          available: false,
-          ingredients: [],
-          _delete: true // Flag especial para exclusão
+        await deleteProduct(itemToDelete.id);
+
+        toast({
+          title: 'Comida excluída',
+          description: `${itemToDelete.name} foi excluída com sucesso.`,
         });
       } else {
-        // Excluir ingrediente
-        await deleteIngredient(itemToDelete.id);
+        // Lógica para excluir ingrediente
+        const { error } = await supabase
+          .from('ingredients')
+          .delete()
+          .eq('id', itemToDelete.id);
+
+        if (error) throw error;
+
+        toast({
+          title: 'Ingrediente excluído',
+          description: `${itemToDelete.name} foi excluído com sucesso.`,
+        });
       }
 
       setIsDeleteConfirmOpen(false);
@@ -573,7 +586,7 @@ export const StockManagement = () => {
       console.error('Erro ao excluir item:', error);
       toast({
         title: 'Erro ao excluir',
-        description: `Não foi possível excluir ${itemToDelete.type === 'food' ? 'a comida' : 'o ingrediente'}.`,
+        description: 'Não foi possível excluir o item.',
         variant: 'destructive',
       });
     }
