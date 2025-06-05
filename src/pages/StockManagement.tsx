@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Minus, Package, AlertTriangle, CheckCircle, Edit, Trash2 } from 'lucide-react';
+import { Plus, Minus, Package, AlertTriangle, CheckCircle, Edit, Trash2, MoreHorizontal } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,17 +26,28 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from '@/lib/utils';
 
 // Interface para produtos externos (como bebidas)
 interface ExternalProduct {
   id: string;
   name: string;
-  brand: string;
-  description?: string;
+  brand: string | null;
+  description: string | null;
+  current_stock: number;
+  min_stock: number;
   cost: number;
   price: number;
-  currentStock: number;
-  minStock: number;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface NewIngredientForm {
@@ -59,22 +70,28 @@ interface NewProductForm {
   minStock: number;
 }
 
-// Função para formatar o valor do estoque para a melhor unidade
-const formatStockValue = (value: number, baseUnit: Unit): { value: number; unit: Unit } => {
-  if (baseUnit === 'unidade') return { value, unit: baseUnit };
+interface DeleteItem {
+  type: 'ingredient' | 'product';
+  id: string;
+  name: string;
+}
 
-  if (isMassUnit(baseUnit)) {
-    if (value >= 1) return { value: Number(value.toFixed(3)), unit: 'kg' };
-    if (value >= 0.001) return { value: Number(convertFromBaseUnit(value, 'kg', 'g').toFixed(1)), unit: 'g' };
-    return { value: Number(convertFromBaseUnit(value, 'kg', 'mg').toFixed(0)), unit: 'mg' };
+// Função para formatar o valor do estoque
+const formatStockValue = (value: number) => {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+
+const getStockStatus = (currentStock: number, minStock: number) => {
+  if (currentStock <= minStock) {
+    return { status: 'danger', label: 'Crítico' };
   }
 
-  if (isVolumeUnit(baseUnit)) {
-    if (value >= 1) return { value: Number(value.toFixed(3)), unit: 'L' };
-    return { value: Number(convertFromBaseUnit(value, 'L', 'ml').toFixed(0)), unit: 'ml' };
+  const percentageAboveMin = ((currentStock - minStock) / minStock) * 100;
+  if (percentageAboveMin <= 25) {
+    return { status: 'warning', label: 'Baixo' };
   }
 
-  return { value: Number(value.toFixed(3)), unit: baseUnit };
+  return { status: 'safe', label: 'Normal' };
 };
 
 export const StockManagement = () => {
@@ -84,12 +101,16 @@ export const StockManagement = () => {
     externalProducts,
     addIngredient,
     addExternalProduct,
+    updateExternalProduct,
     updateStock,
     updateIngredient,
     loading: stockLoading,
     addStockEntry,
+    addExternalProductEntry,
     consumeStock,
+    consumeExternalProductStock,
     stockEntries,
+    externalProductEntries,
     deleteIngredient
   } = useStock(currentUser?.id || '');
 
@@ -98,6 +119,8 @@ export const StockManagement = () => {
   const [isNewIngredientDialogOpen, setIsNewIngredientDialogOpen] = useState(false);
   const [isEditIngredientDialogOpen, setIsEditIngredientDialogOpen] = useState(false);
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
+  const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<ExternalProduct | null>(null);
   const [isNewFoodDialogOpen, setIsNewFoodDialogOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
   const [adjustmentQuantity, setAdjustmentQuantity] = useState(0);
@@ -184,18 +207,17 @@ export const StockManagement = () => {
   }, [newFoodForm.ingredients, ingredients]);
 
   // Funções de status de estoque
-  const getStockStatus = (current: number, min: number) => {
-    if (current <= min) {
-      return { status: 'danger', color: 'red', label: 'Crítico' };
+  const getStockStatus = (currentStock: number, minStock: number) => {
+    if (currentStock <= minStock) {
+      return { status: 'danger', label: 'Crítico' };
     }
 
-    const percentageAboveMin = ((current - min) / min) * 100;
-
+    const percentageAboveMin = ((currentStock - minStock) / minStock) * 100;
     if (percentageAboveMin <= 25) {
-      return { status: 'warning', color: 'yellow', label: 'Baixo' };
+      return { status: 'warning', label: 'Baixo' };
     }
 
-    return { status: 'safe', color: 'green', label: 'Normal' };
+    return { status: 'safe', label: 'Normal' };
   };
 
   const getStockStatusBadge = (current: number, min: number) => {
@@ -227,44 +249,80 @@ export const StockManagement = () => {
   };
 
   // Funções de ajuste de estoque
-  const openStockDialog = (ingredient: Ingredient, type: 'add' | 'remove') => {
+  const openStockDialog = (ingredient: Ingredient | null, product: ExternalProduct | null, type: 'add' | 'remove') => {
     setSelectedIngredient(ingredient);
+    setSelectedProduct(product);
     setAdjustmentType(type);
     setAdjustmentQuantity(0);
+    setUnitCost(0);
+    setSupplier('');
+    setInvoiceNumber('');
+    setNotes('');
     setIsStockDialogOpen(true);
   };
 
   const handleStockAdjustment = async () => {
-    if (!selectedIngredient || adjustmentQuantity <= 0) return;
+    if (selectedIngredient) {
+      if (adjustmentQuantity <= 0) return;
 
-    if (adjustmentType === 'add') {
-      if (unitCost <= 0) {
-        toast({
-          title: 'Erro',
-          description: 'O custo unitário deve ser maior que zero.',
-          variant: 'destructive',
-        });
-        return;
+      if (adjustmentType === 'add') {
+        if (unitCost <= 0) {
+          toast({
+            title: 'Erro',
+            description: 'O custo unitário deve ser maior que zero.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        await addStockEntry(
+          selectedIngredient.id,
+          adjustmentQuantity,
+          unitCost,
+          supplier || undefined,
+          invoiceNumber || undefined,
+          notes || undefined
+        );
+      } else {
+        await consumeStock(
+          selectedIngredient.id,
+          adjustmentQuantity,
+          'Consumo manual de estoque'
+        );
       }
+    } else if (selectedProduct) {
+      if (adjustmentQuantity <= 0) return;
 
-      await addStockEntry(
-        selectedIngredient.id,
-        adjustmentQuantity,
-        unitCost,
-        supplier || undefined,
-        invoiceNumber || undefined,
-        notes || undefined
-      );
-    } else {
-      await consumeStock(
-        selectedIngredient.id,
-        adjustmentQuantity,
-        'Consumo manual de estoque'
-      );
+      if (adjustmentType === 'add') {
+        if (unitCost <= 0) {
+          toast({
+            title: 'Erro',
+            description: 'O custo unitário deve ser maior que zero.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        await addExternalProductEntry(
+          selectedProduct.id,
+          adjustmentQuantity,
+          unitCost,
+          supplier || undefined,
+          invoiceNumber || undefined,
+          notes || undefined
+        );
+      } else {
+        await consumeExternalProductStock(
+          selectedProduct.id,
+          adjustmentQuantity,
+          'Consumo manual de estoque'
+        );
+      }
     }
 
     setIsStockDialogOpen(false);
     setSelectedIngredient(null);
+    setSelectedProduct(null);
     setAdjustmentQuantity(0);
     setUnitCost(0);
     setSupplier('');
@@ -313,17 +371,18 @@ export const StockManagement = () => {
       current_stock: newProductForm.currentStock,
       min_stock: newProductForm.minStock,
       cost: newProductForm.cost,
-      price: newProductForm.price
+      price: newProductForm.price,
+      owner_id: currentUser?.id || ''
     });
 
     setNewProductForm({
       name: '',
       brand: '',
       description: '',
-      cost: 0,
-      price: 0,
       currentStock: 0,
-      minStock: 0
+      minStock: 0,
+      cost: 0,
+      price: 0
     });
     setIsNewProductDialogOpen(false);
   };
@@ -499,7 +558,7 @@ export const StockManagement = () => {
   const [isEditFoodDialogOpen, setIsEditFoodDialogOpen] = useState(false);
   const [selectedFood, setSelectedFood] = useState<Product | null>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ type: 'food' | 'ingredient', id: string, name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<DeleteItem | null>(null);
 
   // Função para abrir diálogo de edição de comida
   const openEditFoodDialog = (food: Product) => {
@@ -553,42 +612,85 @@ export const StockManagement = () => {
     }
   };
 
+  // Função para abrir o diálogo de edição de produto
+  const openEditProductDialog = (product: ExternalProduct) => {
+    setSelectedProduct(product);
+    setNewProductForm({
+      name: product.name,
+      brand: product.brand || '',
+      description: product.description || '',
+      cost: product.cost,
+      price: product.price,
+      currentStock: product.current_stock,
+      minStock: product.min_stock
+    });
+    setIsEditProductDialogOpen(true);
+  };
+
+  // Função para editar produto
+  const handleEditProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!selectedProduct) return;
+
+    await updateExternalProduct(selectedProduct.id, {
+      name: newProductForm.name,
+      brand: newProductForm.brand || null,
+      description: newProductForm.description || null,
+      current_stock: newProductForm.currentStock,
+      min_stock: newProductForm.minStock,
+      cost: newProductForm.cost,
+      price: newProductForm.price
+    });
+
+    setNewProductForm({
+      name: '',
+      brand: '',
+      description: '',
+      currentStock: 0,
+      minStock: 0,
+      cost: 0,
+      price: 0
+    });
+    setIsEditProductDialogOpen(false);
+    setSelectedProduct(null);
+  };
+
   // Função para confirmar exclusão
-  const handleDeleteConfirm = async () => {
+  const handleDeleteProduct = async (productId: string) => {
+    setItemToDelete({
+      type: 'product',
+      id: productId,
+      name: externalProducts.find(p => p.id === productId)?.name || ''
+    });
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteProduct = async () => {
     if (!itemToDelete) return;
 
     try {
-      if (itemToDelete.type === 'food') {
-        await deleteProduct(itemToDelete.id);
+      const { error } = await supabase
+        .from('external_products')
+        .delete()
+        .eq('id', itemToDelete.id);
 
-        toast({
-          title: 'Comida excluída',
-          description: `${itemToDelete.name} foi excluída com sucesso.`,
-        });
-      } else {
-        // Lógica para excluir ingrediente
-        const { error } = await supabase
-          .from('ingredients')
-          .delete()
-          .eq('id', itemToDelete.id);
+      if (error) throw error;
 
-        if (error) throw error;
-
-        toast({
-          title: 'Ingrediente excluído',
-          description: `${itemToDelete.name} foi excluído com sucesso.`,
-        });
-      }
-
-      setIsDeleteConfirmOpen(false);
-      setItemToDelete(null);
-    } catch (error) {
-      console.error('Erro ao excluir item:', error);
       toast({
-        title: 'Erro ao excluir',
-        description: 'Não foi possível excluir o item.',
+        title: 'Produto excluído',
+        description: `O produto "${itemToDelete.name}" foi excluído com sucesso.`,
+      });
+    } catch (error) {
+      console.error('Erro ao excluir produto:', error);
+      toast({
+        title: 'Erro ao excluir produto',
+        description: 'Não foi possível excluir o produto.',
         variant: 'destructive',
       });
+    } finally {
+      setIsDeleteConfirmOpen(false);
+      setItemToDelete(null);
     }
   };
 
@@ -658,13 +760,13 @@ export const StockManagement = () => {
                               'text-green-600'
                             }`}>
                             {(() => {
-                              const formattedCurrent = formatStockValue(ingredient.current_stock, ingredient.unit);
-                              return `${formattedCurrent.value} ${formattedCurrent.unit}`;
+                              const formattedCurrent = formatStockValue(ingredient.current_stock);
+                              return `${formattedCurrent} ${ingredient.unit}`;
                             })()}
                           </span>
                           <span className="text-gray-500">/ {(() => {
-                            const formattedMin = formatStockValue(ingredient.min_stock, ingredient.unit);
-                            return `${formattedMin.value} ${formattedMin.unit}`;
+                            const formattedMin = formatStockValue(ingredient.min_stock);
+                            return `${formattedMin} ${ingredient.unit}`;
                           })()} min</span>
                         </div>
 
@@ -683,7 +785,7 @@ export const StockManagement = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => openStockDialog(ingredient, 'add')}
+                            onClick={() => openStockDialog(ingredient, null, 'add')}
                             className="flex-1 text-green-600 hover:text-green-700"
                           >
                             <Plus className="h-4 w-4 mr-2" />
@@ -692,7 +794,7 @@ export const StockManagement = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => openStockDialog(ingredient, 'remove')}
+                            onClick={() => openStockDialog(ingredient, null, 'remove')}
                             className="flex-1 text-red-600 hover:text-red-700"
                           >
                             <Minus className="h-4 w-4 mr-2" />
@@ -773,70 +875,115 @@ export const StockManagement = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {externalProducts.map((product) => (
                   <Card key={product.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{product.name}</CardTitle>
-                          <p className="text-sm text-gray-500">{product.brand}</p>
-                        </div>
-                        {getStockStatusBadge(product.current_stock, product.min_stock)}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                          {getStockIcon(product.current_stock, product.min_stock)}
-                          <span className={`font-medium ${getStockStatus(product.current_stock, product.min_stock).status === 'danger' ? 'text-red-600' :
-                            getStockStatus(product.current_stock, product.min_stock).status === 'warning' ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                            {(() => {
-                              const formattedCurrent = formatStockValue(product.current_stock, product.unit);
-                              return `${formattedCurrent.value} ${formattedCurrent.unit}`;
-                            })()}
-                          </span>
-                          <span className="text-gray-500">/ {(() => {
-                            const formattedMin = formatStockValue(product.min_stock, product.unit);
-                            return `${formattedMin.value} ${formattedMin.unit}`;
-                          })()} min</span>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Custo:</span>
-                            <span>R$ {product.cost.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Preço de Venda:</span>
-                            <span>R$ {product.price.toFixed(2)}</span>
-                          </div>
-                          {product.description && (
-                            <p className="text-sm text-gray-600">{product.description}</p>
+                        <div className="space-y-1">
+                          <CardTitle className="text-lg font-semibold">{product.name}</CardTitle>
+                          {product.brand && (
+                            <p className="text-sm text-muted-foreground">{product.brand}</p>
                           )}
                         </div>
+                        <Badge
+                          variant={getStockStatus(product.current_stock, product.min_stock).status === 'safe' ? 'default' : 'destructive'}
+                        >
+                          {getStockStatus(product.current_stock, product.min_stock).label}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-1">
+                          {getStockStatus(product.current_stock, product.min_stock).status === 'safe' ? (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 text-red-500" />
+                          )}
+                          <span className={cn(
+                            "text-base font-medium",
+                            getStockStatus(product.current_stock, product.min_stock).status === 'safe'
+                              ? "text-green-600"
+                              : "text-red-600"
+                          )}>
+                            {formatStockValue(product.current_stock)} unidades
+                          </span>
+                          <span className="text-sm text-muted-foreground">/ {formatStockValue(product.min_stock)} min</span>
+                        </div>
 
-                        <div className="flex space-x-2">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Custo médio:</span>
+                            <span className="text-sm font-medium">
+                              R$ {product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">Preço de venda:</span>
+                            <span className="text-sm font-medium">
+                              R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-500 mb-2">Últimas Entradas:</p>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {externalProductEntries
+                              .filter(entry => entry.product_id === product.id)
+                              .map(entry => (
+                                <div key={entry.id} className="text-sm p-2 bg-gray-50 rounded-md">
+                                  <div className="flex justify-between">
+                                    <span>{entry.quantity} un</span>
+                                    <span>R$ {entry.unit_cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/un</span>
+                                  </div>
+                                  <div className="flex justify-between text-gray-500">
+                                    <span>Restante: {entry.remaining_quantity} un</span>
+                                    <span>{new Date(entry.created_at).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1"
+                              >
+                                <Package className="h-4 w-4 mr-2" />
+                                Ajustar Estoque
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => openStockDialog(null, product, 'add')}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Entrada
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openStockDialog(null, product, 'remove')}>
+                                <Minus className="h-4 w-4 mr-2" />
+                                Saída
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              // TODO: Implementar ajuste de estoque para produtos externos
-                            }}
-                            className="flex-1 text-green-600 hover:text-green-700"
+                            onClick={() => openEditProductDialog(product)}
+                            className="flex-1"
                           >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Adicionar
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
-                              // TODO: Implementar ajuste de estoque para produtos externos
-                            }}
-                            className="flex-1 text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteProduct(product.id)}
+                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
-                            <Minus className="h-4 w-4 mr-2" />
-                            Remover
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir
                           </Button>
                         </div>
                       </div>
@@ -1022,13 +1169,13 @@ export const StockManagement = () => {
                           <AlertTriangle className="h-4 w-4 text-red-500" />
                           <span className="font-medium text-red-600">
                             {(() => {
-                              const formattedCurrent = formatStockValue(item.current_stock, item.unit);
-                              return `${formattedCurrent.value} ${formattedCurrent.unit}`;
+                              const formattedCurrent = formatStockValue(item.current_stock);
+                              return `${formattedCurrent} ${item.unit}`;
                             })()}
                           </span>
                           <span className="text-red-500">/ {(() => {
-                            const formattedMin = formatStockValue(item.min_stock, item.unit);
-                            return `${formattedMin.value} ${formattedMin.unit}`;
+                            const formattedMin = formatStockValue(item.min_stock);
+                            return `${formattedMin} ${item.unit}`;
                           })()} min</span>
                         </div>
                       </div>
@@ -1054,13 +1201,13 @@ export const StockManagement = () => {
                             <AlertTriangle className="h-4 w-4 text-red-500" />
                             <span className="font-medium text-red-600">
                               {(() => {
-                                const formattedCurrent = formatStockValue(product.current_stock, product.unit);
-                                return `${formattedCurrent.value} ${formattedCurrent.unit}`;
+                                const formattedCurrent = formatStockValue(product.current_stock);
+                                return `${formattedCurrent} ${product.unit}`;
                               })()}
                             </span>
                             <span className="text-red-500">/ {(() => {
-                              const formattedMin = formatStockValue(product.min_stock, product.unit);
-                              return `${formattedMin.value} ${formattedMin.unit}`;
+                              const formattedMin = formatStockValue(product.min_stock);
+                              return `${formattedMin} ${product.unit}`;
                             })()} min</span>
                           </div>
                         </div>
@@ -1075,28 +1222,52 @@ export const StockManagement = () => {
 
       {/* Modal de Ajuste de Estoque */}
       <Dialog open={isStockDialogOpen} onOpenChange={setIsStockDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>
-              {adjustmentType === 'add' ? 'Nova Entrada de Estoque' : 'Consumir Estoque'}
-            </DialogTitle>
+            <DialogTitle>Ajustar Estoque</DialogTitle>
+            <DialogDescription>
+              {selectedIngredient
+                ? `Ajuste o estoque de ${selectedIngredient.name}`
+                : selectedProduct
+                  ? `Ajuste o estoque de ${selectedProduct.name}`
+                  : 'Ajuste o estoque do item selecionado'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Item</Label>
-              <p className="text-lg font-medium">{selectedIngredient?.name}</p>
+          <div className="grid gap-4 py-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <Label htmlFor="adjustmentType">Tipo de Ajuste</Label>
+                <Select
+                  value={adjustmentType}
+                  onValueChange={(value: 'add' | 'remove') => setAdjustmentType(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo de ajuste" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="add">Entrada</SelectItem>
+                    <SelectItem value="remove">Saída</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="quantity">Quantidade</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="quantity"
+                    type="number"
+                    value={adjustmentQuantity}
+                    onChange={(e) => setAdjustmentQuantity(Number(e.target.value))}
+                    min="0"
+                    step="1"
+                  />
+                  <span className="flex items-center text-sm text-gray-500">
+                    {selectedIngredient ? selectedIngredient.unit : 'un'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="quantity">Quantidade ({selectedIngredient?.unit})</Label>
-              <Input
-                id="quantity"
-                type="number"
-                value={adjustmentQuantity}
-                onChange={(e) => setAdjustmentQuantity(Number(e.target.value))}
-                min="0"
-                step="0.1"
-              />
-            </div>
+
             {adjustmentType === 'add' && (
               <>
                 <div>
@@ -1111,7 +1282,7 @@ export const StockManagement = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="supplier">Fornecedor (opcional)</Label>
+                  <Label htmlFor="supplier">Fornecedor</Label>
                   <Input
                     id="supplier"
                     value={supplier}
@@ -1119,7 +1290,7 @@ export const StockManagement = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="invoiceNumber">Número da Nota Fiscal (opcional)</Label>
+                  <Label htmlFor="invoiceNumber">Número da Nota</Label>
                   <Input
                     id="invoiceNumber"
                     value={invoiceNumber}
@@ -1127,7 +1298,7 @@ export const StockManagement = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="notes">Observações (opcional)</Label>
+                  <Label htmlFor="notes">Observações</Label>
                   <Textarea
                     id="notes"
                     value={notes}
@@ -1136,15 +1307,13 @@ export const StockManagement = () => {
                 </div>
               </>
             )}
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setIsStockDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleStockAdjustment}>
-                Confirmar
-              </Button>
-            </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsStockDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleStockAdjustment}>Confirmar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1284,25 +1453,24 @@ export const StockManagement = () => {
               />
             </div>
             <div>
-              <Label htmlFor="brand">Marca</Label>
+              <Label htmlFor="productBrand">Marca</Label>
               <Input
-                id="brand"
+                id="productBrand"
                 value={newProductForm.brand}
                 onChange={(e) => setNewProductForm(prev => ({ ...prev, brand: e.target.value }))}
-                required
               />
             </div>
             <div>
-              <Label htmlFor="description">Descrição (opcional)</Label>
+              <Label htmlFor="productDescription">Descrição</Label>
               <Textarea
-                id="description"
+                id="productDescription"
                 value={newProductForm.description}
                 onChange={(e) => setNewProductForm(prev => ({ ...prev, description: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="productCurrentStock">Estoque Inicial</Label>
+                <Label htmlFor="productCurrentStock">Estoque Atual</Label>
                 <Input
                   id="productCurrentStock"
                   type="number"
@@ -1772,23 +1940,126 @@ export const StockManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Modal de Edição de Produto */}
+      <Dialog open={isEditProductDialogOpen} onOpenChange={setIsEditProductDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditProduct} className="space-y-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="productName">Nome do Produto</Label>
+                <Input
+                  id="productName"
+                  value={newProductForm.name}
+                  onChange={(e) => setNewProductForm(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="productBrand">Marca</Label>
+                <Input
+                  id="productBrand"
+                  value={newProductForm.brand}
+                  onChange={(e) => setNewProductForm(prev => ({ ...prev, brand: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="productDescription">Descrição</Label>
+                <Textarea
+                  id="productDescription"
+                  value={newProductForm.description}
+                  onChange={(e) => setNewProductForm(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="productCurrentStock">Estoque Atual</Label>
+                  <Input
+                    id="productCurrentStock"
+                    type="number"
+                    value={newProductForm.currentStock}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, currentStock: Number(e.target.value) }))}
+                    min="0"
+                    step="1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="productMinStock">Estoque Mínimo</Label>
+                  <Input
+                    id="productMinStock"
+                    type="number"
+                    value={newProductForm.minStock}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, minStock: Number(e.target.value) }))}
+                    min="0"
+                    step="1"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="productCost">Custo Unitário (R$)</Label>
+                  <Input
+                    id="productCost"
+                    type="number"
+                    value={newProductForm.cost}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, cost: Number(e.target.value) }))}
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="price">Preço de Venda (R$)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={newProductForm.price}
+                    onChange={(e) => setNewProductForm(prev => ({ ...prev, price: Number(e.target.value) }))}
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditProductDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">
+                Salvar Alterações
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Diálogo de Confirmação de Exclusão */}
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              {itemToDelete?.type === 'food'
-                ? `Tem certeza que deseja excluir a comida "${itemToDelete.name}"? Esta ação não pode ser desfeita.`
-                : `Tem certeza que deseja excluir o ingrediente "${itemToDelete?.name}" e todos os seus dados de estoque? Esta ação não pode ser desfeita.`
+              {itemToDelete?.type === 'product'
+                ? `Tem certeza que deseja excluir o produto "${itemToDelete.name}"? Esta ação não pode ser desfeita.`
+                : `Tem certeza que deseja excluir o ingrediente "${itemToDelete?.name}"? Esta ação não pode ser desfeita.`
               }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setIsDeleteConfirmOpen(false);
+              setItemToDelete(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
-              onClick={handleDeleteConfirm}
+              onClick={confirmDeleteProduct}
             >
               Excluir
             </AlertDialogAction>

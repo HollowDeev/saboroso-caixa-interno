@@ -394,6 +394,47 @@ export type Database = {
           owner_id?: string
         }
       }
+      external_product_entries: {
+        Row: {
+          id: string;
+          product_id: string;
+          quantity: number;
+          remaining_quantity: number;
+          unit_cost: number;
+          total_cost: number;
+          supplier: string | null;
+          invoice_number: string | null;
+          notes: string | null;
+          created_at: string;
+          owner_id: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          quantity: number;
+          remaining_quantity: number;
+          unit_cost: number;
+          total_cost: number;
+          supplier?: string | null;
+          invoice_number?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          owner_id: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          quantity?: number;
+          remaining_quantity?: number;
+          unit_cost?: number;
+          total_cost?: number;
+          supplier?: string | null;
+          invoice_number?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          owner_id?: string;
+        };
+      }
     }
     Views: {
       [_ in never]: never
