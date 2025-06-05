@@ -365,6 +365,22 @@ export const useStock = (ownerId: string) => {
 
       if (updateError) throw updateError;
 
+      // Registra o movimento
+      const { error: movementError } = await supabase
+        .from('stock_movements')
+        .insert([{
+          item_id: ingredientId,
+          item_type: 'ingredient',
+          quantity: quantity,
+          movement_type: 'add',
+          reason: 'Entrada manual de estoque',
+          user_id: ownerId,
+          previous_stock: currentIngredient.current_stock,
+          new_stock: currentIngredient.current_stock + quantity
+        }]);
+
+      if (movementError) throw movementError;
+
       toast({
         title: 'Entrada registrada',
         description: 'A entrada de estoque foi registrada com sucesso.',
@@ -439,6 +455,22 @@ export const useStock = (ownerId: string) => {
         .eq('id', productId);
 
       if (updateError) throw updateError;
+
+      // Registra o movimento
+      const { error: movementError } = await supabase
+        .from('stock_movements')
+        .insert([{
+          item_id: productId,
+          item_type: 'external_product',
+          quantity: quantity,
+          movement_type: 'add',
+          reason: 'Entrada manual de estoque',
+          user_id: ownerId,
+          previous_stock: currentStock,
+          new_stock: newStock
+        }]);
+
+      if (movementError) throw movementError;
 
       toast({
         title: 'Entrada registrada',
@@ -521,9 +553,11 @@ export const useStock = (ownerId: string) => {
           item_id: ingredientId,
           item_type: 'ingredient',
           quantity: quantity,
-          operation: 'remove',
+          movement_type: 'remove',
           reason: reason,
-          user_id: ownerId
+          user_id: ownerId,
+          previous_stock: currentIngredient.current_stock,
+          new_stock: currentIngredient.current_stock - quantity
         }]);
 
       if (movementError) throw movementError;
@@ -642,9 +676,11 @@ export const useStock = (ownerId: string) => {
           item_id: productId,
           item_type: 'external_product',
           quantity: quantity,
-          operation: 'remove',
+          movement_type: 'remove',
           reason: reason,
-          user_id: ownerId
+          user_id: ownerId,
+          previous_stock: currentProduct.current_stock,
+          new_stock: currentProduct.current_stock - quantity
         }]);
 
       if (movementError) throw movementError;
