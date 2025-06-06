@@ -1,19 +1,18 @@
--- Tabela de caixas
-CREATE TABLE public.cash_registers (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  owner_id uuid NOT NULL,
-  opened_at timestamp with time zone NOT NULL DEFAULT now(),
-  closed_at timestamp with time zone,
-  opening_amount numeric NOT NULL DEFAULT 0,
-  closing_amount numeric,
-  total_sales numeric NOT NULL DEFAULT 0,
-  total_orders integer NOT NULL DEFAULT 0,
-  is_open boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT cash_registers_pkey PRIMARY KEY (id),
-  CONSTRAINT cash_registers_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id)
-);
+-- Primeiro, remover as tabelas existentes na ordem correta (por causa das dependências)
+DROP TABLE IF EXISTS public.cash_register_sales;
+DROP TABLE IF EXISTS public.sales;
+DROP TABLE IF EXISTS public.orders;
+
+-- Remover políticas existentes
+DROP POLICY IF EXISTS "Usuários podem ver seus próprios caixas" ON public.cash_registers;
+DROP POLICY IF EXISTS "Usuários podem criar seus próprios caixas" ON public.cash_registers;
+DROP POLICY IF EXISTS "Usuários podem atualizar seus próprios caixas" ON public.cash_registers;
+
+-- Criar as novas tabelas
+-- Tabela de caixas (atualizar a existente)
+ALTER TABLE public.cash_registers 
+ADD COLUMN IF NOT EXISTS total_sales numeric NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_orders integer NOT NULL DEFAULT 0;
 
 -- Tabela de comandas
 CREATE TABLE public.orders (
@@ -66,12 +65,12 @@ CREATE TABLE public.sales (
   CONSTRAINT sales_cash_register_id_fkey FOREIGN KEY (cash_register_id) REFERENCES public.cash_registers(id)
 );
 
--- Políticas de segurança
-ALTER TABLE public.cash_registers ENABLE ROW LEVEL SECURITY;
+-- Habilitar RLS nas tabelas
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
 
+-- Criar políticas de segurança
 -- Políticas para caixas
 CREATE POLICY "Usuários podem ver seus próprios caixas" ON public.cash_registers
   FOR SELECT USING (auth.uid() = owner_id);

@@ -99,35 +99,28 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
     try {
       const { total, subtotal, taxesTotal } = calculateFinalTotal();
 
-      // Converter itens adicionais para o formato do banco
-      const convertedAdditionalItems = additionalItems.map(item => ({
-        cash_register_id: order.items[0]?.cash_register_id || '',
-        order_id: order.id,
-        product_name: item.product.name,
-        quantity: item.quantity,
-        unit_price: item.unitPrice,
-        total_price: item.totalPrice,
-        product_cost: item.product.cost || 0,
-        profit: item.totalPrice - (item.product.cost || 0) * item.quantity,
-        sale_date: new Date(),
-        created_at: new Date()
-      }));
-
       // Preparar dados atualizados da comanda
       const updatedOrderData = {
         status: 'paid' as const,
-        payment_method: paymentMethod,
-        customer_name: customerName || order.customerName,
-        subtotal: subtotal,
+        paymentMethod,
+        customerName: customerName || order.customerName,
+        subtotal,
         tax: taxesTotal,
-        total: total
+        total,
+        items: [
+          ...order.items,
+          ...additionalItems.map(item => ({
+            productId: item.productId,
+            product: item.product,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice
+          }))
+        ]
       };
 
       // Atualizar a comanda
-      await updateOrder(order.id, {
-        ...updatedOrderData,
-        items: [...order.items, ...convertedAdditionalItems]
-      });
+      await updateOrder(order.id, updatedOrderData);
 
       // Fechar modal e limpar estados
       onClose();
@@ -221,8 +214,8 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
               <div className="space-y-2 max-h-32 overflow-y-auto">
                 {order.items.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                    <span>{item.quantity}x {item.product_name}</span>
-                    <span>R$ {item.total_price.toFixed(2)}</span>
+                    <span>{item.quantity}x {item.product_name || item.product.name}</span>
+                    <span>R$ {item.totalPrice.toFixed(2)}</span>
                   </div>
                 ))}
               </div>

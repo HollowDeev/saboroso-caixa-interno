@@ -41,25 +41,27 @@ export interface ProductIngredient {
 
 export interface OrderItem {
   id?: string;
-  cash_register_id: string;
-  order_id: string;
-  product_name: string;
-  product?: Product;
+  cash_register_id?: string;
+  order_id?: string;
+  product_name?: string;
+  productId: string;
+  product: Product;
   quantity: number;
-  unit_price: number;
-  unitPrice?: number;
-  total_price: number;
-  totalPrice?: number;
-  product_cost: number;
-  profit: number;
-  sale_date: Date;
-  created_at: Date;
+  unitPrice: number;
+  totalPrice: number;
+  product_cost?: number;
+  profit?: number;
+  sale_date?: Date;
+  created_at?: Date;
 }
 
 // Interface temporária para criação de novos itens
 export interface NewOrderItem {
+  productId: string;
   product: Product;
   quantity: number;
+  unitPrice: number;
+  totalPrice: number;
 }
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled';

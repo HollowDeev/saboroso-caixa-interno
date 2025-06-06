@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -90,30 +89,41 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     );
   };
 
-  const createDirectSale = () => {
+  const createDirectSale = async () => {
     if (selectedItems.length === 0) return;
 
-    const { subtotal, taxesTotal, total } = calculateTotal();
+    try {
+      const { subtotal, taxesTotal, total } = calculateTotal();
 
-    // Criar venda direta como uma comanda paga
-    const newOrder = {
-      items: selectedItems,
-      subtotal,
-      tax: taxesTotal,
-      total,
-      status: 'paid' as const,
-      paymentMethod,
-      customerName: customerName || undefined,
-      userId: currentUser!.id
-    };
+      // Criar uma comanda já paga
+      const newOrder = {
+        items: selectedItems.map(item => ({
+          productId: item.productId,
+          product: item.product,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice
+        })),
+        subtotal,
+        tax: taxesTotal,
+        total,
+        status: 'paid' as const,
+        paymentMethod,
+        customerName: customerName || undefined,
+        userId: currentUser!.id
+      };
 
-    addOrder(newOrder);
+      await addOrder(newOrder);
 
-    // Limpar e fechar
-    setSelectedItems([]);
-    setCustomerName('');
-    setPaymentMethod('cash');
-    onClose();
+      // Limpar e fechar
+      setSelectedItems([]);
+      setCustomerName('');
+      setPaymentMethod('cash');
+      onClose();
+    } catch (error) {
+      console.error('Erro ao criar venda direta:', error);
+      // Aqui você pode adicionar uma notificação de erro para o usuário
+    }
   };
 
   const { subtotal, taxes, taxesTotal, total } = calculateTotal();

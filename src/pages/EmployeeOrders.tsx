@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Order, OrderItem, Product, NewOrderItem } from '@/types';
 import { CheckoutModal } from '@/components/CheckoutModal';
+import { toast } from '@/components/ui/use-toast';
 
 export const EmployeeOrders = () => {
   const { orders, products, addOrder, updateOrder } = useApp();
@@ -64,27 +65,51 @@ export const EmployeeOrders = () => {
     return { subtotal, tax, total: subtotal + tax };
   };
 
-  const createOrder = () => {
-    if (selectedProducts.length === 0) return;
+  const createOrder = async () => {
+    if (selectedProducts.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um produto à comanda.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const { subtotal, tax, total } = calculateTotal();
+    try {
+      const { subtotal, tax, total } = calculateTotal();
 
-    const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
-      customerName: customerName || undefined,
-      tableNumber: tableNumber,
-      items: selectedProducts,
-      subtotal,
-      tax,
-      total,
-      status: 'pending',
-      userId: 'employee-temp-id'
-    };
+      const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
+        customerName: customerName || undefined,
+        tableNumber: tableNumber,
+        items: selectedProducts,
+        subtotal,
+        tax,
+        total,
+        status: 'pending',
+        userId: 'employee-temp-id'
+      };
 
-    addOrder(newOrder);
-    setSelectedProducts([]);
-    setCustomerName('');
-    setTableNumber(undefined);
-    setIsNewOrderOpen(false);
+      await addOrder(newOrder);
+
+      // Limpar o formulário e fechar o modal
+      setSelectedProducts([]);
+      setCustomerName('');
+      setTableNumber(undefined);
+      setIsNewOrderOpen(false);
+
+      // Mostrar mensagem de sucesso
+      toast({
+        title: "Sucesso",
+        description: "Comanda criada com sucesso!",
+      });
+    } catch (error: any) {
+      // Mostrar mensagem de erro
+      toast({
+        title: "Erro ao criar comanda",
+        description: error.message || "Ocorreu um erro ao criar a comanda. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatusColor = (status: Order['status']) => {
@@ -280,8 +305,8 @@ export const EmployeeOrders = () => {
                     <div className="space-y-2">
                       {order.items.map((item, index) => (
                         <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product_name}</span>
-                          <span>R$ {item.total_price.toFixed(2)}</span>
+                          <span>{item.quantity}x {item.product_name || item.product.name}</span>
+                          <span>R$ {item.totalPrice.toFixed(2)}</span>
                         </div>
                       ))}
                       <div className="border-t pt-2 font-semibold">
@@ -349,8 +374,8 @@ export const EmployeeOrders = () => {
                     <div className="space-y-2">
                       {order.items.map((item, index) => (
                         <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product_name}</span>
-                          <span>R$ {item.total_price.toFixed(2)}</span>
+                          <span>{item.quantity}x {item.product_name || item.product.name}</span>
+                          <span>R$ {item.totalPrice.toFixed(2)}</span>
                         </div>
                       ))}
                       <div className="border-t pt-2 font-semibold">

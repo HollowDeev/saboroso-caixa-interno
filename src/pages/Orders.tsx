@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,14 +11,39 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Order, OrderItem, Product, NewOrderItem } from '@/types';
 import { CheckoutModal } from '@/components/CheckoutModal';
+import { toast } from '@/components/ui/use-toast';
+import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
 
 export const Orders = () => {
-  const { orders, products, currentUser, addOrder, updateOrder, addSale } = useApp();
+  const {
+    orders,
+    products,
+    currentUser,
+    addOrder,
+    updateOrder,
+    addSale,
+    currentCashRegister,
+    checkCashRegisterAccess,
+    isLoading
+  } = useApp();
+
   const [selectedProducts, setSelectedProducts] = useState<NewOrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | undefined>();
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [checkoutOrder, setCheckoutOrder] = useState<Order | null>(null);
+  const [isNoCashModalOpen, setIsNoCashModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
+
+  const isOwner = checkCashRegisterAccess();
+
+  const handleNewOrder = () => {
+    if (!currentCashRegister) {
+      setIsNoCashModalOpen(true);
+      return;
+    }
+    setIsNewOrderOpen(true);
+  };
 
   const addProductToOrder = (product: Product) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
@@ -64,27 +89,51 @@ export const Orders = () => {
     return { subtotal, tax, total: subtotal + tax };
   };
 
-  const createOrder = () => {
-    if (selectedProducts.length === 0) return;
+  const createOrder = async () => {
+    if (selectedProducts.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um produto à comanda.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const { subtotal, tax, total } = calculateTotal();
+    try {
+      const { subtotal, tax, total } = calculateTotal();
 
-    const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
-      customerName: customerName || undefined,
-      tableNumber: tableNumber,
-      items: selectedProducts,
-      subtotal,
-      tax,
-      total,
-      status: 'pending',
-      userId: currentUser!.id
-    };
+      const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
+        customerName: customerName || undefined,
+        tableNumber: tableNumber,
+        items: selectedProducts,
+        subtotal,
+        tax,
+        total,
+        status: 'pending',
+        userId: currentUser!.id
+      };
 
-    addOrder(newOrder);
-    setSelectedProducts([]);
-    setCustomerName('');
-    setTableNumber(undefined);
-    setIsNewOrderOpen(false);
+      await addOrder(newOrder);
+
+      // Limpar o formulário e fechar o modal
+      setSelectedProducts([]);
+      setCustomerName('');
+      setTableNumber(undefined);
+      setIsNewOrderOpen(false);
+
+      // Mostrar mensagem de sucesso
+      toast({
+        title: "Sucesso",
+        description: "Comanda criada com sucesso!",
+      });
+    } catch (error: any) {
+      // Mostrar mensagem de erro
+      toast({
+        title: "Erro ao criar comanda",
+        description: error.message || "Ocorreu um erro ao criar a comanda. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getStatusColor = (status: Order['status']) => {
@@ -111,7 +160,14 @@ export const Orders = () => {
     }
   };
 
-  const { subtotal, tax, total } = calculateTotal();
+  // Filtrar comandas por status
+  const filteredOrders = orders.filter(order => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'pending') return order.status === 'pending' || order.status === 'preparing';
+    if (activeTab === 'ready') return order.status === 'ready' || order.status === 'delivered';
+    if (activeTab === 'paid') return order.status === 'paid';
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -123,7 +179,11 @@ export const Orders = () => {
 
         <Dialog open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-orange-500 hover:bg-orange-600">
+            <Button
+              className="bg-orange-500 hover:bg-orange-600"
+              onClick={handleNewOrder}
+              disabled={isLoading || !currentCashRegister}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Nova Comanda
             </Button>
@@ -220,15 +280,15 @@ export const Orders = () => {
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span>R$ {subtotal.toFixed(2)}</span>
+                      <span>R$ {calculateTotal().subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Taxa (10%):</span>
-                      <span>R$ {tax.toFixed(2)}</span>
+                      <span>R$ {calculateTotal().tax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total:</span>
-                      <span>R$ {total.toFixed(2)}</span>
+                      <span>R$ {calculateTotal().total.toFixed(2)}</span>
                     </div>
                     <Button
                       className="w-full bg-orange-500 hover:bg-orange-600"
@@ -244,175 +304,99 @@ export const Orders = () => {
         </Dialog>
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="active">Comandas Ativas</TabsTrigger>
-          <TabsTrigger value="completed">Comandas Finalizadas</TabsTrigger>
-          <TabsTrigger value="all">Todas as Comandas</TabsTrigger>
+          <TabsTrigger value="all">Todas</TabsTrigger>
+          <TabsTrigger value="pending">Em Andamento</TabsTrigger>
+          <TabsTrigger value="ready">Prontas</TabsTrigger>
+          <TabsTrigger value="paid">Pagas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="active" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {orders
-              .filter(order => ['pending', 'preparing', 'ready'].includes(order.status))
-              .map((order) => (
-                <Card key={order.id} className="hover:shadow-lg transition-shadow">
+        <TabsContent value={activeTab} className="mt-6">
+          {isLoading ? (
+            <div className="text-center py-8">
+              <p>Carregando comandas...</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="text-center py-8">
+              <p>Nenhuma comanda encontrada.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredOrders.map(order => (
+                <Card key={order.id} className="relative">
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">
-                        {order.customerName ? (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            {order.customerName}
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <Hash className="h-4 w-4 mr-2" />
+                      <div>
+                        <CardTitle className="text-lg font-medium">
+                          {order.customerName || 'Cliente não identificado'}
+                        </CardTitle>
+                        {order.tableNumber && (
+                          <div className="flex items-center mt-1 text-sm text-gray-500">
+                            <Hash className="h-4 w-4 mr-1" />
                             Mesa {order.tableNumber}
                           </div>
                         )}
-                      </CardTitle>
+                      </div>
                       <Badge variant={getStatusColor(order.status)}>
                         {getStatusText(order.status)}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product_name}</span>
-                          <span>R$ {item.total_price.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      <div className="border-t pt-2 font-semibold">
-                        Total: R$ {order.total.toFixed(2)}
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="font-medium mb-2">Itens:</h3>
+                        <ul className="space-y-2">
+                          {order.items.map((item, index) => (
+                            <li key={index} className="flex justify-between text-sm">
+                              <span>{item.quantity}x {item.product_name}</span>
+                              <span>R$ {item.totalPrice.toFixed(2)}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <div className="flex space-x-2 mt-4">
-                        <Select
-                          value={order.status}
-                          onValueChange={(status) => updateOrder(order.id, { status: status as Order['status'] })}
+                      <div className="pt-4 border-t">
+                        <div className="flex justify-between text-sm">
+                          <span>Subtotal:</span>
+                          <span>R$ {order.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Taxa de Serviço (10%):</span>
+                          <span>R$ {order.tax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between font-medium mt-2">
+                          <span>Total:</span>
+                          <span>R$ {order.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      {order.status !== 'paid' && (
+                        <Button
+                          className="w-full mt-4"
+                          onClick={() => setCheckoutOrder(order)}
                         >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pendente</SelectItem>
-                            <SelectItem value="preparing">Preparando</SelectItem>
-                            <SelectItem value="ready">Pronto</SelectItem>
-                            <SelectItem value="cancelled">Cancelado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {order.status === 'ready' && (
-                          <Button
-                            onClick={() => setCheckoutOrder(order)}
-                            className="bg-green-500 hover:bg-green-600"
-                          >
-                            <CreditCard className="h-4 w-4 mr-1" />
-                            Finalizar
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="completed" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {orders
-              .filter(order => ['delivered', 'paid'].includes(order.status))
-              .map((order) => (
-                <Card key={order.id} className="opacity-75">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">
-                        {order.customerName ? (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            {order.customerName}
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <Hash className="h-4 w-4 mr-2" />
-                            Mesa {order.tableNumber}
-                          </div>
-                        )}
-                      </CardTitle>
-                      <Badge variant={getStatusColor(order.status)}>
-                        {getStatusText(order.status)}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {order.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product_name}</span>
-                          <span>R$ {item.total_price.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      <div className="border-t pt-2 font-semibold">
-                        Total: R$ {order.total.toFixed(2)}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="all" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {orders.map((order) => (
-              <Card key={order.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">
-                      {order.customerName ? (
-                        <div className="flex items-center">
-                          <User className="h-4 w-4 mr-2" />
-                          {order.customerName}
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <Hash className="h-4 w-4 mr-2" />
-                          Mesa {order.tableNumber}
-                        </div>
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Fechar Comanda
+                        </Button>
                       )}
-                    </CardTitle>
-                    <Badge variant={getStatusColor(order.status)}>
-                      {getStatusText(order.status)}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {new Date(order.createdAt).toLocaleDateString()} às {new Date(order.createdAt).toLocaleTimeString()}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {order.items.map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span>{item.quantity}x {item.product_name}</span>
-                        <span>R$ {item.total_price.toFixed(2)}</span>
-                      </div>
-                    ))}
-                    <div className="border-t pt-2 font-semibold">
-                      Total: R$ {order.total.toFixed(2)}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
       <CheckoutModal
         order={checkoutOrder}
         onClose={() => setCheckoutOrder(null)}
+      />
+
+      <NoCashRegisterModal
+        isOpen={isNoCashModalOpen}
+        onClose={() => setIsNoCashModalOpen(false)}
+        isOwner={isOwner}
       />
     </div>
   );

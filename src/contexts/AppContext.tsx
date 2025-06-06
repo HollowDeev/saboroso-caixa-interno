@@ -49,68 +49,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Verificar sessão ao montar o componente
+  const { currentCashRegister, openCashRegister, closeCashRegister, loading: cashRegisterLoading } = useCashRegister();
+
+  const checkCashRegisterAccess = () => {
+    return currentUser?.role === 'admin' || currentUser?.role === 'cashier';
+  };
+
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
 
-        if (profile) {
-          setCurrentUser({
-            id: session.user.id,
-            name: profile.name || 'Admin',
-            email: session.user.email || '',
-            role: profile.role as User['role'] || 'admin',
-            created_at: new Date(profile.created_at),
-            updated_at: new Date(profile.updated_at)
-          });
+          if (profile) {
+            setCurrentUser({
+              id: session.user.id,
+              name: profile.name || 'Admin',
+              email: session.user.email || '',
+              role: profile.role as User['role'] || 'admin',
+              created_at: new Date(profile.created_at),
+              updated_at: new Date(profile.updated_at)
+            });
+          }
         }
+      } catch (error) {
+        console.error('Erro ao verificar sessão:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     checkSession();
-
-    // Listener para mudanças na autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profile) {
-          setCurrentUser({
-            id: session.user.id,
-            name: profile.name || 'Admin',
-            email: session.user.email || '',
-            role: profile.role as User['role'] || 'admin',
-            created_at: new Date(profile.created_at),
-            updated_at: new Date(profile.updated_at)
-          });
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
-  // Carregar produtos ao montar o componente
   useEffect(() => {
     const loadProducts = async () => {
+      if (isLoading) return;
+
       try {
-        // Primeiro carrega as comidas
         const { data: foods, error: foodsError } = await supabase
           .from('foods')
           .select('*')
@@ -118,7 +102,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         if (foodsError) throw foodsError;
 
-        // Depois carrega os ingredientes de cada comida
         const { data: foodIngredients, error: ingredientsError } = await supabase
           .from('food_ingredients')
           .select('*')
@@ -126,7 +109,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         if (ingredientsError) throw ingredientsError;
 
-        // Mapeia os ingredientes para cada comida
         const productsWithIngredients = foods.map(food => ({
           ...food,
           ingredients: foodIngredients
@@ -147,38 +129,92 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     loadProducts();
-  }, []);
+  }, [isLoading]);
 
-  // Carregar ingredientes ao montar o componente
   useEffect(() => {
     const loadIngredients = async () => {
-      const { data, error } = await supabase
-        .from('ingredients')
-        .select('*');
+      if (isLoading) return;
 
-      if (error) {
+      try {
+        const { data, error } = await supabase
+          .from('ingredients')
+          .select('*');
+
+        if (error) throw error;
+        setIngredients(data || []);
+      } catch (error) {
         console.error('Erro ao carregar ingredientes:', error);
-        return;
       }
-
-      setIngredients(data || []);
     };
 
     loadIngredients();
-  }, []);
+  }, [isLoading]);
 
-  // Hooks
-  const { currentCashRegister, openCashRegister, closeCashRegister } = useCashRegister();
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (isLoading || cashRegisterLoading) return;
 
-  // Função para verificar acesso ao caixa
-  const checkCashRegisterAccess = () => {
-    return currentUser?.role === 'admin' || currentUser?.role === 'cashier';
-  };
+      try {
+        if (!currentCashRegister) {
+          setOrders([]);
+          return;
+        }
 
-  // Função para adicionar produto
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('cash_register_id', currentCashRegister.id)
+          .order('created_at', { ascending: false });
+
+        if (ordersError) throw ordersError;
+
+        if (!ordersData || ordersData.length === 0) {
+          setOrders([]);
+          return;
+        }
+
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select('*')
+          .in('order_id', ordersData.map(o => o.id));
+
+        if (itemsError) throw itemsError;
+
+        const ordersWithItems = ordersData.map(order => ({
+          id: order.id,
+          customerName: order.customer_name,
+          tableNumber: order.table_number,
+          items: (orderItems || [])
+            .filter(item => item.order_id === order.id)
+            .map(item => ({
+              id: item.id,
+              productId: item.product_id,
+              product_name: item.product_name,
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              totalPrice: item.total_price
+            })),
+          subtotal: order.subtotal,
+          tax: order.tax,
+          total: order.total,
+          status: order.status,
+          paymentMethod: order.payment_method,
+          createdAt: new Date(order.created_at),
+          updatedAt: new Date(order.updated_at),
+          userId: order.user_id
+        }));
+
+        setOrders(ordersWithItems);
+      } catch (error) {
+        console.error('Erro ao carregar comandas:', error);
+      }
+    };
+
+    loadOrders();
+  }, [currentCashRegister, isLoading, cashRegisterLoading]);
+
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
-      // Primeiro, insere a comida na tabela foods
       const { data: foodData, error: foodError } = await supabase
         .from('foods')
         .insert([{
@@ -196,7 +232,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (foodError) throw foodError;
 
-      // Depois, insere os ingredientes na tabela food_ingredients
       if (product.ingredients?.length > 0) {
         const foodIngredients = product.ingredients.map(ing => ({
           food_id: foodData.id,
@@ -212,7 +247,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (ingredientsError) throw ingredientsError;
       }
 
-      // Retorna o produto completo
       const newProduct = {
         ...foodData,
         ingredients: product.ingredients || [],
@@ -228,10 +262,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Função para atualizar produto
   const updateProduct = async (id: string, product: Partial<Product>) => {
     try {
-      // Primeiro, atualiza a comida na tabela foods
       const { data: foodData, error: foodError } = await supabase
         .from('foods')
         .update({
@@ -250,9 +282,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (foodError) throw foodError;
 
-      // Se houver ingredientes para atualizar
       if (product.ingredients) {
-        // Remove todos os ingredientes antigos
         const { error: deleteError } = await supabase
           .from('food_ingredients')
           .delete()
@@ -260,7 +290,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         if (deleteError) throw deleteError;
 
-        // Insere os novos ingredientes
         if (product.ingredients.length > 0) {
           const foodIngredients = product.ingredients.map(ing => ({
             food_id: id,
@@ -277,7 +306,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Retorna o produto atualizado
       const updatedProduct = {
         ...foodData,
         ingredients: product.ingredients || [],
@@ -295,10 +323,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Função para excluir produto
   const deleteProduct = async (id: string) => {
     try {
-      // Primeiro remove os ingredientes da comida
       const { error: deleteIngredientsError } = await supabase
         .from('food_ingredients')
         .delete()
@@ -306,7 +332,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (deleteIngredientsError) throw deleteIngredientsError;
 
-      // Depois remove a comida
       const { error: deleteFoodError } = await supabase
         .from('foods')
         .delete()
@@ -314,7 +339,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (deleteFoodError) throw deleteFoodError;
 
-      // Atualiza o estado local
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (error) {
       console.error('Erro ao excluir produto:', error);
@@ -322,43 +346,200 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Função para adicionar pedido
   const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newOrder: Order = {
-      id: crypto.randomUUID(),
-      ...order,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    setOrders(prev => [...prev, newOrder]);
-    return newOrder;
+    try {
+      if (!currentCashRegister) {
+        throw new Error('Nenhum caixa aberto');
+      }
+
+      const { data: newOrder, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          customer_name: order.customerName,
+          table_number: order.tableNumber,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          total: order.total,
+          status: order.status,
+          user_id: order.userId,
+          cash_register_id: currentCashRegister.id
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('Erro ao criar comanda:', orderError);
+        throw orderError;
+      }
+
+      const orderItems = order.items.map(item => ({
+        order_id: newOrder.id,
+        product_id: item.productId,
+        product_name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.totalPrice,
+        cash_register_id: currentCashRegister.id
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Erro ao criar itens da comanda:', itemsError);
+        await supabase.from('orders').delete().eq('id', newOrder.id);
+        throw itemsError;
+      }
+
+      const { error: updateError } = await supabase
+        .from('cash_registers')
+        .update({
+          total_orders: currentCashRegister.total_orders + 1
+        })
+        .eq('id', currentCashRegister.id);
+
+      if (updateError) {
+        console.error('Erro ao atualizar caixa:', updateError);
+        throw updateError;
+      }
+
+      const fullOrder: Order = {
+        id: newOrder.id,
+        customerName: order.customerName,
+        tableNumber: order.tableNumber,
+        items: order.items,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        total: order.total,
+        status: order.status,
+        createdAt: new Date(newOrder.created_at),
+        updatedAt: new Date(newOrder.updated_at),
+        userId: order.userId
+      };
+
+      setOrders(prev => [...prev, fullOrder]);
+      return fullOrder;
+    } catch (error) {
+      console.error('Erro ao criar comanda:', error);
+      throw error;
+    }
   };
 
-  // Função para atualizar pedido
-  const updateOrder = async (id: string, order: Partial<Order>) => {
-    setOrders(prev =>
-      prev.map(o => (o.id === id ? { ...o, ...order, updatedAt: new Date() } : o))
-    );
+  const updateOrder = async (id: string, orderUpdate: Partial<Order>) => {
+    try {
+      if (!currentCashRegister) {
+        throw new Error('Nenhum caixa aberto');
+      }
+
+      if (orderUpdate.status === 'paid') {
+        const order = orders.find(o => o.id === id);
+        if (!order) throw new Error('Comanda não encontrada');
+
+        await addSale({
+          orderId: id,
+          total: orderUpdate.total || order.total,
+          paymentMethod: orderUpdate.paymentMethod || 'cash',
+          userId: order.userId
+        });
+      }
+
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          customer_name: orderUpdate.customerName,
+          table_number: orderUpdate.tableNumber,
+          subtotal: orderUpdate.subtotal,
+          tax: orderUpdate.tax,
+          total: orderUpdate.total,
+          status: orderUpdate.status,
+          payment_method: orderUpdate.paymentMethod,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      if (orderUpdate.items) {
+        const newItems = orderUpdate.items.filter(item => !item.id).map(item => ({
+          order_id: id,
+          product_id: item.productId,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice,
+          cash_register_id: currentCashRegister.id
+        }));
+
+        if (newItems.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(newItems);
+
+          if (itemsError) throw itemsError;
+        }
+      }
+
+      setOrders(prev =>
+        prev.map(o => (o.id === id ? { ...o, ...orderUpdate, updatedAt: new Date() } : o))
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar comanda:', error);
+      throw error;
+    }
   };
 
-  // Função para adicionar venda
-  const addSale = (sale: Omit<Sale, 'id' | 'createdAt'>) => {
-    const newSale: Sale = {
-      id: crypto.randomUUID(),
-      ...sale,
-      createdAt: new Date()
-    };
-    setSales(prev => [...prev, newSale]);
+  const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
+    try {
+      if (!currentCashRegister) {
+        throw new Error('Nenhum caixa aberto');
+      }
+
+      const { data: newSale, error: saleError } = await supabase
+        .from('sales')
+        .insert({
+          order_id: sale.orderId,
+          total: sale.total,
+          payment_method: sale.paymentMethod,
+          user_id: sale.userId,
+          cash_register_id: currentCashRegister.id
+        })
+        .select()
+        .single();
+
+      if (saleError) throw saleError;
+
+      const { error: updateError } = await supabase
+        .from('cash_registers')
+        .update({
+          total_sales: currentCashRegister.total_sales + sale.total
+        })
+        .eq('id', currentCashRegister.id);
+
+      if (updateError) throw updateError;
+
+      const fullSale: Sale = {
+        id: newSale.id,
+        orderId: sale.orderId,
+        total: sale.total,
+        paymentMethod: sale.paymentMethod,
+        createdAt: new Date(newSale.created_at),
+        userId: sale.userId
+      };
+
+      setSales(prev => [...prev, fullSale]);
+    } catch (error) {
+      console.error('Erro ao criar venda:', error);
+      throw error;
+    }
   };
 
-  // Função para atualizar venda
   const updateSale = (id: string, sale: Partial<Sale>) => {
     setSales(prev =>
       prev.map(s => (s.id === id ? { ...s, ...sale } : s))
     );
   };
 
-  // Função para adicionar taxa de serviço
   const addServiceTax = (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newTax: ServiceTax = {
       id: crypto.randomUUID(),
@@ -369,14 +550,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setServiceTaxes(prev => [...prev, newTax]);
   };
 
-  // Função para atualizar taxa de serviço
   const updateServiceTax = (id: string, tax: Partial<ServiceTax>) => {
     setServiceTaxes(prev =>
       prev.map(t => (t.id === id ? { ...t, ...tax, updatedAt: new Date() } : t))
     );
   };
 
-  // Função para excluir taxa de serviço
   const deleteServiceTax = (id: string) => {
     setServiceTaxes(prev => prev.filter(t => t.id !== id));
   };
