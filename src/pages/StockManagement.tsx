@@ -71,7 +71,7 @@ interface NewProductForm {
 }
 
 interface DeleteItem {
-  type: 'ingredient' | 'product';
+  type: 'ingredient' | 'product' | 'food';
   id: string;
   name: string;
 }
@@ -691,6 +691,35 @@ export const StockManagement = () => {
     } finally {
       setIsDeleteConfirmOpen(false);
       setItemToDelete(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      if (itemToDelete.type === 'ingredient') {
+        await deleteIngredient(itemToDelete.id);
+      } else if (itemToDelete.type === 'product') {
+        await deleteProduct(itemToDelete.id);
+      } else if (itemToDelete.type === 'food') {
+        await deleteProduct(itemToDelete.id);
+      }
+
+      setIsDeleteConfirmOpen(false);
+      setItemToDelete(null);
+
+      toast({
+        title: 'Item excluído',
+        description: 'O item foi excluído com sucesso.',
+      });
+    } catch (error) {
+      console.error('Erro ao excluir item:', error);
+      toast({
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o item. Tente novamente.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -2059,7 +2088,7 @@ export const StockManagement = () => {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
-              onClick={confirmDeleteProduct}
+              onClick={confirmDelete}
             >
               Excluir
             </AlertDialogAction>

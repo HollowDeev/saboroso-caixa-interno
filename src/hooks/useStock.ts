@@ -806,15 +806,36 @@ export const useStock = (ownerId: string) => {
   // Função para deletar um ingrediente e todos seus dados relacionados
   const deleteIngredient = async (id: string) => {
     try {
-      // Primeiro deleta todas as entradas de estoque relacionadas
-      const { error: entriesError } = await supabase
+      // 1. Primeiro verifica se o ingrediente está sendo usado em alguma comida
+      const { data: foodIngredients, error: foodIngredientsError } = await supabase
+        .from('food_ingredients')
+        .select('id')
+        .eq('ingredient_id', id);
+
+      if (foodIngredientsError) throw foodIngredientsError;
+
+      if (foodIngredients && foodIngredients.length > 0) {
+        throw new Error('Não é possível excluir o ingrediente pois ele está sendo usado em uma ou mais comidas.');
+      }
+
+      // 2. Deleta os movimentos de estoque relacionados ao ingrediente
+      const { error: movementsError } = await supabase
+        .from('stock_movements')
+        .delete()
+        .eq('item_id', id)
+        .eq('item_type', 'ingredient');
+
+      if (movementsError) throw movementsError;
+
+      // 3. Deleta as entradas de estoque
+      const { error: entriesDeleteError } = await supabase
         .from('stock_entries')
         .delete()
         .eq('ingredient_id', id);
 
-      if (entriesError) throw entriesError;
+      if (entriesDeleteError) throw entriesDeleteError;
 
-      // Depois deleta o ingrediente
+      // 4. Por fim, deleta o ingrediente
       const { error: ingredientError } = await supabase
         .from('ingredients')
         .delete()
@@ -822,20 +843,22 @@ export const useStock = (ownerId: string) => {
 
       if (ingredientError) throw ingredientError;
 
+      // Atualiza o estado local
+      setIngredients((prev) => prev.filter((ingredient) => ingredient.id !== id));
+      setStockEntries(prev => prev.filter(e => e.ingredient_id !== id));
+      
       toast({
-        title: 'Ingrediente excluído',
-        description: 'O ingrediente e seus dados foram excluídos com sucesso.',
+        title: 'Sucesso',
+        description: 'Ingrediente excluído com sucesso.',
       });
-
-      return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao excluir ingrediente:', error);
       toast({
-        title: 'Erro ao excluir ingrediente',
-        description: 'Não foi possível excluir o ingrediente.',
+        title: 'Erro ao excluir',
+        description: error.message || 'Não foi possível excluir o ingrediente. Tente novamente.',
         variant: 'destructive',
       });
-      return false;
+      throw error;
     }
   };
 
