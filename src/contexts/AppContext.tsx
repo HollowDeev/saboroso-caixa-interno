@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {
   User,
@@ -267,7 +266,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         createdAt: new Date(sale.created_at),
         userId: sale.user_id,
         is_direct_sale: sale.is_direct_sale,
-        items: sale.items ? JSON.parse(sale.items) : undefined,
+        items: sale.items ? JSON.parse(sale.items as string) : undefined,
         customerName: sale.customer_name
       }));
 
@@ -509,11 +508,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Não há caixa aberto para registrar a venda');
       }
 
-      // Importar função de consumo de estoque
-      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
-
       // Processar consumo de ingredientes se há itens na venda
       if (saleData.items && saleData.items.length > 0) {
+        const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+        
         const stockResult = await processOrderItemsStockConsumption(
           saleData.items.map(item => ({
             productId: item.productId,
@@ -530,27 +528,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
+      // Preparar dados para inserção no banco
+      const insertData = {
+        user_id: currentUser.id,
+        cash_register_id: currentCashRegister.id,
+        created_at: new Date().toISOString(),
+        customer_name: saleData.customerName || null,
+        items: saleData.items ? JSON.stringify(saleData.items) : null,
+        total: saleData.total,
+        subtotal: saleData.subtotal,
+        tax: saleData.tax,
+        payment_method: saleData.paymentMethod,
+        is_direct_sale: saleData.is_direct_sale || false,
+        order_id: saleData.orderId || null
+      };
+
       // Criar a venda
       const { data, error } = await supabase
         .from('sales')
-        .insert([{
-          ...saleData,
-          user_id: currentUser.id,
-          cash_register_id: currentCashRegister.id,
-          created_at: new Date().toISOString()
-        }])
+        .insert([insertData])
         .select()
         .single();
 
       if (error) throw error;
 
-      setSales(prev => [data, ...prev]);
+      // Converter dados de volta para o formato da aplicação
+      const formattedSale: Sale = {
+        id: data.id,
+        orderId: data.order_id,
+        total: data.total,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        paymentMethod: data.payment_method as PaymentMethod,
+        createdAt: new Date(data.created_at),
+        userId: data.user_id,
+        is_direct_sale: data.is_direct_sale,
+        items: data.items ? JSON.parse(data.items as string) : undefined,
+        customerName: data.customer_name
+      };
+
+      setSales(prev => [formattedSale, ...prev]);
       toast({
         title: 'Venda registrada',
         description: 'A venda foi registrada com sucesso.',
       });
 
-      return data;
+      return formattedSale;
     } catch (error: any) {
       console.error('Erro ao adicionar venda:', error);
       toast({
@@ -595,21 +618,46 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
+      // Preparar dados para atualização
+      const updateData = {
+        customer_name: updates.customerName,
+        table_number: updates.tableNumber,
+        subtotal: updates.subtotal,
+        tax: updates.tax,
+        total: updates.total,
+        status: updates.status,
+        payment_method: updates.paymentMethod,
+        user_id: currentUser.id,
+        cash_register_id: currentCashRegister.id,
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('orders')
-        .update({
-          ...updates,
-          user_id: currentUser.id,
-          cash_register_id: currentCashRegister.id,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', orderId)
         .select()
         .single();
 
       if (error) throw error;
 
-      setOrders(prev => prev.map(order => order.id === orderId ? data : order));
+      // Converter dados de volta para o formato da aplicação
+      const updatedOrder: Order = {
+        id: data.id,
+        customerName: data.customer_name,
+        tableNumber: data.table_number,
+        items: orders.find(o => o.id === orderId)?.items || [],
+        subtotal: data.subtotal,
+        tax: data.tax,
+        total: data.total,
+        status: data.status as OrderStatus,
+        paymentMethod: data.payment_method as PaymentMethod,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at),
+        userId: data.user_id
+      };
+
+      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));
 
       // Se foi marcado como pago, criar uma venda correspondente
       if (updates.status === 'paid' && data) {
@@ -645,7 +693,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         description: 'A comanda foi atualizada com sucesso.',
       });
 
-      return data;
+      return updatedOrder;
     } catch (error: any) {
       console.error('Erro ao atualizar comanda:', error);
       toast({
@@ -748,15 +796,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const newIngredient: Ingredient = {
       id: crypto.randomUUID(),
       ...ingredient,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      created_at: new Date(),
+      updated_at: new Date()
     };
     setIngredients(prev => [...prev, newIngredient]);
   };
 
   const updateIngredient = (id: string, ingredient: Partial<Ingredient>) => {
     setIngredients(prev =>
-      prev.map(i => (i.id === id ? { ...i, ...ingredient, updatedAt: new Date() } : i))
+      prev.map(i => (i.id === id ? { ...i, ...ingredient, updated_at: new Date() } : i))
     );
   };
 

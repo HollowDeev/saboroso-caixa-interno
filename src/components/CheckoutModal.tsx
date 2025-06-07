@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -101,30 +100,6 @@ export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) =>
 
     try {
       const { total, subtotal, taxesTotal } = calculateFinalTotal();
-
-      // Verificar estoque antes de finalizar
-      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
-      
-      const stockCheck = await processOrderItemsStockConsumption(
-        selectedProducts.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          product: item.product
-        })),
-        'temp-user-id', // Será substituído no updateOrder
-        'Verificação de estoque'
-      );
-
-      // Se há erros críticos de estoque, mostrar aviso mas permitir continuar
-      if (!stockCheck.success && stockCheck.errors.some(error => error.includes('Estoque insuficiente'))) {
-        const proceed = window.confirm(
-          `Atenção: Alguns itens têm estoque insuficiente:\n\n${stockCheck.errors.join('\n')}\n\nDeseja continuar mesmo assim?`
-        );
-        
-        if (!proceed) {
-          return;
-        }
-      }
 
       // Preparar dados atualizados da comanda
       const updatedOrderData = {

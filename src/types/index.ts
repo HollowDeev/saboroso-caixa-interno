@@ -1,8 +1,9 @@
+
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'cashier';
+  role: 'admin' | 'cashier' | 'employee';
   created_at: Date;
   updated_at: Date;
 }
@@ -24,12 +25,12 @@ export interface Product {
   id: string;
   name: string;
   description?: string;
+  category: string;
   price: number;
   cost: number;
-  category?: string;
-  available: boolean;
-  ingredients: ProductIngredient[];
   preparationTime?: number;
+  available: boolean;
+  ingredients?: ProductIngredient[];
   created_at: Date;
   updated_at: Date;
 }
@@ -37,28 +38,22 @@ export interface Product {
 export interface ProductIngredient {
   ingredientId: string;
   quantity: number;
+  unit?: string;
 }
 
 export interface OrderItem {
   id?: string;
-  cash_register_id?: string;
-  order_id?: string;
-  product_name?: string;
   productId: string;
   product: Product;
+  product_name?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  product_cost?: number;
-  profit?: number;
-  sale_date?: Date;
-  created_at?: Date;
 }
 
-// Interface temporária para criação de novos itens
 export interface NewOrderItem {
   productId: string;
-  product: Product;
+  product: Product | ExternalProduct;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -88,7 +83,7 @@ export interface Sale {
   total: number;
   subtotal: number;
   tax: number;
-  paymentMethod: 'cash' | 'card' | 'pix';
+  paymentMethod: PaymentMethod;
   createdAt: Date;
   userId: string;
   is_direct_sale?: boolean;
@@ -102,31 +97,12 @@ export interface Sale {
   customerName?: string;
 }
 
-export interface Analytics {
-  period: 'day' | 'week' | 'month';
-  totalSales: number;
-  totalOrders: number;
-  averageOrderValue: number;
-  topProducts: {
-    productId: string;
-    name: string;
-    quantity: number;
-    revenue: number;
-  }[];
-  ingredientUsage: {
-    ingredientId: string;
-    name: string;
-    used: number;
-    remaining: number;
-  }[];
-}
-
 export interface ServiceTax {
   id: string;
   name: string;
-  description?: string;
   percentage: number;
   isActive: boolean;
+  description?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -134,42 +110,27 @@ export interface ServiceTax {
 export interface CashRegister {
   id: string;
   owner_id: string;
-  opened_at: string;
-  closed_at?: string;
   opening_amount: number;
   closing_amount?: number;
   total_sales: number;
   total_orders: number;
   is_open: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CashRegisterSale {
-  id: string;
-  cash_register_id: string;
-  order_id: string;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product_cost: number;
-  profit: number;
-  sale_date: string;
-  created_at: string;
+  opened_at: Date;
+  closed_at?: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface ExternalProduct {
   id: string;
   name: string;
-  brand: string | null;
-  description: string | null;
+  description?: string;
+  brand?: string;
   current_stock: number;
   min_stock: number;
   cost: number;
   price: number;
   owner_id: string;
-  created_at: string;
-  updated_at: string;
-  available?: boolean;
+  created_at: Date;
+  updated_at: Date;
 }
