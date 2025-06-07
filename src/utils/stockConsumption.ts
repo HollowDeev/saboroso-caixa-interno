@@ -1,6 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Product, Ingredient } from '@/types';
+import { Product, ExternalProduct } from '@/types';
 
 export interface IngredientConsumption {
   ingredientId: string;
@@ -52,7 +51,6 @@ export const consumeIngredientsFromStock = async (
     const totalQuantityToConsume = ingredient.quantity * quantityMultiplier;
     
     try {
-      // Buscar o estoque atual do ingrediente
       const { data: currentIngredient, error: getError } = await supabase
         .from('ingredients')
         .select('current_stock, name')
@@ -69,16 +67,13 @@ export const consumeIngredientsFromStock = async (
         continue;
       }
 
-      // Verificar se há estoque suficiente
       if (currentIngredient.current_stock < totalQuantityToConsume) {
         errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}, Necessário: ${totalQuantityToConsume}`);
         continue;
       }
 
-      // Consumir do estoque usando FIFO (First In, First Out)
       let remainingToConsume = totalQuantityToConsume;
 
-      // Buscar entradas de estoque disponíveis ordenadas por data (FIFO)
       const { data: stockEntries, error: entriesError } = await supabase
         .from('stock_entries')
         .select('id, remaining_quantity')
@@ -91,7 +86,6 @@ export const consumeIngredientsFromStock = async (
         continue;
       }
 
-      // Consumir das entradas seguindo FIFO
       for (const entry of stockEntries || []) {
         if (remainingToConsume <= 0) break;
 
@@ -112,7 +106,6 @@ export const consumeIngredientsFromStock = async (
         remainingToConsume -= toConsume;
       }
 
-      // Atualizar o estoque total do ingrediente
       const newStock = currentIngredient.current_stock - totalQuantityToConsume;
       const { error: updateIngredientError } = await supabase
         .from('ingredients')
@@ -127,7 +120,6 @@ export const consumeIngredientsFromStock = async (
         continue;
       }
 
-      // Registrar o movimento de estoque
       const { error: movementError } = await supabase
         .from('stock_movements')
         .insert({
@@ -167,7 +159,7 @@ export const consumeExternalProductsFromStock = async (
 
   for (const product of products) {
     try {
-      // Buscar o estoque atual do produto externo
+      // Get current external product stock
       const { data: currentProduct, error: getError } = await supabase
         .from('external_products')
         .select('current_stock, name')
@@ -184,16 +176,16 @@ export const consumeExternalProductsFromStock = async (
         continue;
       }
 
-      // Verificar se há estoque suficiente
+      // Check if there's enough stock
       if (currentProduct.current_stock < product.quantity) {
         errors.push(`Estoque insuficiente para ${product.productName}. Disponível: ${currentProduct.current_stock}, Necessário: ${product.quantity}`);
         continue;
       }
 
-      // Consumir do estoque usando FIFO
+      // Consume from stock using FIFO
       let remainingToConsume = product.quantity;
 
-      // Buscar entradas de estoque disponíveis ordenadas por data (FIFO)
+      // Get available stock entries ordered by date (FIFO)
       const { data: productEntries, error: entriesError } = await supabase
         .from('external_product_entries')
         .select('id, remaining_quantity')
@@ -206,7 +198,7 @@ export const consumeExternalProductsFromStock = async (
         continue;
       }
 
-      // Consumir das entradas seguindo FIFO
+      // Consume from entries following FIFO
       for (const entry of productEntries || []) {
         if (remainingToConsume <= 0) break;
 
@@ -227,7 +219,7 @@ export const consumeExternalProductsFromStock = async (
         remainingToConsume -= toConsume;
       }
 
-      // Atualizar o estoque total do produto
+      // Update the total stock of the product
       const newStock = currentProduct.current_stock - product.quantity;
       const { error: updateProductError } = await supabase
         .from('external_products')
@@ -242,7 +234,7 @@ export const consumeExternalProductsFromStock = async (
         continue;
       }
 
-      // Registrar o movimento de estoque
+      // Register stock movement
       const { error: movementError } = await supabase
         .from('stock_movements')
         .insert({
@@ -274,14 +266,14 @@ export const consumeExternalProductsFromStock = async (
 
 // Função para processar consumo de ingredientes e produtos externos de uma venda
 export const processOrderItemsStockConsumption = async (
-  orderItems: Array<{ productId: string; quantity: number; product?: Product }>,
+  orderItems: Array<{ productId: string; quantity: number; product?: Product | ExternalProduct }>,
   userId: string,
   reason: string = 'Venda registrada'
 ): Promise<{ success: boolean; errors: string[] }> => {
   const allErrors: string[] = [];
 
   // Separar comidas de produtos externos
-  const foodItems: Array<{ productId: string; quantity: number; product?: Product }> = [];
+  const foodItems: Array<{ productId: string; quantity: number; product?: Product | ExternalProduct }> = [];
   const externalProductItems: ExternalProductConsumption[] = [];
 
   for (const item of orderItems) {

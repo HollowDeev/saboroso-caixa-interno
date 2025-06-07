@@ -44,7 +44,7 @@ export interface ProductIngredient {
 export interface OrderItem {
   id?: string;
   productId: string;
-  product: Product;
+  product: Product | ExternalProduct;
   product_name?: string;
   quantity: number;
   unitPrice: number;

@@ -1,617 +1,308 @@
+
 import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, TrendingUp, ShoppingCart, Calendar, Edit, Trash2, Plus, CreditCard, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import { useApp } from '@/contexts/AppContext';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Sale, CashRegister, CashRegisterSale } from '@/types';
 import { DirectSaleModal } from '@/components/DirectSaleModal';
 import { EditSaleModal } from '@/components/EditSaleModal';
-import { OpenCashRegisterModal } from '@/components/OpenCashRegisterModal';
-import { CloseCashRegisterModal } from '@/components/CloseCashRegisterModal';
-import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
-import { Sale, CashRegister, CashRegisterSale } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
 
 export const Sales = () => {
-  const {
-    sales,
-    orders,
-    setSales,
-    currentUser,
-    currentCashRegister,
-    openCashRegister,
-    closeCashRegister,
-    checkCashRegisterAccess,
-    deleteSale,
-    isLoading
+  const { 
+    sales, 
+    currentCashRegister, 
+    checkCashRegisterAccess, 
+    isLoading 
   } = useApp();
-
-  console.log('=== PÁGINA DE VENDAS ===');
-  console.log('Usuário atual:', currentUser);
-  console.log('Caixa atual:', currentCashRegister);
-
-  const [selectedPeriod, setSelectedPeriod] = useState('today');
+  
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [isOpenCashModalOpen, setIsOpenCashModalOpen] = useState(false);
-  const [isCloseCashModalOpen, setIsCloseCashModalOpen] = useState(false);
-  const [isNoCashModalOpen, setIsNoCashModalOpen] = useState(false);
-  const [cashHistory, setCashHistory] = useState<CashRegister[]>([]);
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date());
   const [cashRegisterSales, setCashRegisterSales] = useState<CashRegisterSale[]>([]);
 
   const isOwner = checkCashRegisterAccess();
-  console.log('Tem permissão de dono:', isOwner);
 
   useEffect(() => {
-    console.log('=== VERIFICANDO ESTADO DO CAIXA ===');
-    console.log('É dono:', isOwner);
-    console.log('Caixa atual:', currentCashRegister);
+    const loadCashRegisterSales = async () => {
+      if (!currentCashRegister) return;
 
-    // Verificar se o usuário tem permissão e se não há caixa aberto
-    if (isOwner && !currentCashRegister) {
-      console.log('Abrindo modal de caixa fechado');
-      setIsNoCashModalOpen(true);
-    }
-  }, [isOwner, currentCashRegister]);
+      try {
+        const { data, error } = await supabase
+          .from('sales')
+          .select('*')
+          .eq('cash_register_id', currentCashRegister.id)
+          .order('created_at', { ascending: false });
 
-  // Carregar histórico de caixas ao montar o componente
-  useEffect(() => {
-    loadCashHistory();
-  }, []);
+        if (error) throw error;
 
-  // Recarregar histórico de caixas quando uma venda for criada/excluída
-  useEffect(() => {
-    loadCashHistory();
-  }, [sales]);
+        const salesWithMappedData = data.map(sale => ({
+          ...sale,
+          cash_register_id: sale.cash_register_id,
+          payment_method: sale.payment_method,
+          created_at: sale.created_at,
+          user_id: sale.user_id,
+          is_direct_sale: sale.is_direct_sale,
+          customer_name: sale.customer_name,
+          order_id: sale.order_id
+        }));
 
-  const getFilteredSales = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    return sales.filter(sale => {
-      const saleDate = new Date(sale.createdAt);
-      switch (selectedPeriod) {
-        case 'today':
-          return saleDate >= today;
-        case 'week':
-          return saleDate >= weekStart;
-        case 'month':
-          return saleDate >= monthStart;
-        default:
-          return true;
+        setCashRegisterSales(salesWithMappedData);
+      } catch (error) {
+        console.error('Erro ao carregar vendas do caixa:', error);
       }
-    });
-  };
+    };
 
-  const handleDirectSale = () => {
-    console.log('=== TENTANDO INICIAR VENDA DIRETA ===');
-    console.log('Caixa atual:', currentCashRegister);
+    loadCashRegisterSales();
+  }, [currentCashRegister]);
 
-    if (!currentCashRegister) {
-      console.log('Nenhum caixa aberto, mostrando modal');
-      setIsNoCashModalOpen(true);
-      return;
-    }
-    setIsDirectSaleOpen(true);
-  };
+  const filteredSales = sales.filter(sale => {
+    if (!dateFilter) return true;
+    const saleDate = new Date(sale.createdAt);
+    return saleDate.toDateString() === dateFilter.toDateString();
+  });
 
-  const handleOpenCash = async (openingAmount: number) => {
-    try {
-      await openCashRegister(openingAmount);
-      setIsOpenCashModalOpen(false);
-      setIsNoCashModalOpen(false);
-      loadCashHistory();
-      toast({
-        title: "Sucesso",
-        description: "Caixa aberto com sucesso!",
-      });
-    } catch (error: any) {
-      console.error('Erro ao abrir caixa:', error);
-      toast({
-        title: "Erro ao abrir caixa",
-        description: error.message || "Ocorreu um erro ao abrir o caixa. Tente novamente.",
-        variant: "destructive"
-      });
+  const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
+  const totalCashSales = filteredSales
+    .filter(sale => sale.paymentMethod === 'cash')
+    .reduce((sum, sale) => sum + sale.total, 0);
+  const totalCardSales = filteredSales
+    .filter(sale => sale.paymentMethod === 'card')
+    .reduce((sum, sale) => sum + sale.total, 0);
+  const totalPixSales = filteredSales
+    .filter(sale => sale.paymentMethod === 'pix')
+    .reduce((sum, sale) => sum + sale.total, 0);
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'cash': return 'Dinheiro';
+      case 'card': return 'Cartão';
+      case 'pix': return 'PIX';
+      default: return method;
     }
   };
 
-  const handleCloseCash = async (closingAmount: number) => {
-    try {
-      await closeCashRegister(closingAmount);
-      setIsCloseCashModalOpen(false);
-      loadCashHistory();
-      toast({
-        title: "Sucesso",
-        description: "Caixa fechado com sucesso!",
-      });
-    } catch (error: any) {
-      console.error('Erro ao fechar caixa:', error);
-      toast({
-        title: "Erro ao fechar caixa",
-        description: error.message || "Ocorreu um erro ao fechar o caixa. Tente novamente.",
-        variant: "destructive"
-      });
+  const getPaymentMethodColor = (method: string) => {
+    switch (method) {
+      case 'cash': return 'bg-green-500';
+      case 'card': return 'bg-blue-500';
+      case 'pix': return 'bg-purple-500';
+      default: return 'bg-gray-500';
     }
   };
 
-  const loadCashHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('cash_registers')
-        .select('*')
-        .order('opened_at', { ascending: false });
+  const exportSales = () => {
+    const csvContent = [
+      'Data,Cliente,Total,Taxa,Subtotal,Método de Pagamento,Tipo',
+      ...filteredSales.map(sale => [
+        format(sale.createdAt, 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+        sale.customerName || 'Cliente não informado',
+        sale.total.toFixed(2),
+        sale.tax.toFixed(2),
+        sale.subtotal.toFixed(2),
+        getPaymentMethodLabel(sale.paymentMethod),
+        sale.is_direct_sale ? 'Venda Direta' : 'Comanda'
+      ].join(','))
+    ].join('\n');
 
-      if (error) throw error;
-      setCashHistory(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar histórico de caixas:', error);
-    }
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `vendas_${format(dateFilter || new Date(), 'dd-MM-yyyy')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
-
-  const loadCashRegisterSales = async (cashRegisterId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('cash_register_sales')
-        .select('*')
-        .eq('cash_register_id', cashRegisterId)
-        .order('sale_date', { ascending: false });
-
-      if (error) throw error;
-      setCashRegisterSales(data || []);
-    } catch (error) {
-      console.error('Erro ao carregar vendas do caixa:', error);
-    }
-  };
-
-  const filteredSales = getFilteredSales();
-  const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
-  const totalSales = filteredSales.length;
-  const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
-
-  const getPaymentMethodStats = () => {
-    const stats = { cash: 0, card: 0, pix: 0 };
-    filteredSales.forEach(sale => {
-      stats[sale.paymentMethod]++;
-    });
-    return stats;
-  };
-
-  const getDailySales = () => {
-    const dailyStats: { [key: string]: { revenue: number, count: number } } = {};
-
-    filteredSales.forEach(sale => {
-      const date = new Date(sale.createdAt).toLocaleDateString();
-      if (!dailyStats[date]) {
-        dailyStats[date] = { revenue: 0, count: 0 };
-      }
-      dailyStats[date].revenue += sale.total;
-      dailyStats[date].count++;
-    });
-
-    return Object.entries(dailyStats)
-      .map(([date, stats]) => ({ date, ...stats }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
-
-  const dailySales = getDailySales();
-  const paymentStats = getPaymentMethodStats();
-
-  const getOrderForSale = (orderId?: string) => {
-    if (!orderId) return null;
-    return orders.find(order => order.id === orderId);
-  };
-
-  const handleDeleteSale = async (saleId: string) => {
-    try {
-      await deleteSale(saleId);
-      toast({
-        title: "Sucesso",
-        description: "Venda excluída com sucesso!",
-      });
-      loadCashHistory();
-    } catch (error: any) {
-      console.error('Erro ao excluir venda:', error);
-      toast({
-        title: "Erro ao excluir venda",
-        description: error.message || "Ocorreu um erro ao excluir a venda. Tente novamente.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const stats = [
-    {
-      title: 'Receita Total',
-      value: `R$ ${totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
-      color: 'text-green-600',
-      bg: 'bg-green-100'
-    },
-    {
-      title: 'Total de Vendas',
-      value: totalSales.toString(),
-      icon: ShoppingCart,
-      color: 'text-blue-600',
-      bg: 'bg-blue-100'
-    },
-    {
-      title: 'Ticket Médio',
-      value: `R$ ${averageTicket.toFixed(2)}`,
-      icon: TrendingUp,
-      color: 'text-orange-600',
-      bg: 'bg-orange-100'
-    }
-  ];
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
-          <p className="text-gray-600">Análise, histórico de vendas e gerenciamento de caixa</p>
+          <p className="text-gray-600">Gerencie e acompanhe suas vendas</p>
         </div>
-
+        
         <div className="flex space-x-2">
           <Button
-            onClick={handleDirectSale}
+            onClick={() => setIsDirectSaleOpen(true)}
             className="bg-green-500 hover:bg-green-600"
+            disabled={!currentCashRegister}
           >
             <Plus className="h-4 w-4 mr-2" />
             Venda Direta
           </Button>
-
-          {isOwner && (
-            <>
-              {!currentCashRegister ? (
-                <Button
-                  onClick={() => setIsOpenCashModalOpen(true)}
-                  className="bg-blue-500 hover:bg-blue-600"
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Abrir Caixa
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => setIsCloseCashModalOpen(true)}
-                  variant="destructive"
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Fechar Caixa
-                </Button>
-              )}
-            </>
-          )}
-
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Hoje</SelectItem>
-              <SelectItem value="week">Últimos 7 dias</SelectItem>
-              <SelectItem value="month">Este mês</SelectItem>
-              <SelectItem value="all">Todas</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
-      {/* Status do Caixa */}
-      {currentCashRegister && (
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1">
+              <Label htmlFor="date-filter">Data</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dateFilter && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateFilter ? format(dateFilter, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione uma data'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={dateFilter}
+                    onSelect={setDateFilter}
+                    initialFocus
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <Button onClick={exportSales} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-green-600">Caixa Aberto</h3>
-                <p className="text-sm text-gray-600">
-                  Aberto em: {new Date(currentCashRegister.opened_at).toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Valor inicial: R$ {currentCashRegister.opening_amount.toFixed(2)}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold">R$ {currentCashRegister.total_sales.toFixed(2)}</p>
-                <p className="text-sm text-gray-600">{currentCashRegister.total_orders} vendas</p>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <BarChart3 className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total</p>
+                <p className="text-2xl font-bold">R$ {totalSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div className={`p-3 rounded-lg ${stat.bg}`}>
-                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <DollarSign className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Dinheiro</p>
+                <p className="text-2xl font-bold">R$ {totalCashSales.toFixed(2)}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <CreditCard className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Cartão</p>
+                <p className="text-2xl font-bold">R$ {totalCardSales.toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <div className="h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-sm">P</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">PIX</p>
+                <p className="text-2xl font-bold">R$ {totalPixSales.toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Tabs defaultValue="current" className="w-full">
-        <TabsList>
-          <TabsTrigger value="current">Vendas Atuais</TabsTrigger>
-          <TabsTrigger value="history">Histórico de Caixas</TabsTrigger>
-          <TabsTrigger value="analysis">Análise Detalhada</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="current" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Vendas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                </div>
-              ) : (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Data/Hora</TableHead>
-                        <TableHead>Cliente/Mesa</TableHead>
-                        <TableHead>Valor</TableHead>
-                        <TableHead>Pagamento</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredSales.map((sale) => {
-                        const order = getOrderForSale(sale.orderId);
-                        return (
-                          <TableRow key={sale.id}>
-                            <TableCell>
-                              {new Date(sale.createdAt).toLocaleDateString()} às{' '}
-                              {new Date(sale.createdAt).toLocaleTimeString()}
-                            </TableCell>
-                            <TableCell>
-                              {sale.is_direct_sale ? (
-                                sale.customerName || 'Venda Direta'
-                              ) : (
-                                order?.customerName || `Mesa ${order?.tableNumber}` || 'Venda Direta'
-                              )}
-                            </TableCell>
-                            <TableCell className="font-semibold">
-                              R$ {sale.total.toFixed(2)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {sale.paymentMethod === 'cash' ? 'Dinheiro' :
-                                  sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={sale.is_direct_sale ? "secondary" : "default"}>
-                                {sale.is_direct_sale ? 'Direta' : 'Comanda'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex space-x-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setEditingSale(sale)}
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="destructive">
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => handleDeleteSale(sale.id)}>
-                                        Excluir
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-
-                  {filteredSales.length === 0 && (
-                    <div className="text-center py-8">
-                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">Nenhuma venda encontrada no período selecionado.</p>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="history" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Histórico de Caixas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {cashHistory.map((cashRegister) => (
-                  <div key={cashRegister.id} className="border rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={cashRegister.is_open ? "default" : "secondary"}>
-                            {cashRegister.is_open ? 'Aberto' : 'Fechado'}
-                          </Badge>
-                          <span className="font-medium">
-                            {new Date(cashRegister.opened_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {new Date(cashRegister.opened_at).toLocaleTimeString()} - {' '}
-                          {cashRegister.closed_at ? new Date(cashRegister.closed_at).toLocaleTimeString() : 'Em andamento'}
-                        </p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => loadCashRegisterSales(cashRegister.id)}
-                      >
-                        Ver Detalhes
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-600">Valor Inicial</p>
-                        <p className="font-semibold">R$ {cashRegister.opening_amount.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Total Vendas</p>
-                        <p className="font-semibold">R$ {cashRegister.total_sales.toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Nº Pedidos</p>
-                        <p className="font-semibold">{cashRegister.total_orders}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">Valor Final</p>
-                        <p className="font-semibold">
-                          {cashRegister.closing_amount ?
-                            `R$ ${cashRegister.closing_amount.toFixed(2)}` :
-                            '--'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analysis" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Análise Detalhada</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-semibold mb-4">Resumo do Período</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Período:</span>
+      {/* Sales List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vendas do Dia</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-8">
+              <p>Carregando vendas...</p>
+            </div>
+          ) : filteredSales.length === 0 ? (
+            <div className="text-center py-8">
+              <p>Nenhuma venda encontrada para esta data.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredSales.map((sale) => (
+                <div key={sale.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
                       <span className="font-medium">
-                        {selectedPeriod === 'today' ? 'Hoje' :
-                          selectedPeriod === 'week' ? 'Últimos 7 dias' :
-                            selectedPeriod === 'month' ? 'Este mês' : 'Todas'}
+                        {sale.customerName || 'Cliente não informado'}
                       </span>
+                      <Badge variant={sale.is_direct_sale ? 'default' : 'secondary'}>
+                        {sale.is_direct_sale ? 'Venda Direta' : 'Comanda'}
+                      </Badge>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Total de vendas:</span>
-                      <span className="font-medium">{totalSales}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Receita total:</span>
-                      <span className="font-medium">R$ {totalRevenue.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Ticket médio:</span>
-                      <span className="font-medium">R$ {averageTicket.toFixed(2)}</span>
-                    </div>
+                    <p className="text-sm text-gray-600">
+                      {format(sale.createdAt, 'HH:mm', { locale: ptBR })} - 
+                      R$ {sale.total.toFixed(2)} via {getPaymentMethodLabel(sale.paymentMethod)}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-3 h-3 rounded-full ${getPaymentMethodColor(sale.paymentMethod)}`}></div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingSale(sale)}
+                    >
+                      Ver Detalhes
+                    </Button>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-                <div>
-                  <h3 className="font-semibold mb-4">Métodos de Pagamento</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Dinheiro:</span>
-                      <span className="font-medium">
-                        {paymentStats.cash} vendas ({totalSales > 0 ? ((paymentStats.cash / totalSales) * 100).toFixed(1) : 0}%)
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Cartão:</span>
-                      <span className="font-medium">
-                        {paymentStats.card} vendas ({totalSales > 0 ? ((paymentStats.card / totalSales) * 100).toFixed(1) : 0}%)
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>PIX:</span>
-                      <span className="font-medium">
-                        {paymentStats.pix} vendas ({totalSales > 0 ? ((paymentStats.pix / totalSales) * 100).toFixed(1) : 0}%)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Modals */}
       <DirectSaleModal
         isOpen={isDirectSaleOpen}
         onClose={() => setIsDirectSaleOpen(false)}
       />
 
-      <EditSaleModal
-        sale={editingSale}
-        onClose={() => setEditingSale(null)}
-      />
-
-      <OpenCashRegisterModal
-        isOpen={isOpenCashModalOpen}
-        onClose={() => setIsOpenCashModalOpen(false)}
-        onConfirm={handleOpenCash}
-      />
-
-      <CloseCashRegisterModal
-        isOpen={isCloseCashModalOpen}
-        onClose={() => setIsCloseCashModalOpen(false)}
-        onConfirm={handleCloseCash}
-        cashRegister={currentCashRegister}
-      />
-
-      <NoCashRegisterModal
-        isOpen={isNoCashModalOpen}
-        onClose={() => setIsNoCashModalOpen(false)}
-        isOwner={isOwner}
-        onOpenCashRegister={() => {
-          setIsNoCashModalOpen(false);
-          setIsOpenCashModalOpen(true);
-        }}
-      />
+      {editingSale && (
+        <EditSaleModal
+          sale={editingSale}
+          isOpen={!!editingSale}
+          onClose={() => setEditingSale(null)}
+        />
+      )}
     </div>
   );
 };

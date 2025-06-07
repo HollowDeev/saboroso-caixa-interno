@@ -18,7 +18,6 @@ export const useStock = (ownerId: string) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Refs para controle de montagem e canais
   const isMounted = useRef(false);
   const channelsRef = useRef<{
     ingredients?: ReturnType<typeof supabase.channel>;
@@ -273,8 +272,8 @@ export const useStock = (ownerId: string) => {
           name: product.name,
           brand: product.brand || null,
           description: product.description || null,
-          current_stock: product.currentStock,
-          min_stock: product.minStock,
+          current_stock: product.current_stock,
+          min_stock: product.min_stock,
           cost: product.cost,
           price: product.price,
           updated_at: new Date().toISOString()
@@ -496,10 +495,18 @@ export const useStock = (ownerId: string) => {
     reason: string
   ) => {
     try {
+      // First get the current ingredient
+      const { data: currentIngredient, error: getError } = await supabase
+        .from('ingredients')
+        .select('current_stock')
+        .eq('id', ingredientId)
+        .single();
+
+      if (getError) throw getError;
+
       let remainingToConsume = quantity;
       const entriesToUpdate: { id: string; consumed: number }[] = [];
 
-      // Busca as entradas disponíveis ordenadas por data (FIFO)
       const { data: availableEntries, error: entriesError } = await supabase
         .from('stock_entries')
         .select('*')
@@ -513,7 +520,6 @@ export const useStock = (ownerId: string) => {
         throw new Error('Não há estoque suficiente disponível');
       }
 
-      // Calcula quanto consumir de cada entrada
       for (const entry of availableEntries) {
         if (remainingToConsume <= 0) break;
 
@@ -526,7 +532,6 @@ export const useStock = (ownerId: string) => {
         throw new Error('Não há estoque suficiente disponível');
       }
 
-      // Atualiza as entradas
       for (const update of entriesToUpdate) {
         const { data: entry, error: getError } = await supabase
           .from('stock_entries')
@@ -546,7 +551,6 @@ export const useStock = (ownerId: string) => {
         if (updateError) throw updateError;
       }
 
-      // Registra o movimento
       const { error: movementError } = await supabase
         .from('stock_movements')
         .insert([{
@@ -562,16 +566,6 @@ export const useStock = (ownerId: string) => {
 
       if (movementError) throw movementError;
 
-      // Busca o estoque atual
-      const { data: currentIngredient, error: getError } = await supabase
-        .from('ingredients')
-        .select('current_stock')
-        .eq('id', ingredientId)
-        .single();
-
-      if (getError) throw getError;
-
-      // Atualiza o estoque total do ingrediente
       const { error: updateError } = await supabase
         .from('ingredients')
         .update({
@@ -881,4 +875,4 @@ export const useStock = (ownerId: string) => {
     updateIngredient,
     deleteIngredient
   };
-}; 
+};
