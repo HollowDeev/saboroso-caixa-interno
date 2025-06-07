@@ -163,6 +163,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       const ordersWithItems = ordersData.map(order => ({
         ...order,
+        userId: order.user_id,
         items: orderItemsData
           .filter(item => item.order_id === order.id)
           .map(item => ({
@@ -199,7 +200,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         orderId: sale.order_id,
         userId: sale.user_id,
         paymentMethod: sale.payment_method as PaymentMethod,
-        customerName: sale.customer_name
+        customerName: sale.customer_name,
+        items: Array.isArray(sale.items) ? sale.items : []
       }));
 
       setSales(salesWithDates);
@@ -219,6 +221,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       const taxesWithDates = data.map(tax => ({
         ...tax,
+        isActive: tax.is_active,
         createdAt: new Date(tax.created_at),
         updatedAt: new Date(tax.updated_at)
       }));
@@ -466,10 +469,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase
         .from('sales')
         .insert([{
-          ...saleData,
+          total: saleData.total,
+          subtotal: saleData.subtotal,
+          tax: saleData.tax,
+          payment_method: saleData.paymentMethod,
           user_id: currentUser.id,
           cash_register_id: currentCashRegister.id,
           customer_name: saleData.customerName,
+          is_direct_sale: saleData.is_direct_sale || false,
+          items: saleData.items || [],
           created_at: new Date().toISOString()
         }])
         .select()
@@ -477,13 +485,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      setSales(prev => [data, ...prev]);
+      const newSale = {
+        ...data,
+        createdAt: new Date(data.created_at),
+        userId: data.user_id,
+        paymentMethod: data.payment_method as PaymentMethod,
+        customerName: data.customer_name,
+        orderId: data.order_id,
+        items: Array.isArray(data.items) ? data.items : []
+      };
+
+      setSales(prev => [newSale, ...prev]);
       toast({
         title: 'Venda registrada',
         description: 'A venda foi registrada com sucesso.',
       });
 
-      return data;
+      return newSale;
     } catch (error: any) {
       console.error('Erro ao adicionar venda:', error);
       toast({
