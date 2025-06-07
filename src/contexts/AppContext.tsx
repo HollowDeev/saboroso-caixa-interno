@@ -761,9 +761,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      setSales(prev => prev.filter(s => s.id !== id));
-    } catch (error) {
+      setSales(prev => prev.filter(sale => sale.id !== id));
+      toast({
+        title: 'Venda excluída',
+        description: 'A venda foi excluída com sucesso.',
+      });
+    } catch (error: any) {
       console.error('Erro ao excluir venda:', error);
+      toast({
+        title: 'Erro ao excluir venda',
+        description: error.message || 'Não foi possível excluir a venda.',
+        variant: 'destructive',
+      });
       throw error;
     }
   };

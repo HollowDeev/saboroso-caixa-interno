@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,17 @@ import { EditSaleModal } from '@/components/EditSaleModal';
 import { supabase } from '@/integrations/supabase/client';
 import { OpenCashRegisterModal } from '@/components/OpenCashRegisterModal';
 import { CloseCashRegisterModal } from '@/components/CloseCashRegisterModal';
+import { toast } from '@/components/ui/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Sales = () => {
   const {
@@ -26,7 +37,8 @@ export const Sales = () => {
     checkCashRegisterAccess,
     isLoading,
     openCashRegister,
-    closeCashRegister
+    closeCashRegister,
+    deleteSale
   } = useApp();
 
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
@@ -35,6 +47,7 @@ export const Sales = () => {
   const [cashRegisterSales, setCashRegisterSales] = useState<CashRegisterSale[]>([]);
   const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -146,6 +159,24 @@ export const Sales = () => {
       setIsCloseCashRegisterModalOpen(false);
     } catch (error) {
       console.error('Erro ao fechar caixa:', error);
+    }
+  };
+
+  const handleDeleteSale = async (sale: Sale) => {
+    try {
+      await deleteSale(sale.id);
+      setSaleToDelete(null);
+      toast({
+        title: "Sucesso",
+        description: "Venda excluída com sucesso!",
+      });
+    } catch (error) {
+      console.error('Erro ao excluir venda:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a venda. Tente novamente.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -330,33 +361,69 @@ export const Sales = () => {
           ) : (
             <div className="space-y-4">
               {filteredSales.map((sale) => (
-                <div key={sale.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">
-                        {sale.customerName || 'Cliente não informado'}
-                      </span>
-                      <Badge variant={sale.is_direct_sale ? 'default' : 'secondary'}>
-                        {sale.is_direct_sale ? 'Venda Direta' : 'Comanda'}
-                      </Badge>
+                <Card key={sale.id}>
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold">
+                            {sale.customerName || 'Cliente não identificado'}
+                          </h3>
+                          <Badge>
+                            {sale.paymentMethod === 'cash' ? 'Dinheiro' :
+                              sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
+                          </Badge>
+                          {sale.is_direct_sale && (
+                            <Badge variant="secondary">Venda Direta</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingSale(sale)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setSaleToDelete(sale)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      {format(sale.createdAt, 'HH:mm', { locale: ptBR })} -
-                      R$ {sale.total.toFixed(2)} via {getPaymentMethodLabel(sale.paymentMethod)}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center space-x-2">
-                    <div className={`w-3 h-3 rounded-full ${getPaymentMethodColor(sale.paymentMethod)}`}></div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingSale(sale)}
-                    >
-                      Ver Detalhes
-                    </Button>
-                  </div>
-                </div>
+                    {/* Sale Items */}
+                    <div className="mt-4 space-y-2">
+                      {sale.items?.map((item, index) => (
+                        <div key={index} className="flex justify-between text-sm">
+                          <span>{item.quantity}x {item.product_name}</span>
+                          <span>R$ {item.totalPrice.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      <div className="border-t pt-2 mt-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Subtotal:</span>
+                          <span>R$ {sale.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Taxa:</span>
+                          <span>R$ {sale.tax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between font-medium">
+                          <span>Total:</span>
+                          <span>R$ {sale.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
@@ -388,6 +455,27 @@ export const Sales = () => {
         onConfirm={handleCloseCashRegister}
         cashRegister={currentCashRegister}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => saleToDelete && handleDeleteSale(saleToDelete)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
