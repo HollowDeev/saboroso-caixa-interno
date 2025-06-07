@@ -38,7 +38,7 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
         <DialogHeader>
           <DialogTitle>Fechar Caixa</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="p-4 bg-gray-50 rounded-lg">
             <h3 className="font-semibold mb-2">Resumo do Caixa</h3>
@@ -61,7 +61,7 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
               </div>
             </div>
           </div>
-          
+
           <div>
             <Label htmlFor="closingAmount">Valor final do caixa</Label>
             <Input
@@ -74,13 +74,13 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
               placeholder="0.00"
             />
           </div>
-          
+
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
             <p className="text-sm text-yellow-800">
               ⚠️ Ao fechar este caixa, todas as vendas futuras serão vinculadas ao próximo caixa que for aberto.
             </p>
           </div>
-          
+
           <div className="flex space-x-2">
             <Button variant="outline" onClick={onClose} disabled={loading}>
               Cancelar
