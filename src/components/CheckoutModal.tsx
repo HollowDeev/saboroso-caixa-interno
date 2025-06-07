@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { Order, OrderItem, Product, ServiceTax, NewOrderItem, ExternalProduct } from '@/types';
+import { Order, OrderItem, Product, ServiceTax, NewOrderItem, ExternalProduct } from '@/types/index';
 import { Switch } from '@/components/ui/switch';
 
 interface CheckoutModalProps {
@@ -48,7 +49,7 @@ export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) =>
         product: {
           ...product,
           available: 'current_stock' in product ? product.current_stock > 0 : product.available
-        },
+        } as Product,
         quantity: 1,
         unitPrice: product.price,
         totalPrice: product.price

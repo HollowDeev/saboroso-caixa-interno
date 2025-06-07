@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import {
   User,
@@ -16,6 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useCashRegister } from '@/hooks/useCashRegister';
 import { useStock } from '@/hooks/useStock';
+import { useToast } from '@/hooks/use-toast';
 
 type AppContextType = {
   currentUser: User | null;
@@ -60,6 +62,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const { currentCashRegister, openCashRegister, closeCashRegister, loading: cashRegisterLoading } = useCashRegister();
   const { externalProducts } = useStock(currentUser?.id || '');
+  const { toast } = useToast();
 
   const checkCashRegisterAccess = () => {
     return currentUser?.role === 'admin' || currentUser?.role === 'cashier';
@@ -123,8 +126,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             .filter(fi => fi.food_id === food.id)
             .map(fi => ({
               ingredientId: fi.ingredient_id,
-              quantity: fi.quantity,
-              unit: fi.unit
+              quantity: fi.quantity
             })),
           created_at: new Date(food.created_at),
           updated_at: new Date(food.updated_at)
@@ -149,7 +151,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           .select('*');
 
         if (error) throw error;
-        setIngredients(data || []);
+        
+        const formattedIngredients: Ingredient[] = (data || []).map(ingredient => ({
+          id: ingredient.id,
+          name: ingredient.name,
+          currentStock: ingredient.current_stock,
+          minStock: ingredient.min_stock,
+          unit: ingredient.unit,
+          cost: ingredient.cost,
+          supplier: ingredient.supplier,
+          lastUpdated: new Date(ingredient.updated_at),
+          created_at: new Date(ingredient.created_at),
+          updated_at: new Date(ingredient.updated_at)
+        }));
+        
+        setIngredients(formattedIngredients);
       } catch (error) {
         console.error('Erro ao carregar ingredientes:', error);
       }
@@ -200,13 +216,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               product_name: item.product_name,
               quantity: item.quantity,
               unitPrice: item.unit_price,
-              totalPrice: item.total_price
+              totalPrice: item.total_price,
+              product: { name: item.product_name } as Product
             })),
           subtotal: order.subtotal,
           tax: order.tax,
           total: order.total,
-          status: order.status,
-          paymentMethod: order.payment_method,
+          status: order.status as OrderStatus,
+          paymentMethod: order.payment_method as PaymentMethod,
           createdAt: new Date(order.created_at),
           updatedAt: new Date(order.updated_at),
           userId: order.user_id
@@ -246,7 +263,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         total: sale.total,
         subtotal: sale.subtotal,
         tax: sale.tax,
-        paymentMethod: sale.payment_method,
+        paymentMethod: sale.payment_method as PaymentMethod,
         createdAt: new Date(sale.created_at),
         userId: sale.user_id,
         is_direct_sale: sale.is_direct_sale,
@@ -296,7 +313,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           food_id: foodData.id,
           ingredient_id: ing.ingredientId,
           quantity: ing.quantity,
-          unit: ing.unit
+          unit: 'g'
         }));
 
         const { error: ingredientsError } = await supabase
@@ -353,7 +370,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             food_id: id,
             ingredient_id: ing.ingredientId,
             quantity: ing.quantity,
-            unit: ing.unit
+            unit: 'g'
           }));
 
           const { error: ingredientsError } = await supabase
@@ -663,59 +680,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
-    try {
-      if (!currentCashRegister) {
-        throw new Error('Nenhum caixa aberto');
-      }
-
-      // Preparar os dados da venda
-      const saleData = {
-        order_id: sale.orderId,
-        total: sale.total,
-        subtotal: sale.subtotal,
-        tax: sale.tax,
-        payment_method: sale.paymentMethod,
-        user_id: sale.userId,
-        cash_register_id: currentCashRegister.id,
-        is_direct_sale: sale.is_direct_sale || false,
-        items: sale.items ? JSON.stringify(sale.items) : null,
-        customer_name: sale.customerName
-      };
-
-      // Inserir a venda no banco
-      const { data: newSale, error: saleError } = await supabase
-        .from('sales')
-        .insert(saleData)
-        .select()
-        .single();
-
-      if (saleError) throw saleError;
-
-      // Atualizar o estado local
-      const fullSale: Sale = {
-        id: newSale.id,
-        orderId: newSale.order_id,
-        total: newSale.total,
-        subtotal: newSale.subtotal,
-        tax: newSale.tax,
-        paymentMethod: newSale.payment_method,
-        createdAt: new Date(newSale.created_at),
-        userId: newSale.user_id,
-        is_direct_sale: newSale.is_direct_sale,
-        items: newSale.items ? JSON.parse(newSale.items) : undefined,
-        customerName: newSale.customer_name
-      };
-
-      setSales(prev => [...prev, fullSale]);
-
-      // Atualizar o caixa (agora é feito automaticamente pelo trigger)
-    } catch (error) {
-      console.error('Erro ao criar venda:', error);
-      throw error;
-    }
-  };
-
   const updateSale = async (id: string, sale: Partial<Sale>) => {
     try {
       // Preparar os dados da atualização
@@ -810,7 +774,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         sales,
         ingredients,
         serviceTaxes,
-        setCurrentUser,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -823,6 +786,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         addServiceTax,
         updateServiceTax,
         deleteServiceTax,
+        addIngredient,
+        updateIngredient,
+        deleteIngredient,
         currentCashRegister,
         openCashRegister,
         closeCashRegister,

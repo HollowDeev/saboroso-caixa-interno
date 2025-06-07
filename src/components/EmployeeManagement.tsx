@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,15 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Switch } from '@/components/ui/switch';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
 interface Employee {
   id: string;
-  access_key: string;
   name: string;
+  access_key: string;
   is_active: boolean;
   created_at: string;
 }
@@ -24,198 +24,161 @@ interface EmployeeManagementProps {
 
 export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
     name: '',
-    accessKey: '',
+    access_key: '',
     password: ''
   });
-  const [editFormData, setEditFormData] = useState({
-    name: '',
-    password: ''
-  });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchEmployees();
   }, [currentUserId]);
 
   const fetchEmployees = async () => {
-    if (!currentUserId) {
-      console.log('Nenhum usuário logado');
-      setLoading(false);
-      return;
-    }
-
     try {
-      console.log('Buscando funcionários para o usuário:', currentUserId);
-
+      setLoading(true);
       const { data, error } = await supabase
         .from('employees')
-        .select('id, name, access_key, is_active, created_at')
+        .select('*')
         .eq('owner_id', currentUserId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Erro na query:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Funcionários encontrados:', data);
       setEmployees(data || []);
-    } catch (err: any) {
-      console.error('Erro ao buscar funcionários:', err);
-      setError(`Erro ao carregar funcionários: ${err.message}`);
+    } catch (error) {
+      console.error('Erro ao buscar funcionários:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar funcionários',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const generateAccessKey = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
+    const key = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setNewEmployee(prev => ({ ...prev, access_key: key }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+  const generatePassword = () => {
+    const password = Math.random().toString(36).substring(2, 10);
+    setNewEmployee(prev => ({ ...prev, password }));
+  };
 
-    if (!currentUserId) {
-      setError('Usuário não identificado');
-      return;
-    }
-
-    if (!formData.name || !formData.accessKey || !formData.password) {
-      setError('Todos os campos são obrigatórios');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres');
-      return;
-    }
-
+  const createEmployee = async () => {
     try {
-      console.log('Criando funcionário para o usuário:', currentUserId);
+      if (!newEmployee.name || !newEmployee.access_key || !newEmployee.password) {
+        toast({
+          title: 'Erro',
+          description: 'Todos os campos são obrigatórios',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      const { data: employeeId, error } = await supabase.rpc('create_employee', {
+      // Verificar se a chave de acesso já existe
+      const { data: existingEmployee } = await supabase
+        .from('employees')
+        .select('access_key')
+        .eq('access_key', newEmployee.access_key)
+        .single();
+
+      if (existingEmployee) {
+        toast({
+          title: 'Erro',
+          description: 'Esta chave de acesso já está em uso',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Usar a função create_employee do Supabase
+      const { data, error } = await supabase.rpc('create_employee', {
         p_owner_id: currentUserId,
-        p_access_key: formData.accessKey.toUpperCase(),
-        p_password: formData.password,
-        p_name: formData.name
+        p_access_key: newEmployee.access_key,
+        p_password: newEmployee.password,
+        p_name: newEmployee.name
       });
 
-      if (error) {
-        console.error('Erro ao criar funcionário:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('Funcionário criado com sucesso:', employeeId);
-      setSuccess('Funcionário criado com sucesso!');
-      setFormData({ name: '', accessKey: '', password: '' });
-      setIsDialogOpen(false);
-      await fetchEmployees(); // Recarregar lista de funcionários
-    } catch (err: any) {
-      console.error('Erro ao criar funcionário:', err);
-      if (err.message.includes('duplicate key')) {
-        setError('Esta chave de acesso já está em uso. Tente outra.');
-      } else {
-        setError(`Erro ao criar funcionário: ${err.message}`);
-      }
+      toast({
+        title: 'Sucesso',
+        description: 'Funcionário criado com sucesso',
+      });
+
+      setNewEmployee({ name: '', access_key: '', password: '' });
+      setIsModalOpen(false);
+      fetchEmployees();
+    } catch (error: any) {
+      console.error('Erro ao criar funcionário:', error);
+      toast({
+        title: 'Erro',
+        description: error.message || 'Erro ao criar funcionário',
+        variant: 'destructive',
+      });
     }
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingEmployee) return;
-
-    setError('');
-    setSuccess('');
-
-    try {
-      // Atualizar nome
-      const updateData: any = { name: editFormData.name };
-
-      // Atualizar senha se fornecida
-      if (editFormData.password.trim()) {
-        // Primeiro, buscar o salt para a senha
-        const { data: saltData, error: saltError } = await supabase
-          .rpc('gen_salt', { type: 'bf' });
-
-        if (saltError) throw saltError;
-
-        updateData.password_hash = `crypt('${editFormData.password}', '${saltData}')`;
-      }
-
-      const { error } = await supabase
-        .from('employees')
-        .update(updateData)
-        .eq('id', editingEmployee.id);
-
-      if (error) throw error;
-
-      setSuccess('Funcionário atualizado com sucesso!');
-      setEditFormData({ name: '', password: '' });
-      setIsEditDialogOpen(false);
-      setEditingEmployee(null);
-      fetchEmployees();
-    } catch (err: any) {
-      console.error('Erro ao atualizar funcionário:', err);
-      setError(`Erro ao atualizar funcionário: ${err.message}`);
-    }
-  };
-
-  const openEditDialog = (employee: Employee) => {
-    setEditingEmployee(employee);
-    setEditFormData({
-      name: employee.name,
-      password: ''
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  const toggleEmployeeStatus = async (employeeId: string, isActive: boolean) => {
+  const toggleEmployeeStatus = async (employeeId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('employees')
-        .update({ is_active: !isActive })
-        .eq('id', employeeId);
+        .update({ is_active: !currentStatus })
+        .eq('id', employeeId)
+        .eq('owner_id', currentUserId);
 
       if (error) throw error;
 
+      toast({
+        title: 'Sucesso',
+        description: `Funcionário ${!currentStatus ? 'ativado' : 'desativado'} com sucesso`,
+      });
+
       fetchEmployees();
-      setSuccess('Status do funcionário atualizado!');
-    } catch (err: any) {
-      console.error('Erro ao atualizar funcionário:', err);
-      setError(`Erro ao atualizar status: ${err.message}`);
+    } catch (error) {
+      console.error('Erro ao alterar status do funcionário:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao alterar status do funcionário',
+        variant: 'destructive',
+      });
     }
   };
 
   const deleteEmployee = async (employeeId: string) => {
-    if (!confirm('Tem certeza que deseja excluir este funcionário?')) return;
-
     try {
+      const confirmed = window.confirm('Tem certeza que deseja excluir este funcionário?');
+      if (!confirmed) return;
+
       const { error } = await supabase
         .from('employees')
         .delete()
-        .eq('id', employeeId);
+        .eq('id', employeeId)
+        .eq('owner_id', currentUserId);
 
       if (error) throw error;
 
+      toast({
+        title: 'Sucesso',
+        description: 'Funcionário excluído com sucesso',
+      });
+
       fetchEmployees();
-      setSuccess('Funcionário excluído com sucesso!');
-    } catch (err: any) {
-      console.error('Erro ao excluir funcionário:', err);
-      setError(`Erro ao excluir funcionário: ${err.message}`);
+    } catch (error) {
+      console.error('Erro ao excluir funcionário:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao excluir funcionário',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -223,9 +186,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
-          </div>
+          <div className="text-center">Carregando funcionários...</div>
         </CardContent>
       </Card>
     );
@@ -233,177 +194,88 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-semibold">Gerenciar Funcionários</h3>
-          <p className="text-gray-600">Crie e gerencie contas de acesso para funcionários</p>
-        </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-500 hover:bg-orange-600">
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Funcionário
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar Novo Funcionário</DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="employeeName">Nome do Funcionário</Label>
-                <Input
-                  id="employeeName"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Digite o nome completo"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="accessKey">Chave de Acesso</Label>
-                <div className="flex space-x-2">
-                  <Input
-                    id="accessKey"
-                    value={formData.accessKey}
-                    onChange={(e) => setFormData({ ...formData, accessKey: e.target.value })}
-                    placeholder="Ex: ABC12345"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setFormData({ ...formData, accessKey: generateAccessKey() })}
-                  >
-                    Gerar
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  Chave única que o funcionário usará para fazer login
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Digite uma senha segura"
-                  required
-                  minLength={6}
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  Mínimo de 6 caracteres
-                </p>
-              </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex space-x-2">
-                <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
-                  Criar Funcionário
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Dialog para editar funcionário */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Funcionário</DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="editName">Nome do Funcionário</Label>
-              <Input
-                id="editName"
-                value={editFormData.name}
-                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                placeholder="Digite o nome completo"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="editPassword">Nova Senha (opcional)</Label>
-              <Input
-                id="editPassword"
-                type="password"
-                value={editFormData.password}
-                onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
-                placeholder="Digite uma nova senha ou deixe em branco"
-                minLength={6}
-              />
-              <p className="text-xs text-gray-600 mt-1">
-                Deixe em branco para manter a senha atual
-              </p>
-            </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex space-x-2">
-              <Button type="submit" className="bg-orange-500 hover:bg-orange-600">
-                Atualizar Funcionário
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {success && (
-        <Alert className="border-green-200 bg-green-50">
-          <AlertDescription className="text-green-800">{success}</AlertDescription>
-        </Alert>
-      )}
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Funcionários ({employees.length})</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Gerenciar Funcionários</CardTitle>
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-green-500 hover:bg-green-600">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Funcionário
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Novo Funcionário</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="employeeName">Nome</Label>
+                    <Input
+                      id="employeeName"
+                      value={newEmployee.name}
+                      onChange={(e) => setNewEmployee(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Nome do funcionário"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="accessKey">Chave de Acesso</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        id="accessKey"
+                        value={newEmployee.access_key}
+                        onChange={(e) => setNewEmployee(prev => ({ ...prev, access_key: e.target.value }))}
+                        placeholder="Chave de acesso"
+                      />
+                      <Button type="button" onClick={generateAccessKey} variant="outline">
+                        Gerar
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="password">Senha</Label>
+                    <div className="flex space-x-2">
+                      <div className="relative flex-1">
+                        <Input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={newEmployee.password}
+                          onChange={(e) => setNewEmployee(prev => ({ ...prev, password: e.target.value }))}
+                          placeholder="Senha"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <Button type="button" onClick={generatePassword} variant="outline">
+                        Gerar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button onClick={createEmployee} className="flex-1">
+                      Criar Funcionário
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1">
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {employees.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhum funcionário cadastrado</p>
-              <p className="text-sm text-gray-400">
-                Clique em "Novo Funcionário" para criar o primeiro acesso
-              </p>
+            <div className="text-center text-gray-500 py-8">
+              Nenhum funcionário cadastrado
             </div>
           ) : (
             <Table>
@@ -420,33 +292,29 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                 {employees.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="font-medium">{employee.name}</TableCell>
+                    <TableCell className="font-mono">{employee.access_key}</TableCell>
                     <TableCell>
-                      <code className="bg-gray-100 px-2 py-1 rounded text-sm">
-                        {employee.access_key}
-                      </code>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          employee.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {employee.is_active ? 'Ativo' : 'Inativo'}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={employee.is_active}
-                          onCheckedChange={() => toggleEmployeeStatus(employee.id, employee.is_active)}
-                        />
-                        <span className={employee.is_active ? 'text-green-600' : 'text-red-600'}>
-                          {employee.is_active ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(employee.created_at).toLocaleDateString()}
+                      {new Date(employee.created_at).toLocaleDateString('pt-BR')}
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => openEditDialog(employee)}
+                          variant={employee.is_active ? "destructive" : "default"}
+                          onClick={() => toggleEmployeeStatus(employee.id, employee.is_active)}
                         >
-                          <Edit className="h-4 w-4" />
+                          {employee.is_active ? 'Desativar' : 'Ativar'}
                         </Button>
                         <Button
                           size="sm"
@@ -464,16 +332,6 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
           )}
         </CardContent>
       </Card>
-
-      <div className="bg-blue-50 p-4 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Instruções para Funcionários:</h4>
-        <div className="text-sm text-blue-800 space-y-1">
-          <p>1. Acesse o sistema usando a chave de acesso e senha fornecidas</p>
-          <p>2. Funcionários podem criar e gerenciar comandas</p>
-          <p>3. Funcionários podem visualizar e registrar vendas</p>
-          <p>4. O acesso é restrito apenas às funcionalidades operacionais</p>
-        </div>
-      </div>
     </div>
   );
 };
