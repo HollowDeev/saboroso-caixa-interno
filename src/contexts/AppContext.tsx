@@ -482,65 +482,160 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateOrder = async (id: string, orderUpdate: Partial<Order>) => {
+  const addSale = async (saleData: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+
       if (!currentCashRegister) {
-        throw new Error('Nenhum caixa aberto');
+        throw new Error('Não há caixa aberto para registrar a venda');
       }
 
-      if (orderUpdate.status === 'paid') {
-        const order = orders.find(o => o.id === id);
-        if (!order) throw new Error('Comanda não encontrada');
+      // Importar função de consumo de estoque
+      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
 
-        await addSale({
-          orderId: id,
-          total: orderUpdate.total || order.total,
-          paymentMethod: orderUpdate.paymentMethod || 'cash',
-          userId: order.userId
-        });
-      }
+      // Processar consumo de ingredientes se há itens na venda
+      if (saleData.items && saleData.items.length > 0) {
+        const stockResult = await processOrderItemsStockConsumption(
+          saleData.items.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            product: { name: item.product_name } as any
+          })),
+          currentUser.id,
+          'Venda direta'
+        );
 
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          customer_name: orderUpdate.customerName,
-          table_number: orderUpdate.tableNumber,
-          subtotal: orderUpdate.subtotal,
-          tax: orderUpdate.tax,
-          total: orderUpdate.total,
-          status: orderUpdate.status,
-          payment_method: orderUpdate.paymentMethod,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (updateError) throw updateError;
-
-      if (orderUpdate.items) {
-        const newItems = orderUpdate.items.filter(item => !item.id).map(item => ({
-          order_id: id,
-          product_id: item.productId,
-          product_name: item.product.name,
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          total_price: item.totalPrice,
-          cash_register_id: currentCashRegister.id
-        }));
-
-        if (newItems.length > 0) {
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(newItems);
-
-          if (itemsError) throw itemsError;
+        if (!stockResult.success) {
+          console.warn('Avisos de estoque:', stockResult.errors);
+          // Continua com a venda mesmo com avisos de estoque
         }
       }
 
-      setOrders(prev =>
-        prev.map(o => (o.id === id ? { ...o, ...orderUpdate, updatedAt: new Date() } : o))
-      );
-    } catch (error) {
+      // Criar a venda
+      const { data, error } = await supabase
+        .from('sales')
+        .insert([{
+          ...saleData,
+          user_id: currentUser.id,
+          cash_register_id: currentCashRegister.id,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSales(prev => [data, ...prev]);
+      toast({
+        title: 'Venda registrada',
+        description: 'A venda foi registrada com sucesso.',
+      });
+
+      return data;
+    } catch (error: any) {
+      console.error('Erro ao adicionar venda:', error);
+      toast({
+        title: 'Erro ao registrar venda',
+        description: error.message || 'Não foi possível registrar a venda.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const updateOrder = async (orderId: string, updates: Partial<Order>) => {
+    try {
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+
+      if (!currentCashRegister) {
+        throw new Error('Não há caixa aberto');
+      }
+
+      // Se o status está sendo alterado para 'paid', processar consumo de ingredientes
+      if (updates.status === 'paid') {
+        const currentOrder = orders.find(o => o.id === orderId);
+        if (currentOrder && currentOrder.items) {
+          const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+          
+          const stockResult = await processOrderItemsStockConsumption(
+            currentOrder.items.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              product: item.product
+            })),
+            currentUser.id,
+            'Finalização de comanda'
+          );
+
+          if (!stockResult.success) {
+            console.warn('Avisos de estoque:', stockResult.errors);
+            // Continua com a finalização mesmo com avisos de estoque
+          }
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('orders')
+        .update({
+          ...updates,
+          user_id: currentUser.id,
+          cash_register_id: currentCashRegister.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setOrders(prev => prev.map(order => order.id === orderId ? data : order));
+
+      // Se foi marcado como pago, criar uma venda correspondente
+      if (updates.status === 'paid' && data) {
+        const saleData = {
+          order_id: data.id,
+          total: data.total,
+          subtotal: data.subtotal || 0,
+          tax: data.tax || 0,
+          payment_method: data.payment_method as 'cash' | 'card' | 'pix',
+          user_id: currentUser.id,
+          customer_name: data.customer_name,
+          is_direct_sale: false
+        };
+
+        const { error: saleError } = await supabase
+          .from('sales')
+          .insert([{
+            ...saleData,
+            cash_register_id: currentCashRegister.id,
+            created_at: new Date().toISOString()
+          }]);
+
+        if (saleError) {
+          console.error('Erro ao criar venda da comanda:', saleError);
+        } else {
+          // Recarregar vendas
+          loadSales();
+        }
+      }
+
+      toast({
+        title: 'Comanda atualizada',
+        description: 'A comanda foi atualizada com sucesso.',
+      });
+
+      return data;
+    } catch (error: any) {
       console.error('Erro ao atualizar comanda:', error);
+      toast({
+        title: 'Erro ao atualizar comanda',
+        description: error.message || 'Não foi possível atualizar a comanda.',
+        variant: 'destructive',
+      });
       throw error;
     }
   };

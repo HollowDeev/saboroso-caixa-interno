@@ -9,56 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      cash_register_sales: {
-        Row: {
-          cash_register_id: string
-          created_at: string
-          id: string
-          order_id: string
-          product_cost: number
-          product_name: string
-          profit: number
-          quantity: number
-          sale_date: string
-          total_price: number
-          unit_price: number
-        }
-        Insert: {
-          cash_register_id: string
-          created_at?: string
-          id?: string
-          order_id: string
-          product_cost?: number
-          product_name: string
-          profit?: number
-          quantity: number
-          sale_date?: string
-          total_price: number
-          unit_price: number
-        }
-        Update: {
-          cash_register_id?: string
-          created_at?: string
-          id?: string
-          order_id?: string
-          product_cost?: number
-          product_name?: string
-          profit?: number
-          quantity?: number
-          sale_date?: string
-          total_price?: number
-          unit_price?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cash_register_sales_cash_register_id_fkey"
-            columns: ["cash_register_id"]
-            isOneToOne: false
-            referencedRelation: "cash_registers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cash_registers: {
         Row: {
           closed_at: string | null
@@ -134,12 +84,310 @@ export type Database = {
         }
         Relationships: []
       }
+      external_product_entries: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_number: string | null
+          notes: string | null
+          owner_id: string
+          product_id: string
+          quantity: number
+          remaining_quantity: number
+          supplier: string | null
+          total_cost: number
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          owner_id: string
+          product_id: string
+          quantity: number
+          remaining_quantity: number
+          supplier?: string | null
+          total_cost: number
+          unit_cost: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          notes?: string | null
+          owner_id?: string
+          product_id?: string
+          quantity?: number
+          remaining_quantity?: number
+          supplier?: string | null
+          total_cost?: number
+          unit_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_product_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "external_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_products: {
+        Row: {
+          brand: string | null
+          cost: number
+          created_at: string | null
+          current_stock: number
+          description: string | null
+          id: string
+          min_stock: number
+          name: string
+          owner_id: string
+          price: number
+          updated_at: string | null
+        }
+        Insert: {
+          brand?: string | null
+          cost?: number
+          created_at?: string | null
+          current_stock?: number
+          description?: string | null
+          id?: string
+          min_stock?: number
+          name: string
+          owner_id: string
+          price?: number
+          updated_at?: string | null
+        }
+        Update: {
+          brand?: string | null
+          cost?: number
+          created_at?: string | null
+          current_stock?: number
+          description?: string | null
+          id?: string
+          min_stock?: number
+          name?: string
+          owner_id?: string
+          price?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_products_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_ingredients: {
+        Row: {
+          created_at: string | null
+          food_id: string
+          id: string
+          ingredient_id: string
+          quantity: number
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          food_id: string
+          id?: string
+          ingredient_id: string
+          quantity: number
+          unit: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          food_id?: string
+          id?: string
+          ingredient_id?: string
+          quantity?: number
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_ingredients_new_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_ingredients_new_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foods: {
+        Row: {
+          available: boolean | null
+          category: string
+          cost: number
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          preparation_time: number
+          price: number
+          updated_at: string | null
+        }
+        Insert: {
+          available?: boolean | null
+          category: string
+          cost?: number
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          preparation_time?: number
+          price?: number
+          updated_at?: string | null
+        }
+        Update: {
+          available?: boolean | null
+          category?: string
+          cost?: number
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          preparation_time?: number
+          price?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ingredients: {
+        Row: {
+          cost: number
+          created_at: string | null
+          current_stock: number
+          description: string | null
+          id: string
+          min_stock: number
+          name: string
+          owner_id: string
+          supplier: string | null
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          cost?: number
+          created_at?: string | null
+          current_stock?: number
+          description?: string | null
+          id?: string
+          min_stock?: number
+          name: string
+          owner_id: string
+          supplier?: string | null
+          unit: string
+          updated_at?: string | null
+        }
+        Update: {
+          cost?: number
+          created_at?: string | null
+          current_stock?: number
+          description?: string | null
+          id?: string
+          min_stock?: number
+          name?: string
+          owner_id?: string
+          supplier?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          cash_register_id: string
+          created_at: string
+          id: string
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          cash_register_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          product_id: string
+          product_name: string
+          quantity: number
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          cash_register_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          product_id?: string
+          product_name?: string
+          quantity?: number
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
+          cash_register_id: string
           created_at: string
           customer_name: string | null
           id: string
-          items: Json
           payment_method: string | null
           status: string
           subtotal: number
@@ -150,24 +398,24 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cash_register_id: string
           created_at?: string
           customer_name?: string | null
           id?: string
-          items?: Json
           payment_method?: string | null
-          status?: string
-          subtotal?: number
+          status: string
+          subtotal: number
           table_number?: number | null
-          tax?: number
-          total?: number
+          tax: number
+          total: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          cash_register_id?: string
           created_at?: string
           customer_name?: string | null
           id?: string
-          items?: Json
           payment_method?: string | null
           status?: string
           subtotal?: number
@@ -176,6 +424,56 @@ export type Database = {
           total?: number
           updated_at?: string
           user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          available: boolean | null
+          cost: number
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          price: number
+          type: Database["public"]["Enums"]["product_type"]
+          updated_at: string | null
+        }
+        Insert: {
+          available?: boolean | null
+          cost: number
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          price: number
+          type: Database["public"]["Enums"]["product_type"]
+          updated_at?: string | null
+        }
+        Update: {
+          available?: boolean | null
+          cost?: number
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          price?: number
+          type?: Database["public"]["Enums"]["product_type"]
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -208,238 +506,214 @@ export type Database = {
       }
       sales: {
         Row: {
+          cash_register_id: string
           created_at: string
+          customer_name: string | null
           id: string
-          order_id: string
+          is_direct_sale: boolean
+          items: Json | null
+          order_id: string | null
           payment_method: string
+          subtotal: number
+          tax: number
           total: number
           user_id: string
         }
         Insert: {
+          cash_register_id: string
           created_at?: string
+          customer_name?: string | null
           id?: string
-          order_id: string
+          is_direct_sale?: boolean
+          items?: Json | null
+          order_id?: string | null
           payment_method: string
-          total?: number
+          subtotal?: number
+          tax?: number
+          total: number
           user_id: string
         }
         Update: {
+          cash_register_id?: string
           created_at?: string
+          customer_name?: string | null
           id?: string
-          order_id?: string
+          is_direct_sale?: boolean
+          items?: Json | null
+          order_id?: string | null
           payment_method?: string
+          subtotal?: number
+          tax?: number
           total?: number
           user_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "sales_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_taxes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          percentage: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          percentage?: number
+          updated_at?: string
+        }
         Relationships: []
       }
-      ingredients: {
-        Row: {
-          id: string;
-          name: string;
-          description: string | null;
-          unit: string;
-          current_stock: number;
-          min_stock: number;
-          cost: number;
-          supplier: string | null;
-          owner_id: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          description?: string | null;
-          unit: string;
-          current_stock?: number;
-          min_stock: number;
-          cost: number;
-          supplier?: string | null;
-          owner_id: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          description?: string | null;
-          unit?: string;
-          current_stock?: number;
-          min_stock?: number;
-          cost?: number;
-          supplier?: string | null;
-          owner_id?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      external_products: {
-        Row: {
-          id: string;
-          name: string;
-          brand: string | null;
-          description: string | null;
-          current_stock: number;
-          min_stock: number;
-          cost: number;
-          price: number;
-          owner_id: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          name: string;
-          brand?: string | null;
-          description?: string | null;
-          current_stock?: number;
-          min_stock: number;
-          cost: number;
-          price: number;
-          owner_id: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          name?: string;
-          brand?: string | null;
-          description?: string | null;
-          current_stock?: number;
-          min_stock?: number;
-          cost?: number;
-          price?: number;
-          owner_id?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
-      stock_movements: {
-        Row: {
-          id: string;
-          item_type: 'ingredient' | 'external_product';
-          item_id: string;
-          movement_type: 'add' | 'remove';
-          quantity: number;
-          previous_stock: number;
-          new_stock: number;
-          reason: string | null;
-          user_id: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          item_type: 'ingredient' | 'external_product';
-          item_id: string;
-          movement_type: 'add' | 'remove';
-          quantity: number;
-          previous_stock: number;
-          new_stock: number;
-          reason?: string | null;
-          user_id: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          item_type?: 'ingredient' | 'external_product';
-          item_id?: string;
-          movement_type?: 'add' | 'remove';
-          quantity?: number;
-          previous_stock?: number;
-          new_stock?: number;
-          reason?: string | null;
-          user_id?: string;
-          created_at?: string;
-        };
-      };
       stock_entries: {
         Row: {
+          created_at: string
           id: string
           ingredient_id: string
-          quantity: number
-          remaining_quantity: number
-          unit_cost: number
-          total_cost: number
-          supplier: string | null
           invoice_number: string | null
           notes: string | null
-          created_at: string
           owner_id: string
-        }
-        Insert: {
-          id?: string
-          ingredient_id: string
           quantity: number
           remaining_quantity: number
-          unit_cost: number
+          supplier: string | null
           total_cost: number
-          supplier?: string | null
+          unit_cost: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_id: string
           invoice_number?: string | null
           notes?: string | null
-          created_at?: string
           owner_id: string
+          quantity: number
+          remaining_quantity: number
+          supplier?: string | null
+          total_cost: number
+          unit_cost: number
         }
         Update: {
+          created_at?: string
           id?: string
           ingredient_id?: string
-          quantity?: number
-          remaining_quantity?: number
-          unit_cost?: number
-          total_cost?: number
-          supplier?: string | null
           invoice_number?: string | null
           notes?: string | null
-          created_at?: string
           owner_id?: string
+          quantity?: number
+          remaining_quantity?: number
+          supplier?: string | null
+          total_cost?: number
+          unit_cost?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "stock_entries_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      external_product_entries: {
+      stock_movements: {
         Row: {
-          id: string;
-          product_id: string;
-          quantity: number;
-          remaining_quantity: number;
-          unit_cost: number;
-          total_cost: number;
-          supplier: string | null;
-          invoice_number: string | null;
-          notes: string | null;
-          created_at: string;
-          owner_id: string;
-        };
+          created_at: string | null
+          id: string
+          item_id: string
+          item_type: string
+          movement_type: string
+          new_stock: number
+          previous_stock: number
+          quantity: number
+          reason: string | null
+          user_id: string
+        }
         Insert: {
-          id?: string;
-          product_id: string;
-          quantity: number;
-          remaining_quantity: number;
-          unit_cost: number;
-          total_cost: number;
-          supplier?: string | null;
-          invoice_number?: string | null;
-          notes?: string | null;
-          created_at?: string;
-          owner_id: string;
-        };
+          created_at?: string | null
+          id?: string
+          item_id: string
+          item_type: string
+          movement_type: string
+          new_stock: number
+          previous_stock: number
+          quantity: number
+          reason?: string | null
+          user_id: string
+        }
         Update: {
-          id?: string;
-          product_id?: string;
-          quantity?: number;
-          remaining_quantity?: number;
-          unit_cost?: number;
-          total_cost?: number;
-          supplier?: string | null;
-          invoice_number?: string | null;
-          notes?: string | null;
-          created_at?: string;
-          owner_id?: string;
-        };
+          created_at?: string | null
+          id?: string
+          item_id?: string
+          item_type?: string
+          movement_type?: string
+          new_stock?: number
+          previous_stock?: number
+          quantity?: number
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      add_stock: {
+        Args: {
+          p_item_type: string
+          p_item_id: string
+          p_quantity: number
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      calculate_external_product_average_cost: {
+        Args: { p_product_id: string }
+        Returns: number
+      }
+      calculate_weighted_average_cost: {
+        Args: { p_ingredient_id: string }
+        Returns: number
+      }
       create_employee: {
         Args: {
           p_owner_id: string
@@ -449,8 +723,30 @@ export type Database = {
         }
         Returns: string
       }
+      delete_external_product_cascade: {
+        Args: { p_product_id: string }
+        Returns: undefined
+      }
+      delete_ingredient_cascade: {
+        Args: { p_ingredient_id: string }
+        Returns: undefined
+      }
+      delete_ingredient_with_entries: {
+        Args: { ingredient_id: string }
+        Returns: undefined
+      }
       get_open_cash_register: {
         Args: { p_owner_id: string }
+        Returns: string
+      }
+      remove_stock: {
+        Args: {
+          p_item_type: string
+          p_item_id: string
+          p_quantity: number
+          p_reason: string
+          p_user_id: string
+        }
         Returns: string
       }
       verify_employee_credentials: {
@@ -461,35 +757,10 @@ export type Database = {
           owner_id: string
         }[]
       }
-      add_stock: {
-        Args: {
-          p_item_type: string;
-          p_item_id: string;
-          p_quantity: number;
-          p_reason: string;
-          p_user_id: string;
-        };
-        Returns: string;
-      };
-      remove_stock: {
-        Args: {
-          p_item_type: string;
-          p_item_id: string;
-          p_quantity: number;
-          p_reason: string;
-          p_user_id: string;
-        };
-        Returns: string;
-      };
-      calculate_weighted_average_cost: {
-        Args: {
-          p_ingredient_id: string
-        }
-        Returns: number
-      }
     }
     Enums: {
-      [_ in never]: never
+      alert_type: "low_stock" | "critical_stock" | "expiration"
+      product_type: "food" | "external"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -604,6 +875,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_type: ["low_stock", "critical_stock", "expiration"],
+      product_type: ["food", "external"],
+    },
   },
 } as const

@@ -115,7 +115,31 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     try {
       const { subtotal, taxesTotal, total } = calculateTotal();
 
-      // Criar a venda direta
+      // Verificar estoque antes de criar a venda
+      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+      
+      const stockCheck = await processOrderItemsStockConsumption(
+        selectedItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          product: item.product
+        })),
+        'temp-user-id', // Será substituído no addSale
+        'Verificação de estoque'
+      );
+
+      // Se há erros críticos de estoque, mostrar aviso mas permitir continuar
+      if (!stockCheck.success && stockCheck.errors.some(error => error.includes('Estoque insuficiente'))) {
+        const proceed = window.confirm(
+          `Atenção: Alguns itens têm estoque insuficiente:\n\n${stockCheck.errors.join('\n')}\n\nDeseja continuar mesmo assim?`
+        );
+        
+        if (!proceed) {
+          return;
+        }
+      }
+
+      // Criar a venda direta (isso já processará o consumo de estoque)
       await addSale({
         total,
         subtotal,
