@@ -10,14 +10,17 @@ import {
   NewOrderItem,
   OrderStatus,
   PaymentMethod,
-  CashRegister
+  CashRegister,
+  ExternalProduct
 } from '../types/index';
 import { supabase } from '@/integrations/supabase/client';
 import { useCashRegister } from '@/hooks/useCashRegister';
+import { useStock } from '@/hooks/useStock';
 
 type AppContextType = {
   currentUser: User | null;
   products: Product[];
+  externalProducts: ExternalProduct[];
   orders: Order[];
   sales: Sale[];
   serviceTaxes: ServiceTax[];
@@ -56,6 +59,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
 
   const { currentCashRegister, openCashRegister, closeCashRegister, loading: cashRegisterLoading } = useCashRegister();
+  const { externalProducts } = useStock(currentUser?.id || '');
 
   const checkCashRegisterAccess = () => {
     return currentUser?.role === 'admin' || currentUser?.role === 'cashier';
@@ -706,6 +710,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       value={{
         currentUser,
         products,
+        externalProducts,
         orders,
         sales,
         ingredients,

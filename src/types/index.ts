@@ -158,3 +158,18 @@ export interface CashRegisterSale {
   sale_date: string;
   created_at: string;
 }
+
+export interface ExternalProduct {
+  id: string;
+  name: string;
+  brand: string | null;
+  description: string | null;
+  current_stock: number;
+  min_stock: number;
+  cost: number;
+  price: number;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  available?: boolean;
+}

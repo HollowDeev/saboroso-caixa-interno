@@ -7,17 +7,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { Order, OrderItem, Product, ServiceTax, NewOrderItem } from '@/types';
+import { Order, OrderItem, Product, ServiceTax, NewOrderItem, ExternalProduct } from '@/types';
 import { Switch } from '@/components/ui/switch';
 
 interface CheckoutModalProps {
   order: Order | null;
+  isOpen: boolean;
   onClose: () => void;
 }
 
-export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
-  const { products, updateOrder, addSale, updateIngredient, ingredients, serviceTaxes } = useApp();
-  const [additionalItems, setAdditionalItems] = useState<NewOrderItem[]>([]);
+export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) => {
+  const { products, externalProducts, updateOrder, addSale, updateIngredient, ingredients, serviceTaxes } = useApp();
+  const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>(order?.items || []);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
   const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
@@ -25,46 +26,48 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
   );
 
   React.useEffect(() => {
-    if (order) {
+    if (isOpen && order) {
+      setSelectedProducts(order.items);
       setCustomerName(order.customerName || '');
       setSelectedTaxes(serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id));
     }
-  }, [order, serviceTaxes]);
+  }, [isOpen, order, serviceTaxes]);
 
-  if (!order) return null;
-
-  const addAdditionalItem = (product: Product) => {
-    const existingItem = additionalItems.find(item => item.productId === product.id);
+  const addProductToOrder = (product: Product | ExternalProduct) => {
+    const existingItem = selectedProducts.find(item => item.productId === product.id);
 
     if (existingItem) {
-      setAdditionalItems(prev => prev.map(item =>
+      setSelectedProducts(prev => prev.map(item =>
         item.productId === product.id
           ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
           : item
       ));
     } else {
-      const newItem: NewOrderItem = {
+      const newItem: OrderItem = {
         productId: product.id,
-        product,
+        product: {
+          ...product,
+          available: 'current_stock' in product ? product.current_stock > 0 : product.available
+        },
         quantity: 1,
         unitPrice: product.price,
         totalPrice: product.price
       };
-      setAdditionalItems(prev => [...prev, newItem]);
+      setSelectedProducts(prev => [...prev, newItem]);
     }
   };
 
-  const removeAdditionalItem = (productId: string) => {
-    setAdditionalItems(prev => prev.filter(item => item.productId !== productId));
+  const removeProductFromOrder = (productId: string) => {
+    setSelectedProducts(prev => prev.filter(item => item.productId !== productId));
   };
 
-  const updateAdditionalItemQuantity = (productId: string, quantity: number) => {
+  const updateProductQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
-      removeAdditionalItem(productId);
+      removeProductFromOrder(productId);
       return;
     }
 
-    setAdditionalItems(prev => prev.map(item =>
+    setSelectedProducts(prev => prev.map(item =>
       item.productId === productId
         ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
         : item
@@ -72,8 +75,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
   };
 
   const calculateFinalTotal = () => {
-    const additionalTotal = additionalItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const subtotal = order.subtotal + additionalTotal;
+    const subtotal = selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0);
     const taxes = serviceTaxes
       .filter(tax => selectedTaxes.includes(tax.id))
       .map(tax => ({
@@ -82,7 +84,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
         value: subtotal * (tax.percentage / 100)
       }));
     const taxesTotal = taxes.reduce((sum, tax) => sum + tax.value, 0);
-    return { subtotal, taxes, taxesTotal, total: subtotal + taxesTotal, additionalTotal };
+    return { subtotal, taxes, taxesTotal, total: subtotal + taxesTotal };
   };
 
   const toggleTax = (taxId: string) => {
@@ -107,16 +109,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
         subtotal,
         tax: taxesTotal,
         total,
-        items: [
-          ...order.items,
-          ...additionalItems.map(item => ({
-            productId: item.productId,
-            product: item.product,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice
-          }))
-        ]
+        items: selectedProducts
       };
 
       // Atualizar a comanda
@@ -124,7 +117,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
 
       // Fechar modal e limpar estados
       onClose();
-      setAdditionalItems([]);
+      setSelectedProducts([]);
       setCustomerName('');
       setPaymentMethod('cash');
     } catch (error) {
@@ -133,10 +126,10 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
     }
   };
 
-  const { subtotal, taxes, taxesTotal, total, additionalTotal } = calculateFinalTotal();
+  const { subtotal, taxes, taxesTotal, total } = calculateFinalTotal();
 
   return (
-    <Dialog open={!!order} onOpenChange={() => onClose()}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Finalizar Comanda</DialogTitle>
@@ -197,7 +190,31 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => addAdditionalItem(product)}
+                      onClick={() => addProductToOrder(product)}
+                      className="bg-green-500 hover:bg-green-600"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-3">Adicionar Produtos Externos</h3>
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {externalProducts.filter(p => p.current_stock > 0).map((product) => (
+                  <div key={product.id} className="flex items-center justify-between p-2 border rounded">
+                    <div>
+                      <p className="font-medium text-sm">{product.name}</p>
+                      <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
+                      {product.brand && (
+                        <p className="text-xs text-gray-500">{product.brand}</p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => addProductToOrder(product)}
                       className="bg-green-500 hover:bg-green-600"
                     >
                       <Plus className="h-3 w-3" />
@@ -212,7 +229,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
             <div>
               <h3 className="font-semibold mb-3">Itens da Comanda</h3>
               <div className="space-y-2 max-h-32 overflow-y-auto">
-                {order.items.map((item, index) => (
+                {selectedProducts.map((item, index) => (
                   <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
                     <span>{item.quantity}x {item.product_name || item.product.name}</span>
                     <span>R$ {item.totalPrice.toFixed(2)}</span>
@@ -221,57 +238,7 @@ export const CheckoutModal = ({ order, onClose }: CheckoutModalProps) => {
               </div>
             </div>
 
-            {additionalItems.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-3">Itens Adicionais</h3>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {additionalItems.map((item) => (
-                    <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium">{item.product.name}</p>
-                        <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateAdditionalItemQuantity(item.productId, item.quantity - 1)}
-                        >
-                          -
-                        </Button>
-                        <span className="w-8 text-center">{item.quantity}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateAdditionalItemQuantity(item.productId, item.quantity + 1)}
-                        >
-                          +
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeAdditionalItem(item.productId)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal original:</span>
-                <span>R$ {order.subtotal.toFixed(2)}</span>
-              </div>
-              {additionalTotal > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span>Itens adicionais:</span>
-                  <span>R$ {additionalTotal.toFixed(2)}</span>
-                </div>
-              )}
               <div className="flex justify-between text-sm">
                 <span>Subtotal:</span>
                 <span>R$ {subtotal.toFixed(2)}</span>

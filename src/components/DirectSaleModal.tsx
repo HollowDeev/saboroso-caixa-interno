@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { OrderItem, Product, ServiceTax } from '@/types';
+import { OrderItem, Product, ServiceTax, ExternalProduct } from '@/types';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 
@@ -16,7 +16,7 @@ interface DirectSaleModalProps {
 }
 
 export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
-  const { products, currentUser, addSale, serviceTaxes, currentCashRegister } = useApp();
+  const { products, externalProducts, currentUser, addSale, serviceTaxes, currentCashRegister } = useApp();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
@@ -31,7 +31,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     }
   }, [isOpen, serviceTaxes]);
 
-  const addItem = (product: Product) => {
+  const addItem = (product: Product | ExternalProduct) => {
     const existingItem = selectedItems.find(item => item.productId === product.id);
 
     if (existingItem) {
@@ -43,7 +43,10 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     } else {
       const newItem: OrderItem = {
         productId: product.id,
-        product,
+        product: {
+          ...product,
+          available: 'current_stock' in product ? product.current_stock > 0 : product.available
+        },
         quantity: 1,
         unitPrice: product.price,
         totalPrice: product.price
@@ -206,22 +209,53 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
 
             <div>
               <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {products.filter(p => p.available).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-3 border rounded">
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => addItem(product)}
-                      className="bg-green-500 hover:bg-green-600"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+              <div className="max-h-60 overflow-y-auto space-y-4">
+                {/* Comidas */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
+                  <div className="space-y-2">
+                    {products.filter(p => p.available).map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded">
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => addItem(product)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                {/* Produtos Externos */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
+                  <div className="space-y-2">
+                    {externalProducts.filter(p => p.current_stock > 0).map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded">
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                          {product.brand && (
+                            <p className="text-xs text-gray-500">{product.brand}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => addItem(product)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

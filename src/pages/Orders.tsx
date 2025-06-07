@@ -9,7 +9,7 @@ import { Plus, Edit, Trash2, User, Hash, CreditCard } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Order, OrderItem, Product, NewOrderItem } from '@/types';
+import { Order, OrderItem, Product, NewOrderItem, ExternalProduct } from '@/types';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { toast } from '@/components/ui/use-toast';
 import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
@@ -18,6 +18,7 @@ export const Orders = () => {
   const {
     orders,
     products,
+    externalProducts,
     currentUser,
     addOrder,
     updateOrder,
@@ -45,7 +46,7 @@ export const Orders = () => {
     setIsNewOrderOpen(true);
   };
 
-  const addProductToOrder = (product: Product) => {
+  const addProductToOrder = (product: Product | ExternalProduct) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
 
     if (existingItem) {
@@ -57,7 +58,10 @@ export const Orders = () => {
     } else {
       const newItem: NewOrderItem = {
         productId: product.id,
-        product,
+        product: {
+          ...product,
+          available: 'current_stock' in product ? product.current_stock > 0 : product.available
+        },
         quantity: 1,
         unitPrice: product.price,
         totalPrice: product.price
@@ -193,48 +197,74 @@ export const Orders = () => {
               <DialogTitle>Nova Comanda</DialogTitle>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="customerName">Nome do Cliente</Label>
-                    <Input
-                      id="customerName"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Digite o nome"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tableNumber">Número da Mesa</Label>
-                    <Input
-                      id="tableNumber"
-                      type="number"
-                      value={tableNumber || ''}
-                      onChange={(e) => setTableNumber(e.target.value ? parseInt(e.target.value) : undefined)}
-                      placeholder="Número da mesa"
-                    />
-                  </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <div>
+                  <Label htmlFor="customerName">Nome do Cliente (opcional)</Label>
+                  <Input
+                    id="customerName"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Digite o nome do cliente"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="tableNumber">Número da Mesa (opcional)</Label>
+                  <Input
+                    id="tableNumber"
+                    type="number"
+                    value={tableNumber || ''}
+                    onChange={(e) => setTableNumber(Number(e.target.value))}
+                    placeholder="Digite o número da mesa"
+                  />
                 </div>
 
                 <div>
                   <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
-                    {products.filter(p => p.available).map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{product.name}</p>
-                          <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                    {/* Comidas */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
+                      {products.filter(p => p.available).map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => addProductToOrder(product)}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Button
-                          size="sm"
-                          onClick={() => addProductToOrder(product)}
-                          className="bg-green-500 hover:bg-green-600"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+
+                    {/* Produtos Externos */}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
+                      {externalProducts.filter(p => p.current_stock > 0).map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                            {product.brand && (
+                              <p className="text-xs text-gray-500">{product.brand}</p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => addProductToOrder(product)}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
