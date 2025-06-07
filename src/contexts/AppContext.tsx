@@ -9,47 +9,51 @@ import {
   OrderItem,
   NewOrderItem,
   OrderStatus,
-  PaymentMethod
+  PaymentMethod,
+  CashRegister
 } from '../types/index';
 import { supabase } from '@/integrations/supabase/client';
 import { useCashRegister } from '@/hooks/useCashRegister';
 
-interface AppContextType {
+type AppContextType = {
   currentUser: User | null;
   products: Product[];
   orders: Order[];
   sales: Sale[];
-  ingredients: Ingredient[];
   serviceTaxes: ServiceTax[];
-  setCurrentUser: (user: User | null) => void;
-  addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
-  updateProduct: (id: string, product: Partial<Product>) => Promise<Product>;
+  ingredients: Ingredient[];
+  currentCashRegister: CashRegister | null;
+  isLoading: boolean;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
-  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Order>;
+  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOrder: (id: string, order: Partial<Order>) => Promise<void>;
-  addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => void;
-  updateSale: (id: string, sale: Partial<Sale>) => void;
-  setSales: React.Dispatch<React.SetStateAction<Sale[]>>;
+  deleteOrder: (id: string) => Promise<void>;
+  addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
+  updateSale: (id: string, sale: Partial<Sale>) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
   addServiceTax: (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateServiceTax: (id: string, tax: Partial<ServiceTax>) => void;
   deleteServiceTax: (id: string) => void;
-  // Cash register methods
-  currentCashRegister: any;
-  openCashRegister: (amount: number) => Promise<any>;
+  addIngredient: (ingredient: Omit<Ingredient, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateIngredient: (id: string, ingredient: Partial<Ingredient>) => void;
+  deleteIngredient: (id: string) => void;
+  openCashRegister: (amount: number) => Promise<void>;
   closeCashRegister: (amount: number) => Promise<void>;
   checkCashRegisterAccess: () => boolean;
-}
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const { currentCashRegister, openCashRegister, closeCashRegister, loading: cashRegisterLoading } = useCashRegister();
 
@@ -213,6 +217,57 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadOrders();
   }, [currentCashRegister, isLoading, cashRegisterLoading]);
 
+  // Função para carregar as vendas
+  const loadSales = async () => {
+    try {
+      setIsLoading(true);
+
+      if (!currentCashRegister) {
+        setSales([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('cash_register_id', currentCashRegister.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Converter os dados do banco para o formato da aplicação
+      const formattedSales: Sale[] = data.map(sale => ({
+        id: sale.id,
+        orderId: sale.order_id,
+        total: sale.total,
+        subtotal: sale.subtotal,
+        tax: sale.tax,
+        paymentMethod: sale.payment_method,
+        createdAt: new Date(sale.created_at),
+        userId: sale.user_id,
+        is_direct_sale: sale.is_direct_sale,
+        items: sale.items ? JSON.parse(sale.items) : undefined,
+        customerName: sale.customer_name
+      }));
+
+      setSales(formattedSales);
+    } catch (error) {
+      console.error('Erro ao carregar vendas:', error);
+      setSales([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Carregar vendas quando o caixa mudar
+  useEffect(() => {
+    if (currentCashRegister) {
+      loadSales();
+    } else {
+      setSales([]);
+    }
+  }, [currentCashRegister]);
+
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
       const { data: foodData, error: foodError } = await supabase
@@ -255,7 +310,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setProducts(prev => [...prev, newProduct]);
-      return newProduct;
     } catch (error) {
       console.error('Erro ao salvar produto:', error);
       throw error;
@@ -316,7 +370,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setProducts(prev =>
         prev.map(p => (p.id === id ? updatedProduct : p))
       );
-      return updatedProduct;
     } catch (error) {
       console.error('Erro ao atualizar produto:', error);
       throw error;
@@ -419,7 +472,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setOrders(prev => [...prev, fullOrder]);
-      return fullOrder;
     } catch (error) {
       console.error('Erro ao criar comanda:', error);
       throw error;
@@ -489,55 +541,124 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const deleteOrder = async (id: string) => {
+    try {
+      const { error: deleteItemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', id);
+
+      if (deleteItemsError) throw deleteItemsError;
+
+      const { error: deleteOrderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', id);
+
+      if (deleteOrderError) throw deleteOrderError;
+
+      setOrders(prev => prev.filter(o => o.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir comanda:', error);
+      throw error;
+    }
+  };
+
   const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
       if (!currentCashRegister) {
         throw new Error('Nenhum caixa aberto');
       }
 
+      // Preparar os dados da venda
+      const saleData = {
+        order_id: sale.orderId,
+        total: sale.total,
+        subtotal: sale.subtotal,
+        tax: sale.tax,
+        payment_method: sale.paymentMethod,
+        user_id: sale.userId,
+        cash_register_id: currentCashRegister.id,
+        is_direct_sale: sale.is_direct_sale || false,
+        items: sale.items ? JSON.stringify(sale.items) : null,
+        customer_name: sale.customerName
+      };
+
+      // Inserir a venda no banco
       const { data: newSale, error: saleError } = await supabase
         .from('sales')
-        .insert({
-          order_id: sale.orderId,
-          total: sale.total,
-          payment_method: sale.paymentMethod,
-          user_id: sale.userId,
-          cash_register_id: currentCashRegister.id
-        })
+        .insert(saleData)
         .select()
         .single();
 
       if (saleError) throw saleError;
 
-      const { error: updateError } = await supabase
-        .from('cash_registers')
-        .update({
-          total_sales: currentCashRegister.total_sales + sale.total
-        })
-        .eq('id', currentCashRegister.id);
-
-      if (updateError) throw updateError;
-
+      // Atualizar o estado local
       const fullSale: Sale = {
         id: newSale.id,
-        orderId: sale.orderId,
-        total: sale.total,
-        paymentMethod: sale.paymentMethod,
+        orderId: newSale.order_id,
+        total: newSale.total,
+        subtotal: newSale.subtotal,
+        tax: newSale.tax,
+        paymentMethod: newSale.payment_method,
         createdAt: new Date(newSale.created_at),
-        userId: sale.userId
+        userId: newSale.user_id,
+        is_direct_sale: newSale.is_direct_sale,
+        items: newSale.items ? JSON.parse(newSale.items) : undefined,
+        customerName: newSale.customer_name
       };
 
       setSales(prev => [...prev, fullSale]);
+
+      // Atualizar o caixa (agora é feito automaticamente pelo trigger)
     } catch (error) {
       console.error('Erro ao criar venda:', error);
       throw error;
     }
   };
 
-  const updateSale = (id: string, sale: Partial<Sale>) => {
-    setSales(prev =>
-      prev.map(s => (s.id === id ? { ...s, ...sale } : s))
-    );
+  const updateSale = async (id: string, sale: Partial<Sale>) => {
+    try {
+      // Preparar os dados da atualização
+      const updateData = {
+        payment_method: sale.paymentMethod,
+        customer_name: sale.customerName
+      };
+
+      // Atualizar no banco
+      const { error } = await supabase
+        .from('sales')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Atualizar o estado local
+      setSales(prev =>
+        prev.map(s => (s.id === id ? { ...s, ...sale } : s))
+      );
+    } catch (error) {
+      console.error('Erro ao atualizar venda:', error);
+      throw error;
+    }
+  };
+
+  const deleteSale = async (id: string) => {
+    try {
+      // Excluir do banco
+      const { error } = await supabase
+        .from('sales')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Atualizar o estado local
+      setSales(prev => prev.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir venda:', error);
+      throw error;
+    }
   };
 
   const addServiceTax = (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -560,6 +681,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setServiceTaxes(prev => prev.filter(t => t.id !== id));
   };
 
+  const addIngredient = (ingredient: Omit<Ingredient, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newIngredient: Ingredient = {
+      id: crypto.randomUUID(),
+      ...ingredient,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    setIngredients(prev => [...prev, newIngredient]);
+  };
+
+  const updateIngredient = (id: string, ingredient: Partial<Ingredient>) => {
+    setIngredients(prev =>
+      prev.map(i => (i.id === id ? { ...i, ...ingredient, updatedAt: new Date() } : i))
+    );
+  };
+
+  const deleteIngredient = (id: string) => {
+    setIngredients(prev => prev.filter(i => i.id !== id));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -575,16 +716,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         deleteProduct,
         addOrder,
         updateOrder,
+        deleteOrder,
         addSale,
         updateSale,
-        setSales,
+        deleteSale,
         addServiceTax,
         updateServiceTax,
         deleteServiceTax,
         currentCashRegister,
         openCashRegister,
         closeCashRegister,
-        checkCashRegisterAccess
+        checkCashRegisterAccess,
+        isLoading
       }}
     >
       {children}

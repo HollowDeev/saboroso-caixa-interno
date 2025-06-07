@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, TrendingUp, ShoppingCart, Calendar, Edit, Trash2, Plus, CreditCard } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingCart, Calendar, Edit, Trash2, Plus, CreditCard, Loader2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,7 @@ import { CloseCashRegisterModal } from '@/components/CloseCashRegisterModal';
 import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
 import { Sale, CashRegister, CashRegisterSale } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 
 export const Sales = () => {
   const {
@@ -25,7 +26,9 @@ export const Sales = () => {
     currentCashRegister,
     openCashRegister,
     closeCashRegister,
-    checkCashRegisterAccess
+    checkCashRegisterAccess,
+    deleteSale,
+    isLoading
   } = useApp();
 
   console.log('=== PÁGINA DE VENDAS ===');
@@ -55,6 +58,16 @@ export const Sales = () => {
       setIsNoCashModalOpen(true);
     }
   }, [isOwner, currentCashRegister]);
+
+  // Carregar histórico de caixas ao montar o componente
+  useEffect(() => {
+    loadCashHistory();
+  }, []);
+
+  // Recarregar histórico de caixas quando uma venda for criada/excluída
+  useEffect(() => {
+    loadCashHistory();
+  }, [sales]);
 
   const getFilteredSales = () => {
     const now = new Date();
@@ -90,16 +103,22 @@ export const Sales = () => {
   };
 
   const handleOpenCash = async (openingAmount: number) => {
-    console.log('=== TENTANDO ABRIR CAIXA ===');
-    console.log('Valor inicial:', openingAmount);
-
     try {
       await openCashRegister(openingAmount);
       setIsOpenCashModalOpen(false);
       setIsNoCashModalOpen(false);
       loadCashHistory();
-    } catch (error) {
+      toast({
+        title: "Sucesso",
+        description: "Caixa aberto com sucesso!",
+      });
+    } catch (error: any) {
       console.error('Erro ao abrir caixa:', error);
+      toast({
+        title: "Erro ao abrir caixa",
+        description: error.message || "Ocorreu um erro ao abrir o caixa. Tente novamente.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -108,8 +127,17 @@ export const Sales = () => {
       await closeCashRegister(closingAmount);
       setIsCloseCashModalOpen(false);
       loadCashHistory();
-    } catch (error) {
+      toast({
+        title: "Sucesso",
+        description: "Caixa fechado com sucesso!",
+      });
+    } catch (error: any) {
       console.error('Erro ao fechar caixa:', error);
+      toast({
+        title: "Erro ao fechar caixa",
+        description: error.message || "Ocorreu um erro ao fechar o caixa. Tente novamente.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -141,10 +169,6 @@ export const Sales = () => {
       console.error('Erro ao carregar vendas do caixa:', error);
     }
   };
-
-  useEffect(() => {
-    loadCashHistory();
-  }, [currentCashRegister]);
 
   const filteredSales = getFilteredSales();
   const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
@@ -179,12 +203,27 @@ export const Sales = () => {
   const dailySales = getDailySales();
   const paymentStats = getPaymentMethodStats();
 
-  const getOrderForSale = (orderId: string) => {
+  const getOrderForSale = (orderId?: string) => {
+    if (!orderId) return null;
     return orders.find(order => order.id === orderId);
   };
 
-  const deleteSale = (saleId: string) => {
-    setSales(prev => prev.filter(sale => sale.id !== saleId));
+  const handleDeleteSale = async (saleId: string) => {
+    try {
+      await deleteSale(saleId);
+      toast({
+        title: "Sucesso",
+        description: "Venda excluída com sucesso!",
+      });
+      loadCashHistory();
+    } catch (error: any) {
+      console.error('Erro ao excluir venda:', error);
+      toast({
+        title: "Erro ao excluir venda",
+        description: error.message || "Ocorreu um erro ao excluir a venda. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const stats = [
@@ -318,86 +357,98 @@ export const Sales = () => {
               <CardTitle>Histórico de Vendas</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data/Hora</TableHead>
-                    <TableHead>Cliente/Mesa</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Pagamento</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSales.map((sale) => {
-                    const order = getOrderForSale(sale.orderId);
-                    return (
-                      <TableRow key={sale.id}>
-                        <TableCell>
-                          {new Date(sale.createdAt).toLocaleDateString()} às{' '}
-                          {new Date(sale.createdAt).toLocaleTimeString()}
-                        </TableCell>
-                        <TableCell>
-                          {order?.customerName || `Mesa ${order?.tableNumber}` || 'Venda Direta'}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          R$ {sale.total.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {sale.paymentMethod === 'cash' ? 'Dinheiro' :
-                              sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={order ? "default" : "secondary"}>
-                            {order ? 'Comanda' : 'Direta'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditingSale(sale)}
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive">
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => deleteSale(sale.id)}>
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-
-              {filteredSales.length === 0 && (
-                <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Nenhuma venda encontrada no período selecionado.</p>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                 </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data/Hora</TableHead>
+                        <TableHead>Cliente/Mesa</TableHead>
+                        <TableHead>Valor</TableHead>
+                        <TableHead>Pagamento</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSales.map((sale) => {
+                        const order = getOrderForSale(sale.orderId);
+                        return (
+                          <TableRow key={sale.id}>
+                            <TableCell>
+                              {new Date(sale.createdAt).toLocaleDateString()} às{' '}
+                              {new Date(sale.createdAt).toLocaleTimeString()}
+                            </TableCell>
+                            <TableCell>
+                              {sale.is_direct_sale ? (
+                                sale.customerName || 'Venda Direta'
+                              ) : (
+                                order?.customerName || `Mesa ${order?.tableNumber}` || 'Venda Direta'
+                              )}
+                            </TableCell>
+                            <TableCell className="font-semibold">
+                              R$ {sale.total.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {sale.paymentMethod === 'cash' ? 'Dinheiro' :
+                                  sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={sale.is_direct_sale ? "secondary" : "default"}>
+                                {sale.is_direct_sale ? 'Direta' : 'Comanda'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setEditingSale(sale)}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteSale(sale.id)}>
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+
+                  {filteredSales.length === 0 && (
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">Nenhuma venda encontrada no período selecionado.</p>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useApp } from '@/contexts/AppContext';
 import { Sale } from '@/types';
+import { toast } from '@/components/ui/use-toast';
 
 interface EditSaleModalProps {
   sale: Sale | null;
@@ -16,44 +16,57 @@ interface EditSaleModalProps {
 export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
   const { updateSale } = useApp();
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
-  const [total, setTotal] = useState(0);
+  const [customerName, setCustomerName] = useState('');
 
   useEffect(() => {
     if (sale) {
       setPaymentMethod(sale.paymentMethod);
-      setTotal(sale.total);
+      setCustomerName(sale.customerName || '');
     }
   }, [sale]);
 
-  if (!sale) return null;
+  const handleSave = async () => {
+    if (!sale) return;
 
-  const handleSave = () => {
-    if (!updateSale) return;
-    
-    updateSale(sale.id, {
-      paymentMethod,
-      total
-    });
-    
-    onClose();
+    try {
+      await updateSale(sale.id, {
+        paymentMethod,
+        customerName: customerName || undefined
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Venda atualizada com sucesso!",
+      });
+
+      onClose();
+    } catch (error: any) {
+      console.error('Erro ao atualizar venda:', error);
+      toast({
+        title: "Erro ao atualizar venda",
+        description: error.message || "Ocorreu um erro ao atualizar a venda. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
+
+  if (!sale) return null;
 
   return (
     <Dialog open={!!sale} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar Venda</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div>
-            <Label htmlFor="editTotal">Total da Venda</Label>
+            <Label htmlFor="editCustomerName">Nome do Cliente</Label>
             <Input
-              id="editTotal"
-              type="number"
-              step="0.01"
-              value={total}
-              onChange={(e) => setTotal(parseFloat(e.target.value) || 0)}
+              id="editCustomerName"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Digite o nome do cliente"
             />
           </div>
 
@@ -71,11 +84,46 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
             </Select>
           </div>
 
-          <div className="flex space-x-2 mt-6">
-            <Button variant="outline" onClick={onClose} className="flex-1">
+          {sale.is_direct_sale && sale.items && (
+            <div>
+              <Label>Itens da Venda</Label>
+              <div className="space-y-2 mt-2">
+                {sale.items.map((item, index) => (
+                  <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                    <span>{item.quantity}x {item.product_name}</span>
+                    <span>R$ {item.totalPrice.toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="border-t pt-2 mt-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span>R$ {sale.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Taxa:</span>
+                    <span>R$ {sale.tax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>Total:</span>
+                    <span>R$ {sale.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex space-x-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSave} className="flex-1">
+            <Button
+              onClick={handleSave}
+              className="flex-1"
+            >
               Salvar
             </Button>
           </div>

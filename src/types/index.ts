@@ -84,11 +84,22 @@ export interface Order {
 
 export interface Sale {
   id: string;
-  orderId: string;
+  orderId?: string;
   total: number;
+  subtotal: number;
+  tax: number;
   paymentMethod: 'cash' | 'card' | 'pix';
   createdAt: Date;
   userId: string;
+  is_direct_sale?: boolean;
+  items?: {
+    productId: string;
+    product_name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }[];
+  customerName?: string;
 }
 
 export interface Analytics {

@@ -8,6 +8,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { OrderItem, Product, ServiceTax } from '@/types';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/components/ui/use-toast';
 
 interface DirectSaleModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface DirectSaleModalProps {
 }
 
 export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
-  const { products, currentUser, addSale, updateIngredient, ingredients, serviceTaxes, addOrder } = useApp();
+  const { products, currentUser, addSale, serviceTaxes, currentCashRegister } = useApp();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
@@ -90,39 +91,63 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
   };
 
   const createDirectSale = async () => {
-    if (selectedItems.length === 0) return;
+    if (selectedItems.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um produto à venda.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!currentCashRegister) {
+      toast({
+        title: "Erro",
+        description: "Não há caixa aberto para registrar a venda.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
       const { subtotal, taxesTotal, total } = calculateTotal();
 
-      // Criar uma comanda já paga
-      const newOrder = {
+      // Criar a venda direta
+      await addSale({
+        total,
+        subtotal,
+        tax: taxesTotal,
+        paymentMethod,
+        userId: currentUser!.id,
+        customerName: customerName || undefined,
+        is_direct_sale: true,
         items: selectedItems.map(item => ({
           productId: item.productId,
-          product: item.product,
+          product_name: item.product.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice
-        })),
-        subtotal,
-        tax: taxesTotal,
-        total,
-        status: 'paid' as const,
-        paymentMethod,
-        customerName: customerName || undefined,
-        userId: currentUser!.id
-      };
+        }))
+      });
 
-      await addOrder(newOrder);
+      // Mostrar mensagem de sucesso
+      toast({
+        title: "Sucesso",
+        description: "Venda direta registrada com sucesso!",
+      });
 
       // Limpar e fechar
       setSelectedItems([]);
       setCustomerName('');
       setPaymentMethod('cash');
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar venda direta:', error);
-      // Aqui você pode adicionar uma notificação de erro para o usuário
+      toast({
+        title: "Erro ao criar venda",
+        description: error.message || "Ocorreu um erro ao registrar a venda. Tente novamente.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -201,7 +226,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div>
             <h3 className="font-semibold">Itens Selecionados</h3>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {selectedItems.map((item) => (
@@ -238,40 +263,39 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
               ))}
             </div>
 
-            {selectedItems.length > 0 && (
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>R$ {subtotal.toFixed(2)}</span>
-                </div>
-                {taxes.map((tax) => (
-                  <div key={tax.id} className="flex justify-between">
-                    <span>{tax.name}:</span>
-                    <span>R$ {tax.value.toFixed(2)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>R$ {total.toFixed(2)}</span>
-                </div>
-
-                <div className="flex space-x-2 mt-4">
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={createDirectSale}
-                    className="flex-1 bg-green-500 hover:bg-green-600"
-                  >
-                    Finalizar Venda
-                  </Button>
-                </div>
+            <div className="border-t pt-4 space-y-2 mt-4">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>R$ {subtotal.toFixed(2)}</span>
               </div>
-            )}
+              {taxes.map((tax) => (
+                <div key={tax.id} className="flex justify-between">
+                  <span>{tax.name}:</span>
+                  <span>R$ {tax.value.toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between font-bold text-lg">
+                <span>Total:</span>
+                <span>R$ {total.toFixed(2)}</span>
+              </div>
+
+              <div className="flex space-x-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={createDirectSale}
+                  className="flex-1 bg-green-500 hover:bg-green-600"
+                  disabled={selectedItems.length === 0}
+                >
+                  Finalizar Venda
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>
