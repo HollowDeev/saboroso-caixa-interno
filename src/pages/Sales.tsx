@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,19 +16,25 @@ import { Sale, CashRegister, CashRegisterSale } from '@/types';
 import { DirectSaleModal } from '@/components/DirectSaleModal';
 import { EditSaleModal } from '@/components/EditSaleModal';
 import { supabase } from '@/integrations/supabase/client';
+import { OpenCashRegisterModal } from '@/components/OpenCashRegisterModal';
+import { CloseCashRegisterModal } from '@/components/CloseCashRegisterModal';
 
 export const Sales = () => {
-  const { 
-    sales, 
-    currentCashRegister, 
-    checkCashRegisterAccess, 
-    isLoading 
+  const {
+    sales,
+    currentCashRegister,
+    checkCashRegisterAccess,
+    isLoading,
+    openCashRegister,
+    closeCashRegister
   } = useApp();
-  
+
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date());
   const [cashRegisterSales, setCashRegisterSales] = useState<CashRegisterSale[]>([]);
+  const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
+  const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -126,6 +131,24 @@ export const Sales = () => {
     document.body.removeChild(link);
   };
 
+  const handleOpenCashRegister = async (amount: number) => {
+    try {
+      await openCashRegister(amount);
+      setIsOpenCashRegisterModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao abrir caixa:', error);
+    }
+  };
+
+  const handleCloseCashRegister = async (amount: number) => {
+    try {
+      await closeCashRegister(amount);
+      setIsCloseCashRegisterModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao fechar caixa:', error);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -133,8 +156,24 @@ export const Sales = () => {
           <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
           <p className="text-gray-600">Gerencie e acompanhe suas vendas</p>
         </div>
-        
+
         <div className="flex space-x-2">
+          {isOwner && !currentCashRegister && (
+            <Button
+              onClick={() => setIsOpenCashRegisterModalOpen(true)}
+              className="bg-green-500 hover:bg-green-600"
+            >
+              Abrir Caixa
+            </Button>
+          )}
+          {isOwner && currentCashRegister && (
+            <Button
+              onClick={() => setIsCloseCashRegisterModalOpen(true)}
+              variant="destructive"
+            >
+              Fechar Caixa
+            </Button>
+          )}
           <Button
             onClick={() => setIsDirectSaleOpen(true)}
             className="bg-green-500 hover:bg-green-600"
@@ -212,7 +251,7 @@ export const Sales = () => {
                 </PopoverContent>
               </Popover>
             </div>
-            
+
             <Button onClick={exportSales} variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Exportar CSV
@@ -302,11 +341,11 @@ export const Sales = () => {
                       </Badge>
                     </div>
                     <p className="text-sm text-gray-600">
-                      {format(sale.createdAt, 'HH:mm', { locale: ptBR })} - 
+                      {format(sale.createdAt, 'HH:mm', { locale: ptBR })} -
                       R$ {sale.total.toFixed(2)} via {getPaymentMethodLabel(sale.paymentMethod)}
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <div className={`w-3 h-3 rounded-full ${getPaymentMethodColor(sale.paymentMethod)}`}></div>
                     <Button
@@ -336,6 +375,19 @@ export const Sales = () => {
           onClose={() => setEditingSale(null)}
         />
       )}
+
+      <OpenCashRegisterModal
+        isOpen={isOpenCashRegisterModalOpen}
+        onClose={() => setIsOpenCashRegisterModalOpen(false)}
+        onConfirm={handleOpenCashRegister}
+      />
+
+      <CloseCashRegisterModal
+        isOpen={isCloseCashRegisterModalOpen}
+        onClose={() => setIsCloseCashRegisterModalOpen(false)}
+        onConfirm={handleCloseCashRegister}
+        cashRegister={currentCashRegister}
+      />
     </div>
   );
 };

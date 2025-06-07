@@ -65,7 +65,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const { externalProducts } = useStock(currentUser?.id || '');
 
   const checkCashRegisterAccess = () => {
-    return currentUser?.role === 'admin' || currentUser?.role === 'cashier';
+    return currentUser?.role === 'admin' || currentUser?.role === 'manager' || currentUser?.role === 'cashier';
   };
 
   useEffect(() => {

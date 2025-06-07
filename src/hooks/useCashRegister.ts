@@ -29,7 +29,7 @@ export const useCashRegister = () => {
 
       console.log('Perfil do usuário:', profile);
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager' && profile.role !== 'cashier')) {
         console.log('Usuário sem permissão:', profile?.role);
         setLoading(false);
         return;
@@ -77,7 +77,7 @@ export const useCashRegister = () => {
 
       console.log('Perfil do usuário:', profile);
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager' && profile.role !== 'cashier')) {
         console.log('Usuário sem permissão para abrir caixa:', profile?.role);
         throw new Error('Sem permissão para abrir caixa');
       }
@@ -148,7 +148,7 @@ export const useCashRegister = () => {
         .eq('id', user.id)
         .single();
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager')) {
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'manager' && profile.role !== 'cashier')) {
         throw new Error('Sem permissão para fechar caixa');
       }
 
