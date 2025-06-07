@@ -115,7 +115,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         const { data: foodIngredients, error: ingredientsError } = await supabase
           .from('food_ingredients')
-          .select('*')
+          .select(`
+            *,
+            ingredients!inner(unit)
+          `)
           .in('food_id', foods.map(f => f.id));
 
         if (ingredientsError) throw ingredientsError;
@@ -124,11 +127,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           ...food,
           ingredients: foodIngredients
             .filter(fi => fi.food_id === food.id)
-            .map(fi => ({
-              ingredientId: fi.ingredient_id,
-              quantity: fi.quantity,
-              unit: fi.unit
-            })),
+            .map(fi => {
+              // Se a unidade é 'unidade', mantém como está
+              if (fi.unit === 'unidade') {
+                return {
+                  ingredientId: fi.ingredient_id,
+                  quantity: fi.quantity,
+                  unit: fi.unit
+                };
+              }
+
+              // Se a unidade é 'kg', converte para 'g' para exibição
+              return {
+                ingredientId: fi.ingredient_id,
+                quantity: fi.quantity * 1000, // Converte kg para g
+                unit: 'g'
+              };
+            }),
           created_at: new Date(food.created_at),
           updated_at: new Date(food.updated_at)
         }));
@@ -300,7 +315,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (itemsError) throw itemsError;
 
       await loadOrders();
-      
+
       toast({
         title: 'Comanda criada',
         description: 'A comanda foi criada com sucesso.',
@@ -375,7 +390,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       // Processar consumo de estoque para todos os itens
       const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
-      
+
       const stockResult = await processOrderItemsStockConsumption(
         currentOrder.items.map(item => ({
           productId: item.productId,
@@ -450,7 +465,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Processar consumo de estoque se há itens na venda
       if (saleData.items && saleData.items.length > 0) {
         const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
-        
+
         const stockResult = await processOrderItemsStockConsumption(
           saleData.items.map(item => ({
             productId: item.productId,
@@ -533,12 +548,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (foodError) throw foodError;
 
       if (product.ingredients?.length > 0) {
-        const foodIngredients = product.ingredients.map(ing => ({
-          food_id: foodData.id,
-          ingredient_id: ing.ingredientId,
-          quantity: ing.quantity,
-          unit: 'g'
-        }));
+        const foodIngredients = product.ingredients.map(ing => {
+          // Se o ingrediente é 'unidade', mantém como está
+          if (ing.unit === 'unidade') {
+            return {
+              food_id: foodData.id,
+              ingredient_id: ing.ingredientId,
+              quantity: ing.quantity,
+              unit: ing.unit
+            };
+          }
+
+          // Se a unidade é 'g', converte para 'kg'
+          let quantityInKg = ing.quantity;
+          if (ing.unit === 'g') {
+            quantityInKg = ing.quantity / 1000;
+          }
+
+          return {
+            food_id: foodData.id,
+            ingredient_id: ing.ingredientId,
+            quantity: quantityInKg,
+            unit: 'kg'  // Sempre salva em kg
+          };
+        });
 
         const { error: ingredientsError } = await supabase
           .from('food_ingredients')
@@ -590,12 +623,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (deleteError) throw deleteError;
 
         if (product.ingredients.length > 0) {
-          const foodIngredients = product.ingredients.map(ing => ({
-            food_id: id,
-            ingredient_id: ing.ingredientId,
-            quantity: ing.quantity,
-            unit: 'g'
-          }));
+          const foodIngredients = product.ingredients.map(ing => {
+            // Se o ingrediente é 'unidade', mantém como está
+            if (ing.unit === 'unidade') {
+              return {
+                food_id: id,
+                ingredient_id: ing.ingredientId,
+                quantity: ing.quantity,
+                unit: ing.unit
+              };
+            }
+
+            // Se a unidade é 'g', converte para 'kg'
+            let quantityInKg = ing.quantity;
+            if (ing.unit === 'g') {
+              quantityInKg = ing.quantity / 1000;
+            }
+
+            return {
+              food_id: id,
+              ingredient_id: ing.ingredientId,
+              quantity: quantityInKg,
+              unit: 'kg'  // Sempre salva em kg
+            };
+          });
 
           const { error: ingredientsError } = await supabase
             .from('food_ingredients')

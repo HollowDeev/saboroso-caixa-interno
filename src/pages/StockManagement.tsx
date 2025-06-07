@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Ingredient, Product } from '@/types';
 import { useStock } from '@/hooks/useStock';
 import { toast } from '@/components/ui/use-toast';
-import { Unit, isMassUnit, isVolumeUnit, convertFromBaseUnit, getAvailableSubunits, convertToBaseUnit } from '@/utils/unitConversion';
+import { Unit, isMassUnit, isVolumeUnit, convertFromBaseUnit, getAvailableSubunits, convertToBaseUnit, convertValue } from '@/utils/unitConversion';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,25 +165,23 @@ export const StockManagement = () => {
     description: null
   });
 
-  const calculateProductionCost = (productIngredients: { ingredientId: string; quantity: number }[]) => {
+  const calculateProductionCost = (productIngredients: { ingredientId: string; quantity: number; unit: Unit }[]) => {
     return productIngredients.reduce((total, ing) => {
       const ingredient = ingredients.find(i => i.id === ing.ingredientId);
       if (!ingredient) return total;
 
-      // Converte a quantidade do ingrediente para a mesma unidade do custo
-      let cost = 0;
-      if (ingredient.unit === 'kg' || ingredient.unit === 'L') {
-        // Se o ingrediente é medido em kg ou L, converte gramas/ml para kg/L
-        cost = (ing.quantity / 1000) * ingredient.cost;
-      } else if (ingredient.unit === 'g' || ingredient.unit === 'ml') {
-        // Se o ingrediente é medido em g ou ml, converte para kg/L
-        cost = (ing.quantity / 1000) * ingredient.cost;
-      } else {
-        // Para unidades, usa o custo direto
-        cost = ing.quantity * ingredient.cost;
+      // Se o ingrediente é do tipo 'unidade', usa o custo direto
+      if (ingredient.unit === 'unidade') {
+        return total + (ing.quantity * ingredient.cost);
       }
 
-      return total + cost;
+      // Converte para kg se necessário
+      let quantityInKg = ing.quantity;
+      if (ing.unit === 'g') {
+        quantityInKg = ing.quantity / 1000;
+      }
+
+      return total + (quantityInKg * ingredient.cost);
     }, 0);
   };
 
@@ -391,6 +389,24 @@ export const StockManagement = () => {
     e.preventDefault();
 
     try {
+      // Converte todos os ingredientes não-unitários para kg antes de salvar
+      const ingredientsInKg = newFoodForm.ingredients.map(ing => {
+        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
+        if (!ingredient || ingredient.unit === 'unidade') return ing;
+
+        // Se estiver em g, converte para kg
+        let quantityInKg = ing.quantity;
+        if (ing.unit === 'g') {
+          quantityInKg = ing.quantity / 1000;
+        }
+
+        return {
+          ...ing,
+          quantity: Number(quantityInKg.toFixed(3)),
+          unit: 'kg'  // Sempre salva em kg
+        };
+      });
+
       const newProduct = await addProduct({
         name: newFoodForm.name,
         description: newFoodForm.description,
@@ -398,7 +414,7 @@ export const StockManagement = () => {
         price: newFoodForm.price,
         cost: newFoodForm.cost,
         available: newFoodForm.available,
-        ingredients: newFoodForm.ingredients,
+        ingredients: ingredientsInKg,
         preparationTime: 0
       });
 
@@ -430,14 +446,29 @@ export const StockManagement = () => {
   const addIngredientToFood = () => {
     setNewFoodForm(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { ingredientId: '', quantity: 0, unit: 'unidade' }]
+      ingredients: [...prev.ingredients, { ingredientId: '', quantity: 0, unit: 'kg' }]  // Define kg como unidade padrão
     }));
   };
 
   const updateFoodIngredient = (index: number, field: string, value: string | number) => {
     setNewFoodForm(prev => {
       const newIngredients = [...prev.ingredients];
-      newIngredients[index] = { ...newIngredients[index], [field]: value };
+      const ingredient = ingredients.find(i => i.id === newIngredients[index].ingredientId);
+
+      if (field === 'quantity' && ingredient && ingredient.unit !== 'unidade') {
+        // Mantém o valor como está, sem converter
+        // A conversão será feita apenas ao salvar
+        newIngredients[index] = {
+          ...newIngredients[index],
+          [field]: Number(value)
+        };
+      } else {
+        newIngredients[index] = {
+          ...newIngredients[index],
+          [field]: value
+        };
+      }
+
       return { ...prev, ingredients: newIngredients };
     });
   };
@@ -484,18 +515,25 @@ export const StockManagement = () => {
     }
 
     try {
-      const baseValue = convertToBaseUnit(
-        newFoodForm.ingredients[index].quantity,
-        newFoodForm.ingredients[index].unit,
-        ingredient.unit
-      );
-      const newValue = convertFromBaseUnit(baseValue, ingredient.unit, unit);
+      // Converte o valor atual para a nova unidade
+      const currentQuantity = newFoodForm.ingredients[index].quantity;
+      const currentUnit = newFoodForm.ingredients[index].unit;
+      let newQuantity = currentQuantity;
+
+      // Se está mudando de kg para g
+      if (currentUnit === 'kg' && unit === 'g') {
+        newQuantity = currentQuantity * 1000;
+      }
+      // Se está mudando de g para kg
+      else if (currentUnit === 'g' && unit === 'kg') {
+        newQuantity = currentQuantity / 1000;
+      }
 
       setNewFoodForm(prev => {
         const newIngredients = [...prev.ingredients];
         newIngredients[index] = {
           ...newIngredients[index],
-          quantity: Number(newValue.toFixed(3)),
+          quantity: Number(newQuantity.toFixed(3)),
           unit
         };
         return { ...prev, ingredients: newIngredients };
@@ -570,11 +608,26 @@ export const StockManagement = () => {
       price: food.price,
       cost: food.cost,
       available: food.available,
-      ingredients: food.ingredients.map(ing => ({
-        ingredientId: ing.ingredientId,
-        quantity: ing.quantity,
-        unit: ing.unit || ingredients.find(i => i.id === ing.ingredientId)?.unit || 'unidade'
-      }))
+      ingredients: food.ingredients.map(ing => {
+        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
+        if (!ingredient) return ing;
+
+        // Se o ingrediente não é unitário e a unidade selecionada é 'g',
+        // converte de kg para g apenas para exibição
+        if (ingredient.unit !== 'unidade' && ing.unit === 'g') {
+          return {
+            ...ing,
+            quantity: ing.quantity * 1000,  // Converte kg para g para exibição
+            unit: 'g'
+          };
+        }
+
+        // Se não, mantém em kg
+        return {
+          ...ing,
+          unit: ingredient.unit === 'unidade' ? 'unidade' : 'kg'
+        };
+      })
     });
     setIsEditFoodDialogOpen(true);
   };
@@ -585,6 +638,24 @@ export const StockManagement = () => {
     if (!selectedFood) return;
 
     try {
+      // Converte todos os ingredientes não-unitários para kg antes de salvar
+      const ingredientsInKg = newFoodForm.ingredients.map(ing => {
+        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
+        if (!ingredient || ingredient.unit === 'unidade') return ing;
+
+        // Se estiver em g, converte para kg
+        let quantityInKg = ing.quantity;
+        if (ing.unit === 'g') {
+          quantityInKg = ing.quantity / 1000;
+        }
+
+        return {
+          ...ing,
+          quantity: Number(quantityInKg.toFixed(3)),
+          unit: 'kg'  // Sempre salva em kg
+        };
+      });
+
       await updateProduct(selectedFood.id, {
         name: newFoodForm.name,
         description: newFoodForm.description,
@@ -592,7 +663,7 @@ export const StockManagement = () => {
         price: newFoodForm.price,
         cost: newFoodForm.cost,
         available: newFoodForm.available,
-        ingredients: newFoodForm.ingredients
+        ingredients: ingredientsInKg
       });
 
       setIsEditFoodDialogOpen(false);
@@ -1617,7 +1688,7 @@ export const StockManagement = () => {
                               newIngredients[index] = {
                                 ingredientId: value,
                                 quantity: 0,
-                                unit: ingredient.unit
+                                unit: ingredient.unit === 'unidade' ? 'unidade' : 'kg'  // Define kg como unidade padrão para ingredientes não-unitários
                               };
                               return { ...prev, ingredients: newIngredients };
                             });
@@ -1864,7 +1935,7 @@ export const StockManagement = () => {
                               newIngredients[index] = {
                                 ingredientId: value,
                                 quantity: 0,
-                                unit: ingredient.unit
+                                unit: ingredient.unit === 'unidade' ? 'unidade' : 'kg'  // Define kg como unidade padrão para ingredientes não-unitários
                               };
                               return { ...prev, ingredients: newIngredients };
                             });

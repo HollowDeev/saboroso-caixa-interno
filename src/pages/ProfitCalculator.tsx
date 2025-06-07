@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { useApp } from '@/contexts/AppContext';
 import { Product } from '@/types';
+import { convertToBaseUnit } from '@/utils/unitConversion';
 
 export const ProfitCalculator = () => {
     const { products, ingredients, serviceTaxes } = useApp();
@@ -19,10 +20,25 @@ export const ProfitCalculator = () => {
     const calculateProductCost = (product: Product) => {
         return product.ingredients.reduce((total, ing) => {
             const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-            if (ingredient) {
+            if (!ingredient) return total;
+
+            // Se o ingrediente é do tipo 'unidade', usa o custo direto
+            if (ingredient.unit === 'unidade') {
                 return total + (ingredient.cost * ing.quantity);
             }
-            return total;
+
+            try {
+                // Se a unidade é 'g', converte para 'kg' antes de calcular
+                let quantityInKg = ing.quantity;
+                if (ing.unit === 'g') {
+                    quantityInKg = ing.quantity / 1000;
+                }
+
+                return total + (quantityInKg * ingredient.cost);
+            } catch (error) {
+                console.error('Erro ao converter unidades:', error);
+                return total;
+            }
         }, 0);
     };
 

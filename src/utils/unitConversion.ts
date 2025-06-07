@@ -3,17 +3,17 @@ export type MassUnit = 'kg' | 'g' | 'mg';
 export type VolumeUnit = 'L' | 'ml';
 export type Unit = MassUnit | VolumeUnit | 'unidade';
 
-// Fatores de conversão para massa
+// Fatores de conversão para massa (em relação à unidade base)
 const massConversionFactors: Record<MassUnit, number> = {
   kg: 1,
-  g: 0.001,
-  mg: 0.000001,
+  g: 1000,  // 1kg = 1000g
+  mg: 1000000,  // 1kg = 1000000mg
 };
 
-// Fatores de conversão para volume
+// Fatores de conversão para volume (em relação à unidade base)
 const volumeConversionFactors: Record<VolumeUnit, number> = {
   L: 1,
-  ml: 0.001,
+  ml: 1000,  // 1L = 1000ml
 };
 
 // Função para verificar se é unidade de massa
@@ -49,12 +49,26 @@ export const convertValue = (value: number, fromUnit: Unit, toUnit: Unit): numbe
 
   // Converte massa
   if (isMassUnit(fromUnit) && isMassUnit(toUnit)) {
-    return (value * massConversionFactors[fromUnit]) / massConversionFactors[toUnit];
+    // Se estiver convertendo de uma unidade menor para uma maior (ex: g para kg)
+    if (massConversionFactors[fromUnit] > massConversionFactors[toUnit]) {
+      return value / (massConversionFactors[fromUnit] / massConversionFactors[toUnit]);
+    }
+    // Se estiver convertendo de uma unidade maior para uma menor (ex: kg para g)
+    else {
+      return value * (massConversionFactors[toUnit] / massConversionFactors[fromUnit]);
+    }
   }
 
   // Converte volume
   if (isVolumeUnit(fromUnit) && isVolumeUnit(toUnit)) {
-    return (value * volumeConversionFactors[fromUnit]) / volumeConversionFactors[toUnit];
+    // Se estiver convertendo de uma unidade menor para uma maior (ex: ml para L)
+    if (volumeConversionFactors[fromUnit] > volumeConversionFactors[toUnit]) {
+      return value / (volumeConversionFactors[fromUnit] / volumeConversionFactors[toUnit]);
+    }
+    // Se estiver convertendo de uma unidade maior para uma menor (ex: L para ml)
+    else {
+      return value * (volumeConversionFactors[toUnit] / volumeConversionFactors[fromUnit]);
+    }
   }
 
   throw new Error('Não é possível converter entre diferentes tipos de unidades');

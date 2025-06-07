@@ -1,10 +1,11 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Product, ExternalProduct } from '@/types';
+import { Unit, convertToBaseUnit } from '@/utils/unitConversion';
 
 export interface IngredientConsumption {
   ingredientId: string;
   quantity: number;
+  unit: Unit;
   ingredientName: string;
 }
 
@@ -22,7 +23,8 @@ export const getFoodIngredients = async (foodId: string): Promise<IngredientCons
       .select(`
         ingredient_id,
         quantity,
-        ingredients!inner(name)
+        unit,
+        ingredients!inner(name, unit)
       `)
       .eq('food_id', foodId);
 
@@ -31,6 +33,7 @@ export const getFoodIngredients = async (foodId: string): Promise<IngredientCons
     return foodIngredients?.map(fi => ({
       ingredientId: fi.ingredient_id,
       quantity: fi.quantity,
+      unit: fi.unit as Unit,
       ingredientName: fi.ingredients.name
     })) || [];
   } catch (error) {
@@ -49,12 +52,10 @@ export const consumeIngredientsFromStock = async (
   const errors: string[] = [];
 
   for (const ingredient of ingredients) {
-    const totalQuantityToConsume = ingredient.quantity * quantityMultiplier;
-    
     try {
       const { data: currentIngredient, error: getError } = await supabase
         .from('ingredients')
-        .select('current_stock, name')
+        .select('current_stock, name, unit')
         .eq('id', ingredient.ingredientId)
         .single();
 
@@ -68,79 +69,56 @@ export const consumeIngredientsFromStock = async (
         continue;
       }
 
-      if (currentIngredient.current_stock < totalQuantityToConsume) {
-        errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}, Necessário: ${totalQuantityToConsume}`);
-        continue;
-      }
+      if (currentIngredient.unit === 'kg') {
+        const totalQuantityToConsume = ingredient.quantity * quantityMultiplier;
 
-      let remainingToConsume = totalQuantityToConsume;
-
-      const { data: stockEntries, error: entriesError } = await supabase
-        .from('stock_entries')
-        .select('id, remaining_quantity')
-        .eq('ingredient_id', ingredient.ingredientId)
-        .gt('remaining_quantity', 0)
-        .order('created_at');
-
-      if (entriesError) {
-        errors.push(`Erro ao buscar entradas de estoque para ${ingredient.ingredientName}: ${entriesError.message}`);
-        continue;
-      }
-
-      for (const entry of stockEntries || []) {
-        if (remainingToConsume <= 0) break;
-
-        const toConsume = Math.min(entry.remaining_quantity, remainingToConsume);
-        
-        const { error: updateError } = await supabase
-          .from('stock_entries')
-          .update({
-            remaining_quantity: entry.remaining_quantity - toConsume
-          })
-          .eq('id', entry.id);
-
-        if (updateError) {
-          errors.push(`Erro ao atualizar entrada de estoque para ${ingredient.ingredientName}: ${updateError.message}`);
+        if (currentIngredient.current_stock < totalQuantityToConsume) {
+          errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}kg, Necessário: ${totalQuantityToConsume}kg`);
           continue;
         }
 
-        remainingToConsume -= toConsume;
-      }
-
-      const newStock = currentIngredient.current_stock - totalQuantityToConsume;
-      const { error: updateIngredientError } = await supabase
-        .from('ingredients')
-        .update({
-          current_stock: newStock,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', ingredient.ingredientId);
-
-      if (updateIngredientError) {
-        errors.push(`Erro ao atualizar estoque do ingrediente ${ingredient.ingredientName}: ${updateIngredientError.message}`);
-        continue;
-      }
-
-      const { error: movementError } = await supabase
-        .from('stock_movements')
-        .insert({
-          item_id: ingredient.ingredientId,
-          item_type: 'ingredient',
-          quantity: totalQuantityToConsume,
-          movement_type: 'remove',
-          reason: reason,
-          user_id: userId,
-          previous_stock: currentIngredient.current_stock,
-          new_stock: newStock
+        const { error: updateError } = await supabase.rpc('remove_stock', {
+          p_item_type: 'ingredient',
+          p_item_id: ingredient.ingredientId,
+          p_quantity: totalQuantityToConsume,
+          p_reason: reason,
+          p_user_id: userId
         });
 
-      if (movementError) {
-        console.error(`Erro ao registrar movimento para ${ingredient.ingredientName}:`, movementError);
-      }
+        if (updateError) {
+          errors.push(`Erro ao atualizar estoque de ${ingredient.ingredientName}: ${updateError.message}`);
+          continue;
+        }
+      } else {
+        // Se a unidade é 'g', converte para 'kg' antes de consumir
+        let quantityInKg = ingredient.quantity;
+        if (ingredient.unit === 'g') {
+          quantityInKg = ingredient.quantity / 1000;
+        }
 
+        const totalQuantityToConsume = quantityInKg * quantityMultiplier;
+
+        if (currentIngredient.current_stock < totalQuantityToConsume) {
+          errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}kg, Necessário: ${totalQuantityToConsume}kg`);
+          continue;
+        }
+
+        const { error: updateError } = await supabase.rpc('remove_stock', {
+          p_item_type: 'ingredient',
+          p_item_id: ingredient.ingredientId,
+          p_quantity: totalQuantityToConsume,
+          p_reason: reason,
+          p_user_id: userId
+        });
+
+        if (updateError) {
+          errors.push(`Erro ao atualizar estoque de ${ingredient.ingredientName}: ${updateError.message}`);
+          continue;
+        }
+      }
     } catch (error) {
-      console.error(`Erro ao processar ingrediente ${ingredient.ingredientName}:`, error);
-      errors.push(`Erro inesperado ao processar ${ingredient.ingredientName}`);
+      console.error('Erro ao consumir ingrediente:', error);
+      errors.push(`Erro ao processar ${ingredient.ingredientName}: ${error}`);
     }
   }
 
