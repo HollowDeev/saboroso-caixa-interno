@@ -59,7 +59,7 @@ export interface NewOrderItem {
   totalPrice: number;
 }
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled';
+export type OrderStatus = 'open' | 'closed';
 export type PaymentMethod = 'cash' | 'card' | 'pix';
 
 export interface Order {
@@ -133,4 +133,19 @@ export interface ExternalProduct {
   owner_id: string;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface CashRegisterSale {
+  id: string;
+  cash_register_id: string;
+  total: number;
+  subtotal: number;
+  tax: number;
+  payment_method: PaymentMethod;
+  created_at: Date;
+  user_id: string;
+  is_direct_sale: boolean;
+  items?: any[];
+  customer_name?: string;
+  order_id?: string;
 }

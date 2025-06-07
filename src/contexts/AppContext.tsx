@@ -6,8 +6,6 @@ import {
   Order,
   Sale,
   ServiceTax,
-  OrderItem,
-  NewOrderItem,
   OrderStatus,
   PaymentMethod,
   CashRegister,
@@ -46,6 +44,8 @@ type AppContextType = {
   openCashRegister: (amount: number) => Promise<void>;
   closeCashRegister: (amount: number) => Promise<void>;
   checkCashRegisterAccess: () => boolean;
+  addItemToOrder: (orderId: string, item: any) => Promise<void>;
+  closeOrder: (orderId: string, paymentMethod: PaymentMethod) => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -237,7 +237,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loadOrders();
   }, [currentCashRegister, isLoading, cashRegisterLoading]);
 
-  // Função para carregar as vendas
   const loadSales = async () => {
     try {
       setIsLoading(true);
@@ -255,7 +254,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      // Converter os dados do banco para o formato da aplicação
       const formattedSales: Sale[] = data.map(sale => ({
         id: sale.id,
         orderId: sale.order_id,
@@ -279,7 +277,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Carregar vendas quando o caixa mudar
   useEffect(() => {
     if (currentCashRegister) {
       loadSales();
@@ -433,7 +430,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           subtotal: order.subtotal,
           tax: order.tax,
           total: order.total,
-          status: order.status,
+          status: 'open',
           user_id: order.userId,
           cash_register_id: currentCashRegister.id
         })
@@ -485,7 +482,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         subtotal: order.subtotal,
         tax: order.tax,
         total: order.total,
-        status: order.status,
+        status: 'open',
         createdAt: new Date(newOrder.created_at),
         updatedAt: new Date(newOrder.updated_at),
         userId: order.userId
@@ -494,6 +491,221 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setOrders(prev => [...prev, fullOrder]);
     } catch (error) {
       console.error('Erro ao criar comanda:', error);
+      throw error;
+    }
+  };
+
+  const addItemToOrder = async (orderId: string, item: any) => {
+    try {
+      if (!currentCashRegister) {
+        throw new Error('Nenhum caixa aberto');
+      }
+
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .insert({
+          order_id: orderId,
+          product_id: item.productId,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice,
+          cash_register_id: currentCashRegister.id
+        });
+
+      if (itemError) throw itemError;
+
+      // Atualizar totais da comanda
+      const currentOrder = orders.find(o => o.id === orderId);
+      if (currentOrder) {
+        const newSubtotal = currentOrder.subtotal + item.totalPrice;
+        const newTax = newSubtotal * 0.1;
+        const newTotal = newSubtotal + newTax;
+
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            subtotal: newSubtotal,
+            tax: newTax,
+            total: newTotal,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', orderId);
+
+        if (updateError) throw updateError;
+
+        // Atualizar estado local
+        setOrders(prev => prev.map(order => 
+          order.id === orderId 
+            ? {
+                ...order,
+                items: [...order.items, item],
+                subtotal: newSubtotal,
+                tax: newTax,
+                total: newTotal,
+                updatedAt: new Date()
+              }
+            : order
+        ));
+      }
+
+      toast({
+        title: 'Item adicionado',
+        description: 'Item foi adicionado à comanda com sucesso.',
+      });
+    } catch (error: any) {
+      console.error('Erro ao adicionar item à comanda:', error);
+      toast({
+        title: 'Erro ao adicionar item',
+        description: error.message || 'Não foi possível adicionar o item à comanda.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const closeOrder = async (orderId: string, paymentMethod: PaymentMethod) => {
+    try {
+      if (!currentUser || !currentCashRegister) {
+        throw new Error('Usuário não autenticado ou caixa não aberto');
+      }
+
+      const currentOrder = orders.find(o => o.id === orderId);
+      if (!currentOrder) {
+        throw new Error('Comanda não encontrada');
+      }
+
+      // Processar consumo de estoque
+      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+      
+      const stockResult = await processOrderItemsStockConsumption(
+        currentOrder.items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          product: item.product
+        })),
+        currentUser.id,
+        'Fechamento de comanda'
+      );
+
+      if (!stockResult.success) {
+        console.warn('Avisos de estoque:', stockResult.errors);
+      }
+
+      // Atualizar status da comanda
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: 'closed',
+          payment_method: paymentMethod,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
+
+      // Criar venda correspondente
+      const saleData = {
+        order_id: orderId,
+        total: currentOrder.total,
+        subtotal: currentOrder.subtotal,
+        tax: currentOrder.tax,
+        payment_method: paymentMethod,
+        user_id: currentUser.id,
+        customer_name: currentOrder.customerName,
+        is_direct_sale: false,
+        items: JSON.stringify(currentOrder.items.map(item => ({
+          productId: item.productId,
+          product_name: item.product_name || item.product.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice
+        })))
+      };
+
+      const { error: saleError } = await supabase
+        .from('sales')
+        .insert([{
+          ...saleData,
+          cash_register_id: currentCashRegister.id,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (saleError) {
+        console.error('Erro ao criar venda da comanda:', saleError);
+      } else {
+        loadSales();
+      }
+
+      // Atualizar estado local
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? { ...order, status: 'closed', paymentMethod, updatedAt: new Date() }
+          : order
+      ));
+
+      toast({
+        title: 'Comanda fechada',
+        description: 'A comanda foi fechada e a venda foi registrada com sucesso.',
+      });
+
+    } catch (error: any) {
+      console.error('Erro ao fechar comanda:', error);
+      toast({
+        title: 'Erro ao fechar comanda',
+        description: error.message || 'Não foi possível fechar a comanda.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
+  const updateOrder = async (id: string, order: Partial<Order>) => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({
+          customer_name: order.customerName,
+          table_number: order.tableNumber,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          total: order.total,
+          status: order.status,
+          payment_method: order.paymentMethod,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...order, updatedAt: new Date() } : o));
+    } catch (error) {
+      console.error('Erro ao atualizar comanda:', error);
+      throw error;
+    }
+  };
+
+  const deleteOrder = async (id: string) => {
+    try {
+      const { error: deleteItemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', id);
+
+      if (deleteItemsError) throw deleteItemsError;
+
+      const { error: deleteOrderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', id);
+
+      if (deleteOrderError) throw deleteOrderError;
+
+      setOrders(prev => prev.filter(o => o.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir comanda:', error);
       throw error;
     }
   };
@@ -508,7 +720,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Não há caixa aberto para registrar a venda');
       }
 
-      // Processar consumo de ingredientes se há itens na venda
+      // Processar consumo de ingredientes e produtos externos se há itens na venda
       if (saleData.items && saleData.items.length > 0) {
         const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
         
@@ -524,7 +736,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         if (!stockResult.success) {
           console.warn('Avisos de estoque:', stockResult.errors);
-          // Continua com a venda mesmo com avisos de estoque
         }
       }
 
@@ -543,7 +754,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         order_id: saleData.orderId || null
       };
 
-      // Criar a venda
       const { data, error } = await supabase
         .from('sales')
         .insert([insertData])
@@ -552,7 +762,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      // Converter dados de volta para o formato da aplicação
       const formattedSale: Sale = {
         id: data.id,
         orderId: data.order_id,
@@ -585,158 +794,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateOrder = async (orderId: string, updates: Partial<Order>) => {
-    try {
-      if (!currentUser) {
-        throw new Error('Usuário não autenticado');
-      }
-
-      if (!currentCashRegister) {
-        throw new Error('Não há caixa aberto');
-      }
-
-      // Se o status está sendo alterado para 'paid', processar consumo de ingredientes
-      if (updates.status === 'paid') {
-        const currentOrder = orders.find(o => o.id === orderId);
-        if (currentOrder && currentOrder.items) {
-          const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
-          
-          const stockResult = await processOrderItemsStockConsumption(
-            currentOrder.items.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              product: item.product
-            })),
-            currentUser.id,
-            'Finalização de comanda'
-          );
-
-          if (!stockResult.success) {
-            console.warn('Avisos de estoque:', stockResult.errors);
-            // Continua com a finalização mesmo com avisos de estoque
-          }
-        }
-      }
-
-      // Preparar dados para atualização
-      const updateData = {
-        customer_name: updates.customerName,
-        table_number: updates.tableNumber,
-        subtotal: updates.subtotal,
-        tax: updates.tax,
-        total: updates.total,
-        status: updates.status,
-        payment_method: updates.paymentMethod,
-        user_id: currentUser.id,
-        cash_register_id: currentCashRegister.id,
-        updated_at: new Date().toISOString()
-      };
-
-      const { data, error } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Converter dados de volta para o formato da aplicação
-      const updatedOrder: Order = {
-        id: data.id,
-        customerName: data.customer_name,
-        tableNumber: data.table_number,
-        items: orders.find(o => o.id === orderId)?.items || [],
-        subtotal: data.subtotal,
-        tax: data.tax,
-        total: data.total,
-        status: data.status as OrderStatus,
-        paymentMethod: data.payment_method as PaymentMethod,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at),
-        userId: data.user_id
-      };
-
-      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));
-
-      // Se foi marcado como pago, criar uma venda correspondente
-      if (updates.status === 'paid' && data) {
-        const saleData = {
-          order_id: data.id,
-          total: data.total,
-          subtotal: data.subtotal || 0,
-          tax: data.tax || 0,
-          payment_method: data.payment_method as 'cash' | 'card' | 'pix',
-          user_id: currentUser.id,
-          customer_name: data.customer_name,
-          is_direct_sale: false
-        };
-
-        const { error: saleError } = await supabase
-          .from('sales')
-          .insert([{
-            ...saleData,
-            cash_register_id: currentCashRegister.id,
-            created_at: new Date().toISOString()
-          }]);
-
-        if (saleError) {
-          console.error('Erro ao criar venda da comanda:', saleError);
-        } else {
-          // Recarregar vendas
-          loadSales();
-        }
-      }
-
-      toast({
-        title: 'Comanda atualizada',
-        description: 'A comanda foi atualizada com sucesso.',
-      });
-
-      return updatedOrder;
-    } catch (error: any) {
-      console.error('Erro ao atualizar comanda:', error);
-      toast({
-        title: 'Erro ao atualizar comanda',
-        description: error.message || 'Não foi possível atualizar a comanda.',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-
-  const deleteOrder = async (id: string) => {
-    try {
-      const { error: deleteItemsError } = await supabase
-        .from('order_items')
-        .delete()
-        .eq('order_id', id);
-
-      if (deleteItemsError) throw deleteItemsError;
-
-      const { error: deleteOrderError } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', id);
-
-      if (deleteOrderError) throw deleteOrderError;
-
-      setOrders(prev => prev.filter(o => o.id !== id));
-    } catch (error) {
-      console.error('Erro ao excluir comanda:', error);
-      throw error;
-    }
-  };
-
   const updateSale = async (id: string, sale: Partial<Sale>) => {
     try {
-      // Preparar os dados da atualização
       const updateData = {
         payment_method: sale.paymentMethod,
         customer_name: sale.customerName
       };
 
-      // Atualizar no banco
       const { error } = await supabase
         .from('sales')
         .update(updateData)
@@ -744,7 +808,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      // Atualizar o estado local
       setSales(prev =>
         prev.map(s => (s.id === id ? { ...s, ...sale } : s))
       );
@@ -756,7 +819,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteSale = async (id: string) => {
     try {
-      // Excluir do banco
       const { error } = await supabase
         .from('sales')
         .delete()
@@ -764,7 +826,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      // Atualizar o estado local
       setSales(prev => prev.filter(s => s.id !== id));
     } catch (error) {
       console.error('Erro ao excluir venda:', error);
@@ -841,7 +902,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         openCashRegister,
         closeCashRegister,
         checkCashRegisterAccess,
-        isLoading
+        isLoading,
+        addItemToOrder,
+        closeOrder
       }}
     >
       {children}
