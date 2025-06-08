@@ -1,5 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
+import { OrderItem } from '@/types';
 
 export interface IngredientConsumption {
   ingredientId: string;
@@ -71,6 +71,26 @@ export const consumeStockForSale = async (
       errors: [`Erro ao processar produto ${productId}: ${error}`] 
     };
   }
+};
+
+// Nova função para processar items de pedido
+export const processOrderItemsStockConsumption = async (
+  items: OrderItem[],
+  userId: string
+): Promise<{ success: boolean; errors: string[] }> => {
+  const allErrors: string[] = [];
+  
+  for (const item of items) {
+    const result = await consumeStockForSale(item.productId, item.quantity, userId);
+    if (!result.success) {
+      allErrors.push(...result.errors);
+    }
+  }
+  
+  return {
+    success: allErrors.length === 0,
+    errors: allErrors
+  };
 };
 
 // Função para buscar os ingredientes de uma comida

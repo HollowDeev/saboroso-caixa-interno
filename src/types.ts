@@ -139,6 +139,8 @@ export interface AppContextType {
   isLoading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
+  addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
+  closeOrder: (orderId: string, paymentMethod: PaymentMethod, customerName?: string) => Promise<void>;
   addIngredient: (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateIngredient: (id: string, updates: Partial<Ingredient>) => Promise<void>;
   deleteIngredient: (id: string) => Promise<void>;
