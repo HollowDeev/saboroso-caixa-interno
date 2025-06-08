@@ -77,30 +77,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // Load orders
+      // Load orders with items
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
-        .eq('userId', currentUser.id)
-        .order('createdAt', { ascending: false });
+        .select(`
+          *,
+          order_items (
+            id,
+            product_id,
+            product_name,
+            quantity,
+            unit_price,
+            total_price,
+            product_type
+          )
+        `)
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
       console.log('Orders loaded:', ordersData);
-      setOrders((ordersData || []).map(order => ({
+      
+      const formattedOrders: Order[] = (ordersData || []).map(order => ({
         id: order.id,
         customerName: order.customer_name,
         tableNumber: order.table_number,
-        items: Array.isArray(order.items) ? order.items as OrderItem[] : [],
+        items: (order.order_items || []).map((item: any) => ({
+          id: item.id,
+          productId: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.total_price,
+          product_type: item.product_type
+        })),
         subtotal: order.subtotal,
         tax: order.tax,
         total: order.total,
         status: order.status as 'open' | 'closed',
         paymentMethod: order.payment_method as PaymentMethod,
-        userId: order.userId,
+        userId: order.user_id,
         cash_register_id: order.cash_register_id,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt
-      })));
+        createdAt: order.created_at,
+        updatedAt: order.updated_at
+      }));
+      
+      setOrders(formattedOrders);
 
       // Load sales
       const { data: salesData, error: salesError } = await supabase
@@ -175,25 +197,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const storedUser = localStorage.getItem('currentUser');
     if (storedUser) {
       const user = JSON.parse(storedUser);
-      setCurrentUser(user);
+      setCurrentUser({
+        id: user.id,
+        name: user.name || user.email || '',
+        email: user.email,
+        role: user.role || 'cashier'
+      });
       setIsEmployee(user.role === 'employee');
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+      if (session?.user) {
         console.log('Got session:', session);
-        localStorage.setItem('currentUser', JSON.stringify(session.user));
-        setCurrentUser(session.user);
-        setIsEmployee(session.user.role === 'employee');
+        const userData = {
+          id: session.user.id,
+          name: session.user.user_metadata?.name || session.user.email || '',
+          email: session.user.email || '',
+          role: session.user.user_metadata?.role || 'cashier'
+        };
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        setCurrentUser(userData);
+        setIsEmployee(userData.role === 'employee');
       }
     });
 
     supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
+      if (session?.user) {
         console.log('Got session:', session);
-        localStorage.setItem('currentUser', JSON.stringify(session.user));
-        setCurrentUser(session.user);
-        setIsEmployee(session.user.role === 'employee');
+        const userData = {
+          id: session.user.id,
+          name: session.user.user_metadata?.name || session.user.email || '',
+          email: session.user.email || '',
+          role: session.user.user_metadata?.role || 'cashier'
+        };
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        setCurrentUser(userData);
+        setIsEmployee(userData.role === 'employee');
       } else {
         console.log('No session:', session);
         localStorage.removeItem('currentUser');
@@ -214,9 +253,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data, error } = await supabase
         .from('orders')
         .insert([{
-          ...order,
-          userId: currentUser?.id,
-          cash_register_id: currentCashRegister?.id || ''
+          user_id: currentUser?.id,
+          cash_register_id: currentCashRegister?.id || '',
+          customer_name: order.customerName,
+          table_number: order.tableNumber,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          total: order.total,
+          status: order.status,
+          payment_method: order.paymentMethod
         }])
         .select()
         .single();
@@ -231,9 +276,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateOrder = async (id: string, updates: Partial<Order>) => {
     try {
+      const dbUpdates: any = {};
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
+      if (updates.tableNumber !== undefined) dbUpdates.table_number = updates.tableNumber;
+      if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
+      if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
+      if (updates.total !== undefined) dbUpdates.total = updates.total;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+      if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
+      if (updates.cash_register_id !== undefined) dbUpdates.cash_register_id = updates.cash_register_id;
+      
+      dbUpdates.updated_at = new Date().toISOString();
+
       const { error } = await supabase
         .from('orders')
-        .update({ ...updates, updatedAt: new Date().toISOString() })
+        .update(dbUpdates)
         .eq('id', id);
 
       if (error) throw error;
@@ -433,7 +490,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { data, error } = await supabase
         .from('sales')
-        .insert([{ ...sale, userId: currentUser?.id }])
+        .insert([{
+          user_id: currentUser?.id,
+          customer_name: sale.customerName,
+          items: sale.items as any,
+          subtotal: sale.subtotal,
+          tax: sale.tax,
+          total: sale.total,
+          payment_method: sale.paymentMethod,
+          cash_register_id: sale.cash_register_id,
+          order_id: sale.order_id,
+          is_direct_sale: sale.is_direct_sale
+        }])
         .select()
         .single();
 
@@ -447,9 +515,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateSale = async (id: string, updates: Partial<Sale>) => {
     try {
+      const dbUpdates: any = {};
+      if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
+      if (updates.items !== undefined) dbUpdates.items = updates.items;
+      if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
+      if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
+      if (updates.total !== undefined) dbUpdates.total = updates.total;
+      if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
+      if (updates.cash_register_id !== undefined) dbUpdates.cash_register_id = updates.cash_register_id;
+      if (updates.order_id !== undefined) dbUpdates.order_id = updates.order_id;
+      if (updates.is_direct_sale !== undefined) dbUpdates.is_direct_sale = updates.is_direct_sale;
+
       const { error } = await supabase
         .from('sales')
-        .update({ ...updates })
+        .update(dbUpdates)
         .eq('id', id);
 
       if (error) throw error;
@@ -615,3 +694,6 @@ export const useAppContext = () => {
   }
   return context;
 };
+
+// Export both names for compatibility
+export const useApp = useAppContext;
