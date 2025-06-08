@@ -115,18 +115,32 @@ const App = () => {
 
   const handleAdminLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      // Limpar dados locais primeiro
       localStorage.removeItem('supabase_session_expires');
+      localStorage.removeItem('currentUser');
       setAdminData(null);
+      
+      // Tentar fazer logout no Supabase
+      await supabase.auth.signOut();
+      
+      // Forçar reload da página para garantir limpeza completa
+      window.location.href = '/';
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
+      // Mesmo com erro, limpar os dados locais
       setAdminData(null);
+      window.location.href = '/';
     }
   };
 
   const handleEmployeeLogout = () => {
-    setEmployeeData(null);
+    // Limpar dados do funcionário
     localStorage.removeItem('employee_data');
+    localStorage.removeItem('currentUser');
+    setEmployeeData(null);
+    
+    // Forçar reload da página
+    window.location.href = '/';
   };
 
   if (loading) {

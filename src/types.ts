@@ -1,11 +1,11 @@
 
-
 // Core interfaces
 export interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  owner_id?: string;
 }
 
 export interface Ingredient {
@@ -183,4 +183,3 @@ export interface UnitConversion {
   to: Unit;
   factor: number;
 }
-

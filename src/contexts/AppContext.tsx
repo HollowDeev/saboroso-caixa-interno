@@ -31,6 +31,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(true);
       console.log('Loading data for user:', currentUser.id, 'role:', currentUser.role);
 
+      // Para funcionários, usar o owner_id; para admin, usar o próprio id
       const ownerId = currentUser.role === 'employee' 
         ? (currentUser as any).owner_id || currentUser.id 
         : currentUser.id;
@@ -102,7 +103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // Load orders with items
+      // Load orders with items - usar ownerId tanto para user_id quanto para filtrar por dono
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -149,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       setOrders(formattedOrders);
 
-      // Load sales
+      // Load sales - usar ownerId
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
         .select('*')
@@ -190,7 +191,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (serviceTaxesError) throw serviceTaxesError;
       setServiceTaxes(serviceTaxesData || []);
 
-      // Load current cash register
+      // Load current cash register - usar ownerId
       const { data: cashRegisterData, error: cashRegisterError } = await supabase
         .from('cash_registers')
         .select('*')
@@ -220,7 +221,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
-    if (storedUser) {
+    const storedEmployee = localStorage.getItem('employee_data');
+    
+    if (storedEmployee) {
+      const employee = JSON.parse(storedEmployee);
+      setCurrentUser({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email || '',
+        role: 'employee',
+        owner_id: employee.owner_id
+      });
+      setIsEmployee(true);
+    } else if (storedUser) {
       const user = JSON.parse(storedUser);
       setCurrentUser({
         id: user.id,
@@ -232,7 +245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
+      if (session?.user && !storedEmployee) {
         console.log('Got session:', session);
         const userData = {
           id: session.user.id,
@@ -247,7 +260,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
+      if (session?.user && !storedEmployee) {
         console.log('Got session:', session);
         const userData = {
           id: session.user.id,
@@ -258,7 +271,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem('currentUser', JSON.stringify(userData));
         setCurrentUser(userData);
         setIsEmployee(userData.role === 'employee');
-      } else {
+      } else if (!session && !storedEmployee) {
         console.log('No session:', session);
         localStorage.removeItem('currentUser');
         setCurrentUser(null);
@@ -275,10 +288,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
+      const ownerId = currentUser?.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser?.id;
+
       const { data, error } = await supabase
         .from('orders')
         .insert([{
-          user_id: currentUser?.id,
+          user_id: ownerId,
           cash_register_id: currentCashRegister?.id || '',
           customer_name: order.customerName,
           table_number: order.tableNumber,
@@ -375,9 +392,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      const ownerId = currentUser?.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser?.id;
+
       const { data, error } = await supabase
         .from('ingredients')
-        .insert([{ ...ingredient, owner_id: currentUser?.id }])
+        .insert([{ ...ingredient, owner_id: ownerId }])
         .select()
         .single();
 
@@ -421,9 +442,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      const ownerId = currentUser?.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser?.id;
+
       const { data, error } = await supabase
         .from('foods')
-        .insert([{ ...product, owner_id: currentUser?.id }])
+        .insert([{ ...product, owner_id: ownerId }])
         .select()
         .single();
 
@@ -467,9 +492,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addExternalProduct = async (product: Omit<ExternalProduct, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      const ownerId = currentUser?.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser?.id;
+
       const { data, error } = await supabase
         .from('external_products')
-        .insert([{ ...product, owner_id: currentUser?.id }])
+        .insert([{ ...product, owner_id: ownerId }])
         .select()
         .single();
 
@@ -513,10 +542,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
+      const ownerId = currentUser?.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser?.id;
+
       const { data, error } = await supabase
         .from('sales')
         .insert([{
-          user_id: currentUser?.id,
+          user_id: ownerId,
           customer_name: sale.customerName,
           items: sale.items as any,
           subtotal: sale.subtotal,
@@ -627,10 +660,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const openCashRegister = async (amount: number) => {
     try {
+      const ownerId = currentUser?.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser?.id;
+
       const { data, error } = await supabase
         .from('cash_registers')
         .insert([{
-          owner_id: currentUser?.id,
+          owner_id: ownerId,
           opening_amount: amount,
           total_sales: 0,
           total_cost: 0,
