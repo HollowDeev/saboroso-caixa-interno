@@ -1,72 +1,73 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Receipt,
-  BarChart3,
-  Users,
-  Settings,
-  ChefHat,
-  Package2,
-  X,
-  Calculator
+import { 
+  Home, 
+  ShoppingCart, 
+  Package, 
+  BarChart3, 
+  Users, 
+  Settings, 
+  Calculator,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from './ui/button';
 
 interface SidebarProps {
   onClose?: () => void;
+  isEmployee?: boolean;
 }
 
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Comandas', href: '/orders', icon: Receipt },
-  { name: 'Estoque', href: '/stock', icon: Package2 },
-  { name: 'Vendas', href: '/sales', icon: ShoppingCart },
-  { name: 'Calculadora', href: '/calculator', icon: Calculator },
-  { name: 'Usuários', href: '/users', icon: Users },
-  { name: 'Configurações', href: '/settings', icon: Settings },
-];
+export const Sidebar = ({ onClose, isEmployee }: SidebarProps) => {
+  const menuItems = [
+    { icon: ShoppingCart, label: 'Comandas', path: '/orders' },
+    { icon: BarChart3, label: 'Vendas', path: '/sales' },
+    // Admin only items
+    ...(!isEmployee ? [
+      { icon: Home, label: 'Dashboard', path: '/dashboard' },
+      { icon: Package, label: 'Estoque', path: '/stock' },
+      { icon: Users, label: 'Usuários', path: '/users' },
+      { icon: Calculator, label: 'Calculadora', path: '/calculator' },
+      { icon: Settings, label: 'Configurações', path: '/settings' },
+    ] : [])
+  ];
 
-export const Sidebar = ({ onClose }: SidebarProps) => {
   return (
-    <div className="flex h-full w-[280px] flex-col bg-white border-r border-gray-200">
-      <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
-        <div className="flex items-center">
-          <ChefHat className="h-8 w-8 text-orange-500" />
-          <span className="ml-2 text-xl font-bold text-gray-900">VarandaOS</span>
+    <aside className="bg-white w-64 min-h-screen border-r border-gray-200 fixed lg:relative z-40">
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-1 rounded-md hover:bg-gray-100"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={onClose}
-        >
-          <X className="h-5 w-5" />
-        </Button>
+
+        <nav className="space-y-2">
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors',
+                  isActive
+                    ? 'bg-orange-50 text-orange-600 border-r-2 border-orange-600'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                )
+              }
+            >
+              <item.icon className="mr-3 h-5 w-5" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
       </div>
-      <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-        {navigation.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.href}
-            onClick={() => onClose?.()}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors',
-                isActive
-                  ? 'bg-orange-100 text-orange-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              )
-            }
-          >
-            <item.icon className="h-5 w-5 mr-3" />
-            {item.name}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+    </aside>
   );
 };

@@ -77,15 +77,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setIsLoading(true);
       
+      console.log('Loading data for owner:', ownerId);
+      
       // Load all data in parallel
       const [
-        ingredientsData,
-        foodsData,
-        externalProductsData,
-        ordersData,
-        salesData,
-        serviceTaxesData,
-        cashRegisterData
+        ingredientsResult,
+        foodsResult,
+        externalProductsResult,
+        ordersResult,
+        salesResult,
+        serviceTaxesResult,
+        cashRegisterResult
       ] = await Promise.all([
         supabase.from('ingredients').select('*').eq('owner_id', ownerId),
         supabase.from('foods').select('*').eq('owner_id', ownerId).is('deleted_at', null),
@@ -107,14 +109,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.rpc('get_open_cash_register', { p_owner_id: ownerId })
       ]);
 
+      console.log('Data loading results:', {
+        ingredients: ingredientsResult.data?.length || 0,
+        foods: foodsResult.data?.length || 0,
+        externalProducts: externalProductsResult.data?.length || 0,
+        orders: ordersResult.data?.length || 0,
+        sales: salesResult.data?.length || 0,
+        serviceTaxes: serviceTaxesResult.data?.length || 0,
+        cashRegister: cashRegisterResult.data
+      });
+
       // Set ingredients
-      if (ingredientsData.data) {
-        setIngredients(ingredientsData.data);
+      if (ingredientsResult.data && !ingredientsResult.error) {
+        setIngredients(ingredientsResult.data);
       }
 
       // Set products (foods)
-      if (foodsData.data) {
-        setProducts(foodsData.data.map(food => ({
+      if (foodsResult.data && !foodsResult.error) {
+        const formattedProducts = foodsResult.data.map(food => ({
           id: food.id,
           name: food.name,
           description: food.description,
@@ -126,17 +138,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           owner_id: food.owner_id,
           created_at: food.created_at,
           updated_at: food.updated_at
-        })));
+        }));
+        setProducts(formattedProducts);
+        console.log('Products loaded:', formattedProducts);
       }
 
       // Set external products
-      if (externalProductsData.data) {
-        setExternalProducts(externalProductsData.data);
+      if (externalProductsResult.data && !externalProductsResult.error) {
+        setExternalProducts(externalProductsResult.data);
+        console.log('External products loaded:', externalProductsResult.data);
       }
 
       // Set orders
-      if (ordersData.data) {
-        const formattedOrders = ordersData.data.map(order => ({
+      if (ordersResult.data && !ordersResult.error) {
+        const formattedOrders = ordersResult.data.map(order => ({
           id: order.id,
           customerName: order.customer_name,
           tableNumber: order.table_number,
@@ -160,11 +175,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           updatedAt: order.updated_at
         }));
         setOrders(formattedOrders);
+        console.log('Orders loaded:', formattedOrders);
       }
 
       // Set sales
-      if (salesData.data) {
-        const formattedSales = salesData.data.map(sale => ({
+      if (salesResult.data && !salesResult.error) {
+        const formattedSales = salesResult.data.map(sale => ({
           id: sale.id,
           items: sale.items || [],
           subtotal: sale.subtotal,
@@ -179,23 +195,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           createdAt: sale.created_at
         }));
         setSales(formattedSales);
+        console.log('Sales loaded:', formattedSales);
       }
 
       // Set service taxes
-      if (serviceTaxesData.data) {
-        setServiceTaxes(serviceTaxesData.data);
+      if (serviceTaxesResult.data && !serviceTaxesResult.error) {
+        setServiceTaxes(serviceTaxesResult.data);
       }
 
       // Set cash register
-      if (cashRegisterData.data) {
+      if (cashRegisterResult.data && !cashRegisterResult.error) {
         const { data: cashRegister } = await supabase
           .from('cash_registers')
           .select('*')
-          .eq('id', cashRegisterData.data)
+          .eq('id', cashRegisterResult.data)
           .single();
         
         if (cashRegister) {
           setCurrentCashRegister(cashRegister);
+          console.log('Cash register loaded:', cashRegister);
         }
       }
 
@@ -270,6 +288,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateOrder = async (id: string, updates: Partial<Order>) => {
     try {
+      const ownerId = isEmployee ? 
+        JSON.parse(localStorage.getItem('employee_data') || '{}').owner_id : 
+        currentUser!.id;
+
       // If closing order, process stock consumption and create sale
       if (updates.status === 'closed') {
         const order = orders.find(o => o.id === id);
@@ -280,7 +302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const result = await consumeStockForSale(
             item.productId,
             item.quantity,
-            currentUser!.id
+            ownerId
           );
           
           if (!result.success && result.errors.length > 0) {
@@ -304,7 +326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             total: order.total,
             payment_method: updates.paymentMethod || 'cash',
             customer_name: order.customerName,
-            user_id: currentUser!.id,
+            user_id: ownerId,
             cash_register_id: order.cash_register_id || currentCashRegister!.id,
             order_id: order.id,
             is_direct_sale: false
@@ -330,43 +352,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error updating order:', error);
       throw error;
     }
-  };
-
-  // Add stub methods for missing functions
-  const addIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => {
-    // Implementation would go here
-  };
-
-  const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
-    // Implementation would go here
-  };
-
-  const deleteIngredient = async (id: string) => {
-    // Implementation would go here
-  };
-
-  const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
-    // Implementation would go here
-  };
-
-  const updateProduct = async (id: string, updates: Partial<Product>) => {
-    // Implementation would go here
-  };
-
-  const deleteProduct = async (id: string) => {
-    // Implementation would go here
-  };
-
-  const addExternalProduct = async (product: Omit<ExternalProduct, 'id' | 'created_at' | 'updated_at'>) => {
-    // Implementation would go here
-  };
-
-  const updateExternalProduct = async (id: string, updates: Partial<ExternalProduct>) => {
-    // Implementation would go here
-  };
-
-  const deleteExternalProduct = async (id: string) => {
-    // Implementation would go here
   };
 
   const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
@@ -407,6 +392,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error adding sale:', error);
       throw error;
     }
+  };
+
+  // Add stub methods for missing functions
+  const addIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => {
+    // Implementation would go here
+  };
+
+  const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
+    // Implementation would go here
+  };
+
+  const deleteIngredient = async (id: string) => {
+    // Implementation would go here
+  };
+
+  const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+    // Implementation would go here
+  };
+
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    // Implementation would go here
+  };
+
+  const deleteProduct = async (id: string) => {
+    // Implementation would go here
+  };
+
+  const addExternalProduct = async (product: Omit<ExternalProduct, 'id' | 'created_at' | 'updated_at'>) => {
+    // Implementation would go here
+  };
+
+  const updateExternalProduct = async (id: string, updates: Partial<ExternalProduct>) => {
+    // Implementation would go here
+  };
+
+  const deleteExternalProduct = async (id: string) => {
+    // Implementation would go here
   };
 
   const updateSale = async (id: string, updates: Partial<Sale>) => {

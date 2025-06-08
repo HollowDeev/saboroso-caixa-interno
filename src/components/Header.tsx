@@ -1,14 +1,7 @@
 
 import React from 'react';
-import { Button } from './ui/button';
-import { Menu, LogOut, User } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { LogOut, Menu, User } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -17,52 +10,54 @@ interface HeaderProps {
     name: string;
     email: string;
   };
+  employeeData?: {
+    id: string;
+    name: string;
+    owner_id: string;
+  };
   onLogout?: () => void;
+  isEmployee?: boolean;
 }
 
-export const Header = ({ onMenuClick, adminData, onLogout }: HeaderProps) => {
-  return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6">
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={onMenuClick}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg md:text-2xl font-semibold text-gray-900 truncate">Sistema de Gestão</h1>
-      </div>
+export const Header = ({ onMenuClick, adminData, employeeData, onLogout, isEmployee }: HeaderProps) => {
+  const currentUser = adminData || employeeData;
 
-      {adminData && onLogout && (
-        <div className="flex items-center space-x-2 md:space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center space-x-2">
-                <div className="h-8 w-8 bg-orange-500 rounded-full flex items-center justify-center">
-                  <User className="h-4 w-4 text-white" />
-                </div>
-                <span className="text-sm font-medium hidden md:inline">{adminData.name}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                {adminData.name}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <span className="text-xs text-gray-500">{adminData.email}</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+  return (
+    <header className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onMenuClick}
+            className="lg:hidden mr-2"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <h1 className="text-xl font-semibold text-gray-900">
+            Sistema de Gestão {isEmployee ? '(Funcionário)' : '(Admin)'}
+          </h1>
         </div>
-      )}
+
+        <div className="flex items-center space-x-4">
+          {currentUser && (
+            <div className="flex items-center space-x-2">
+              <User className="h-5 w-5 text-gray-500" />
+              <span className="text-sm text-gray-700">{currentUser.name}</span>
+              {onLogout && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onLogout}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </header>
   );
 };
