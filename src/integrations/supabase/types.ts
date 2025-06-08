@@ -19,6 +19,7 @@ export type Database = {
           opened_at: string
           opening_amount: number | null
           owner_id: string
+          total_cost: number
           total_orders: number | null
           total_sales: number | null
           updated_at: string
@@ -32,6 +33,7 @@ export type Database = {
           opened_at?: string
           opening_amount?: number | null
           owner_id: string
+          total_cost?: number
           total_orders?: number | null
           total_sales?: number | null
           updated_at?: string
@@ -45,6 +47,7 @@ export type Database = {
           opened_at?: string
           opening_amount?: number | null
           owner_id?: string
+          total_cost?: number
           total_orders?: number | null
           total_sales?: number | null
           updated_at?: string
@@ -332,10 +335,10 @@ export type Database = {
           order_id: string
           product_id: string
           product_name: string
+          product_type: string
           quantity: number
           total_price: number
           unit_price: number
-          product_type: 'food' | 'external_product'
         }
         Insert: {
           cash_register_id: string
@@ -344,10 +347,10 @@ export type Database = {
           order_id: string
           product_id: string
           product_name: string
+          product_type?: string
           quantity: number
           total_price: number
           unit_price: number
-          product_type: 'food' | 'external_product'
         }
         Update: {
           cash_register_id?: string
@@ -356,10 +359,10 @@ export type Database = {
           order_id?: string
           product_id?: string
           product_name?: string
+          product_type?: string
           quantity?: number
           total_price?: number
           unit_price?: number
-          product_type?: 'food' | 'external_product'
         }
         Relationships: [
           {
@@ -374,13 +377,6 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "foods"
             referencedColumns: ["id"]
           },
         ]

@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -60,6 +61,15 @@ const App = () => {
 
   const checkExistingSession = async () => {
     try {
+      // Verificar se há dados de funcionário salvos
+      const savedEmployeeData = localStorage.getItem('employee_data');
+      if (savedEmployeeData) {
+        const employee = JSON.parse(savedEmployeeData);
+        setEmployeeData(employee);
+        setLoading(false);
+        return;
+      }
+
       // Verificar se a sessão ainda é válida (12h)
       const sessionExpires = localStorage.getItem('supabase_session_expires');
       if (sessionExpires && new Date() > new Date(sessionExpires)) {
@@ -97,11 +107,13 @@ const App = () => {
   const handleAdminLogin = (admin: { id: string; name: string; email: string; role: string }) => {
     setAdminData(admin);
     setEmployeeData(null);
+    localStorage.removeItem('employee_data');
   };
 
   const handleEmployeeLogin = (employee: { id: string; name: string; owner_id: string }) => {
     setEmployeeData(employee);
     setAdminData(null);
+    localStorage.setItem('employee_data', JSON.stringify(employee));
   };
 
   const handleAdminLogout = async () => {
@@ -117,6 +129,7 @@ const App = () => {
 
   const handleEmployeeLogout = () => {
     setEmployeeData(null);
+    localStorage.removeItem('employee_data');
   };
 
   if (loading) {

@@ -114,24 +114,16 @@ export const EmployeeOrders = () => {
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
-      case 'pending': return 'destructive';
-      case 'preparing': return 'default';
-      case 'ready': return 'secondary';
-      case 'delivered': return 'outline';
-      case 'paid': return 'default';
-      case 'cancelled': return 'destructive';
+      case 'open': return 'destructive';
+      case 'closed': return 'default';
       default: return 'default';
     }
   };
 
   const getStatusText = (status: Order['status']) => {
     switch (status) {
-      case 'pending': return 'Pendente';
-      case 'preparing': return 'Preparando';
-      case 'ready': return 'Pronto';
-      case 'delivered': return 'Entregue';
-      case 'paid': return 'Pago';
-      case 'cancelled': return 'Cancelado';
+      case 'open': return 'Aberta';
+      case 'closed': return 'Fechada';
       default: return status;
     }
   };
@@ -271,14 +263,14 @@ export const EmployeeOrders = () => {
 
       <Tabs defaultValue="active" className="w-full">
         <TabsList>
-          <TabsTrigger value="active">Comandas Ativas</TabsTrigger>
-          <TabsTrigger value="completed">Comandas Finalizadas</TabsTrigger>
+          <TabsTrigger value="active">Comandas Abertas</TabsTrigger>
+          <TabsTrigger value="completed">Comandas Fechadas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders
-              .filter(order => ['pending', 'preparing', 'ready'].includes(order.status))
+              .filter(order => order.status === 'open')
               .map((order) => (
                 <Card key={order.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-3">
@@ -322,29 +314,13 @@ export const EmployeeOrders = () => {
                         Total: R$ {order.total.toFixed(2)}
                       </div>
                       <div className="flex space-x-2 mt-4">
-                        <Select
-                          value={order.status}
-                          onValueChange={(status) => updateOrder(order.id, { status: status as Order['status'] })}
+                        <Button
+                          onClick={() => updateOrder(order.id, { status: 'closed' })}
+                          className="flex-1 bg-green-500 hover:bg-green-600"
                         >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pendente</SelectItem>
-                            <SelectItem value="preparing">Preparando</SelectItem>
-                            <SelectItem value="ready">Pronto</SelectItem>
-                            <SelectItem value="cancelled">Cancelado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {order.status === 'ready' && (
-                          <Button
-                            onClick={() => setCheckoutOrder(order)}
-                            className="bg-green-500 hover:bg-green-600"
-                          >
-                            <CreditCard className="h-4 w-4 mr-1" />
-                            Finalizar
-                          </Button>
-                        )}
+                          <CreditCard className="h-4 w-4 mr-1" />
+                          Fechar Comanda
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -356,7 +332,7 @@ export const EmployeeOrders = () => {
         <TabsContent value="completed" className="mt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {orders
-              .filter(order => ['delivered', 'paid'].includes(order.status))
+              .filter(order => order.status === 'closed')
               .map((order) => (
                 <Card key={order.id} className="opacity-75">
                   <CardHeader className="pb-3">
