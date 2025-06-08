@@ -784,13 +784,13 @@ export const useStock = (ownerId: string) => {
   };
 
   // Atualizar a função calculateProductionCost para usar as unidades corretas
-  const calculateProductionCost = (productIngredients: { ingredientId: string; quantity: number; unit: Unit }[]) => {
+  const calculateProductionCost = (productIngredients: { ingredientId: string; quantity: number; unit: string }[]) => {
     return productIngredients.reduce((total, ing) => {
       const ingredient = ingredients.find(i => i.id === ing.ingredientId);
       if (!ingredient) return total;
 
       // Converte a quantidade para a unidade base do ingrediente
-      const quantityInBaseUnit = convertToBaseUnit(ing.quantity, ing.unit, ingredient.unit);
+      const quantityInBaseUnit = convertToBaseUnit(ing.quantity, ing.unit as Unit, ingredient.unit as Unit);
       const cost = quantityInBaseUnit * ingredient.cost;
 
       return total + cost;
