@@ -1,6 +1,7 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Order, Product, Sale, OrderItem, NewOrderItem } from '@/types';
+import { Order, Product, Sale, OrderItem, NewOrderItem, ServiceTax, ExternalProduct, User, CashRegister, Ingredient } from '@/types';
 import { consumeStockForSale } from '@/utils/stockConsumption';
 import { toast } from '@/components/ui/use-toast';
 
@@ -8,12 +9,31 @@ interface AppContextType {
   orders: Order[];
   products: Product[];
   sales: Sale[];
+  externalProducts: ExternalProduct[];
+  serviceTaxes: ServiceTax[];
+  currentUser: User | null;
+  currentCashRegister: CashRegister | null;
+  ingredients: Ingredient[];
+  loading: boolean;
+  error: string | null;
+  isLoading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
-  loading: boolean;
-  error: string | null;
   refreshData: () => void;
+  checkCashRegisterAccess: () => Promise<boolean>;
+  openCashRegister: (amount: number) => Promise<void>;
+  closeCashRegister: (amount: number) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
+  updateSale: (id: string, updates: Partial<Sale>) => Promise<void>;
+  addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
+  closeOrder: (orderId: string, paymentMethod: string) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  addServiceTax: (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateServiceTax: (id: string, updates: Partial<ServiceTax>) => Promise<void>;
+  deleteServiceTax: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -34,8 +54,14 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [externalProducts, setExternalProducts] = useState<ExternalProduct[]>([]);
+  const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentCashRegister, setCurrentCashRegister] = useState<CashRegister | null>(null);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Função para buscar dados do proprietário com base no usuário logado ou funcionário
   const getOwnerData = async () => {
@@ -140,7 +166,22 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         preparationTime: food.preparation_time
       }));
 
-      const externalProducts: Product[] = (externalProductsResponse.data || []).map(product => ({
+      const external: ExternalProduct[] = (externalProductsResponse.data || []).map(product => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        cost: product.cost,
+        current_stock: product.current_stock,
+        min_stock: product.min_stock,
+        brand: product.brand,
+        owner_id: product.owner_id,
+        category: 'Produtos Externos',
+        available: product.current_stock > 0,
+        type: 'external_product' as const,
+        description: product.description
+      }));
+
+      const externalProducts: Product[] = external.map(product => ({
         id: product.id,
         name: product.name,
         price: product.price,
@@ -152,6 +193,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       }));
 
       setProducts([...foods, ...externalProducts]);
+      setExternalProducts(external);
     } catch (err: any) {
       console.error('Erro ao buscar produtos:', err);
       setError('Erro ao carregar produtos');
@@ -193,6 +235,104 @@ export const AppProvider = ({ children }: AppProviderProps) => {
     }
   };
 
+  const fetchServiceTaxes = async () => {
+    try {
+      const ownerId = await getOwnerData();
+      if (!ownerId) return;
+
+      const { data, error } = await supabase
+        .from('service_taxes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedTaxes: ServiceTax[] = (data || []).map(tax => ({
+        id: tax.id,
+        name: tax.name,
+        percentage: tax.percentage,
+        isActive: tax.is_active,
+        description: tax.description,
+        createdAt: new Date(tax.created_at),
+        updatedAt: new Date(tax.updated_at)
+      }));
+
+      setServiceTaxes(formattedTaxes);
+    } catch (err: any) {
+      console.error('Erro ao buscar taxas:', err);
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (!error && profile) {
+          setCurrentUser({
+            id: profile.id,
+            name: profile.name || session.user.email || '',
+            email: profile.email || session.user.email || '',
+            role: profile.role || 'cashier',
+            created_at: new Date(profile.created_at),
+            updated_at: new Date(profile.updated_at)
+          });
+        }
+      } else {
+        // Check for employee data
+        const employeeData = JSON.parse(localStorage.getItem('employee_data') || 'null');
+        if (employeeData) {
+          setCurrentUser({
+            id: employeeData.employee_id,
+            name: employeeData.employee_name,
+            email: '',
+            role: 'employee',
+            created_at: new Date(),
+            updated_at: new Date()
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro ao buscar usuário:', err);
+    }
+  };
+
+  const checkCashRegisterAccess = async (): Promise<boolean> => {
+    try {
+      const ownerId = await getOwnerData();
+      if (!ownerId) return false;
+
+      const { data } = await supabase.rpc('get_open_cash_register', {
+        p_owner_id: ownerId
+      });
+
+      if (data) {
+        const { data: cashRegister } = await supabase
+          .from('cash_registers')
+          .select('*')
+          .eq('id', data)
+          .single();
+
+        if (cashRegister) {
+          setCurrentCashRegister(cashRegister);
+          return true;
+        }
+      }
+      
+      setCurrentCashRegister(null);
+      return false;
+    } catch (err) {
+      console.error('Erro ao verificar caixa:', err);
+      return false;
+    }
+  };
+
   const refreshData = async () => {
     setLoading(true);
     setError(null);
@@ -201,7 +341,10 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       await Promise.all([
         fetchOrders(),
         fetchProducts(),
-        fetchSales()
+        fetchSales(),
+        fetchServiceTaxes(),
+        fetchCurrentUser(),
+        checkCashRegisterAccess()
       ]);
     } catch (err) {
       console.error('Erro ao atualizar dados:', err);
@@ -213,6 +356,55 @@ export const AppProvider = ({ children }: AppProviderProps) => {
   useEffect(() => {
     refreshData();
   }, []);
+
+  // Placeholder implementations for missing functions
+  const openCashRegister = async (amount: number) => {
+    console.log('openCashRegister called with amount:', amount);
+  };
+
+  const closeCashRegister = async (amount: number) => {
+    console.log('closeCashRegister called with amount:', amount);
+  };
+
+  const deleteSale = async (id: string) => {
+    console.log('deleteSale called with id:', id);
+  };
+
+  const updateSale = async (id: string, updates: Partial<Sale>) => {
+    console.log('updateSale called with id:', id, 'updates:', updates);
+  };
+
+  const addItemToOrder = async (orderId: string, item: NewOrderItem) => {
+    console.log('addItemToOrder called with orderId:', orderId, 'item:', item);
+  };
+
+  const closeOrder = async (orderId: string, paymentMethod: string) => {
+    console.log('closeOrder called with orderId:', orderId, 'paymentMethod:', paymentMethod);
+  };
+
+  const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
+    console.log('addProduct called with product:', product);
+  };
+
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    console.log('updateProduct called with id:', id, 'updates:', updates);
+  };
+
+  const deleteProduct = async (id: string) => {
+    console.log('deleteProduct called with id:', id);
+  };
+
+  const addServiceTax = async (tax: Omit<ServiceTax, 'id' | 'createdAt' | 'updatedAt'>) => {
+    console.log('addServiceTax called with tax:', tax);
+  };
+
+  const updateServiceTax = async (id: string, updates: Partial<ServiceTax>) => {
+    console.log('updateServiceTax called with id:', id, 'updates:', updates);
+  };
+
+  const deleteServiceTax = async (id: string) => {
+    console.log('deleteServiceTax called with id:', id);
+  };
 
   const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -418,12 +610,31 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       orders,
       products,
       sales,
+      externalProducts,
+      serviceTaxes,
+      currentUser,
+      currentCashRegister,
+      ingredients,
+      loading,
+      error,
+      isLoading,
       addOrder,
       updateOrder,
       addSale,
-      loading,
-      error,
-      refreshData
+      refreshData,
+      checkCashRegisterAccess,
+      openCashRegister,
+      closeCashRegister,
+      deleteSale,
+      updateSale,
+      addItemToOrder,
+      closeOrder,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      addServiceTax,
+      updateServiceTax,
+      deleteServiceTax
     }}>
       {children}
     </AppContext.Provider>
