@@ -84,7 +84,7 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
             </Select>
           </div>
 
-          {sale.is_direct_sale && sale.items && (
+          {sale.items && (
             <div>
               <Label>Itens da Venda</Label>
               <div className="space-y-2 mt-2">
@@ -122,7 +122,7 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
             </Button>
             <Button
               onClick={handleSave}
-              className="flex-1"
+              className="flex-1 bg-green-500 hover:bg-green-600"
             >
               Salvar
             </Button>

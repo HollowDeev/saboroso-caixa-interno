@@ -7,12 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/contexts/AppContext';
-import { Sale, CashRegister, CashRegisterSale } from '@/types';
 import { DirectSaleModal } from '@/components/DirectSaleModal';
 import { EditSaleModal } from '@/components/EditSaleModal';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +28,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export const Sales = () => {
   const {
@@ -42,12 +47,12 @@ export const Sales = () => {
   } = useApp();
 
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
-  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [editingSale, setEditingSale] = useState<any | null>(null);
   const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date());
-  const [cashRegisterSales, setCashRegisterSales] = useState<CashRegisterSale[]>([]);
+  const [cashRegisterSales, setCashRegisterSales] = useState<any[]>([]);
   const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
-  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<any | null>(null);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -162,7 +167,7 @@ export const Sales = () => {
     }
   };
 
-  const handleDeleteSale = async (sale: Sale) => {
+  const handleDeleteSale = async (sale: any) => {
     try {
       await deleteSale(sale.id);
       setSaleToDelete(null);
@@ -359,73 +364,101 @@ export const Sales = () => {
               <p>Nenhuma venda encontrada para esta data.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <Accordion type="single" collapsible className="space-y-4">
               {filteredSales.map((sale) => (
-                <Card key={sale.id}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold">
+                <AccordionItem key={sale.id} value={sale.id} className="border rounded-lg overflow-hidden">
+                  <AccordionTrigger className="px-6 py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
+                    <div className="flex flex-1 items-center justify-between pr-4">
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <h3 className="font-semibold text-left">
                             {sale.customerName || 'Cliente não identificado'}
                           </h3>
-                          <Badge>
-                            {sale.paymentMethod === 'cash' ? 'Dinheiro' :
-                              sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
-                          </Badge>
-                          {sale.is_direct_sale && (
-                            <Badge variant="secondary">Venda Direta</Badge>
-                          )}
+                          <p className="text-sm text-gray-500 text-left">
+                            {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-500">
-                          {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-4">
+                        <Badge className={cn(
+                          sale.paymentMethod === 'cash' && 'bg-green-100 text-green-800',
+                          sale.paymentMethod === 'card' && 'bg-blue-100 text-blue-800',
+                          sale.paymentMethod === 'pix' && 'bg-purple-100 text-purple-800'
+                        )}>
+                          {sale.paymentMethod === 'cash' ? 'Dinheiro' :
+                            sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
+                        </Badge>
+                        <span className="font-bold">R$ {sale.total.toFixed(2)}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-6 pb-4 bg-gray-50">
+                    <div className="space-y-4">
+                      {/* Sale Items */}
+                      <div className="space-y-2">
+                        {sale.items?.map((item, index) => (
+                          <div key={index} className="flex flex-col p-3 bg-white rounded-lg">
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-start gap-3">
+                                <span className="font-medium text-base bg-gray-100 px-2 py-1 rounded">
+                                  {item.quantity}x
+                                </span>
+                                <div>
+                                  <span className="font-medium">{item.product_name}</span>
+                                  <div className="text-sm text-gray-500 mt-1">
+                                    Valor unitário: R$ {item.unitPrice.toFixed(2)}
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="font-medium">R$ {item.totalPrice.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Sale Summary */}
+                      <div className="border-t border-gray-200 pt-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Subtotal:</span>
+                          <span>R$ {sale.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Taxa:</span>
+                          <span>R$ {sale.tax.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between font-medium text-base mt-2 pt-2 border-t">
+                          <span>Total:</span>
+                          <span>R$ {sale.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      {/* Actions */}
+                      <div className="flex justify-end gap-2 mt-4">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setEditingSale(sale)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEditingSale(sale);
+                          }}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => setSaleToDelete(sale)}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSaleToDelete(sale);
+                          }}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
-
-                    {/* Sale Items */}
-                    <div className="mt-4 space-y-2">
-                      {sale.items?.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
-                          <span>{item.quantity}x {item.product_name}</span>
-                          <span>R$ {item.totalPrice.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      <div className="border-t pt-2 mt-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Subtotal:</span>
-                          <span>R$ {sale.subtotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Taxa:</span>
-                          <span>R$ {sale.tax.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between font-medium">
-                          <span>Total:</span>
-                          <span>R$ {sale.total.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           )}
         </CardContent>
       </Card>
@@ -438,7 +471,6 @@ export const Sales = () => {
       {editingSale && (
         <EditSaleModal
           sale={editingSale}
-          isOpen={!!editingSale}
           onClose={() => setEditingSale(null)}
         />
       )}

@@ -76,6 +76,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         variant: "destructive"
       });
     }
+
+    console.log('isCloseOrderOpen:', isCloseOrderOpen);
   };
 
   return (
@@ -109,7 +111,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="relative">
         <div className="space-y-2">
           {order.items.map((item, index) => (
             <div key={index} className="flex justify-between text-sm">
@@ -175,14 +177,17 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={isCloseOrderOpen} onOpenChange={setIsCloseOrderOpen}>
+              <Dialog open={isCloseOrderOpen} onOpenChange={(open) => {
+                console.log('onOpenChange:', open);
+                setIsCloseOrderOpen(open);
+              }}>
                 <DialogTrigger asChild>
-                  <Button className="flex-1 bg-green-500 hover:bg-green-600">
+                  <Button className="flex-1 bg-green-500 hover:bg-green-600 relative z-10">
                     <CreditCard className="h-4 w-4 mr-1" />
                     Fechar Comanda
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-lg">
                   <DialogHeader>
                     <DialogTitle>Fechar Comanda</DialogTitle>
                   </DialogHeader>
@@ -200,7 +205,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span>R$ {order.subtotal.toFixed(2)}</span>

@@ -11,7 +11,13 @@ import {
   OrderStatus,
   PaymentMethod,
   CashRegister,
-  ExternalProduct
+  ExternalProduct,
+  Json,
+  SaleItem,
+  DatabaseSaleItem,
+  SupabaseSale,
+  SupabaseSaleItem,
+  Database
 } from '../types/index';
 import { supabase } from '@/integrations/supabase/client';
 import { useCashRegister } from '@/hooks/useCashRegister';
@@ -209,24 +215,35 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const loadSales = async () => {
     try {
-      const { data: salesData, error } = await supabase
+      const { data, error } = await supabase
         .from('sales')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const salesWithDates = salesData.map(sale => ({
-        ...sale,
-        createdAt: new Date(sale.created_at),
+      const salesWithMappedData: Sale[] = (data as Database['public']['Tables']['sales']['Row'][]).map(sale => ({
+        id: sale.id,
         orderId: sale.order_id,
+        total: sale.total,
+        subtotal: sale.subtotal,
+        tax: sale.tax,
+        paymentMethod: sale.payment_method,
+        createdAt: new Date(sale.created_at),
         userId: sale.user_id,
-        paymentMethod: sale.payment_method as PaymentMethod,
+        is_direct_sale: sale.is_direct_sale,
         customerName: sale.customer_name,
-        items: Array.isArray(sale.items) ? sale.items : []
+        items: (sale.items as any[]).map(item => ({
+          productId: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.total_price,
+          product_type: item.product_type
+        })) as SaleItem[]
       }));
 
-      setSales(salesWithDates);
+      setSales(salesWithMappedData);
     } catch (error) {
       console.error('Erro ao carregar vendas:', error);
     }
@@ -414,20 +431,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         console.warn('Avisos de estoque:', stockResult.errors);
       }
 
-      // Fechar a comanda
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          status: 'closed',
-          payment_method: paymentMethod,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId);
+      // Criar venda primeiro
+      const saleItems = currentOrder.items.map(item => ({
+        product_id: item.productId,
+        product_name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.totalPrice,
+        product_type: 'external_product' in item.product ? 'external_product' : 'food'
+      }));
 
-      if (updateError) throw updateError;
-
-      // Criar venda
-      const { error: saleError } = await supabase
+      const { data: newSaleData, error: saleError } = await supabase
         .from('sales')
         .insert([{
           order_id: orderId,
@@ -438,13 +452,80 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           user_id: currentUser.id,
           cash_register_id: currentCashRegister.id,
           customer_name: currentOrder.customerName,
-          is_direct_sale: false
-        }]);
+          is_direct_sale: false,
+          items: saleItems as unknown as Json
+        }])
+        .select()
+        .single();
 
       if (saleError) throw saleError;
 
-      await loadOrders();
-      await loadSales();
+      // Depois de criar a venda com sucesso, deletar os itens da comanda
+      const { error: deleteItemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderId);
+
+      if (deleteItemsError) {
+        console.error('Erro ao deletar itens da comanda:', deleteItemsError);
+        throw new Error('Erro ao deletar itens da comanda');
+      }
+
+      // Depois de deletar os itens, deletar a comanda
+      const { error: deleteOrderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (deleteOrderError) {
+        console.error('Erro ao deletar comanda:', deleteOrderError);
+        throw new Error('Erro ao deletar comanda');
+      }
+
+      // Atualizar o estado local com a nova venda
+      if (newSaleData) {
+        const items = (newSaleData.items as any[]).map(item => ({
+          productId: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.total_price,
+          product_type: item.product_type
+        }));
+
+        const newSale = {
+          id: newSaleData.id,
+          orderId: newSaleData.order_id,
+          total: newSaleData.total,
+          subtotal: newSaleData.subtotal,
+          tax: newSaleData.tax,
+          paymentMethod: newSaleData.payment_method as PaymentMethod,
+          createdAt: new Date(newSaleData.created_at),
+          userId: newSaleData.user_id,
+          is_direct_sale: newSaleData.is_direct_sale,
+          customerName: newSaleData.customer_name || undefined,
+          items
+        };
+        setSales(prev => [newSale, ...prev]);
+      }
+
+      // Atualizar o estado local das comandas
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+
+      // Atualizar o caixa
+      const { error: updateCashError } = await supabase
+        .from('cash_registers')
+        .update({
+          total_sales: currentCashRegister.total_sales + currentOrder.total,
+          total_orders: currentCashRegister.total_orders + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentCashRegister.id);
+
+      if (updateCashError) {
+        console.error('Erro ao atualizar caixa:', updateCashError);
+        throw new Error('Erro ao atualizar caixa');
+      }
 
       toast({
         title: 'Comanda fechada',
@@ -722,23 +803,53 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteOrder = async (id: string) => {
     try {
+      // Primeiro, verificar se a comanda existe
+      const { data: order, error: orderCheckError } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('id', id)
+        .single();
+
+      if (orderCheckError || !order) {
+        throw new Error('Comanda não encontrada');
+      }
+
+      // Deletar os itens da comanda
       const { error: deleteItemsError } = await supabase
         .from('order_items')
         .delete()
         .eq('order_id', id);
 
-      if (deleteItemsError) throw deleteItemsError;
+      if (deleteItemsError) {
+        console.error('Erro ao deletar itens da comanda:', deleteItemsError);
+        throw new Error('Erro ao deletar itens da comanda');
+      }
 
+      // Deletar a comanda
       const { error: deleteOrderError } = await supabase
         .from('orders')
         .delete()
         .eq('id', id);
 
-      if (deleteOrderError) throw deleteOrderError;
+      if (deleteOrderError) {
+        console.error('Erro ao deletar comanda:', deleteOrderError);
+        throw new Error('Erro ao deletar comanda');
+      }
 
+      // Atualizar o estado local
       setOrders(prev => prev.filter(o => o.id !== id));
-    } catch (error) {
+
+      toast({
+        title: 'Comanda excluída',
+        description: 'A comanda foi excluída com sucesso.',
+      });
+    } catch (error: any) {
       console.error('Erro ao excluir comanda:', error);
+      toast({
+        title: 'Erro ao excluir comanda',
+        description: error.message || 'Não foi possível excluir a comanda.',
+        variant: 'destructive',
+      });
       throw error;
     }
   };
