@@ -29,24 +29,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       setIsLoading(true);
-      console.log('Loading data for owner:', currentUser.id);
+      console.log('Loading data for user:', currentUser.id, 'role:', currentUser.role);
+
+      const ownerId = currentUser.role === 'employee' 
+        ? (currentUser as any).owner_id || currentUser.id 
+        : currentUser.id;
+
+      console.log('Using owner ID:', ownerId);
 
       // Load ingredients
       const { data: ingredientsData, error: ingredientsError } = await supabase
         .from('ingredients')
         .select('*')
-        .eq('owner_id', currentUser.id)
+        .eq('owner_id', ownerId)
         .order('name');
 
       if (ingredientsError) throw ingredientsError;
       console.log('Ingredients loaded:', ingredientsData);
       setIngredients(ingredientsData || []);
 
-      // Load foods (products)
+      // Load foods (products) with ingredients
       const { data: foodsData, error: foodsError } = await supabase
         .from('foods')
-        .select('*')
-        .eq('owner_id', currentUser.id)
+        .select(`
+          *,
+          food_ingredients (
+            id,
+            ingredient_id,
+            quantity,
+            unit,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('owner_id', ownerId)
         .is('deleted_at', null)
         .order('name');
 
@@ -63,14 +79,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         preparation_time: food.preparation_time,
         owner_id: food.owner_id,
         created_at: food.created_at,
-        updated_at: food.updated_at
+        updated_at: food.updated_at,
+        ingredients: (food.food_ingredients || []).map((fi: any) => ({
+          id: fi.id,
+          food_id: food.id,
+          ingredient_id: fi.ingredient_id,
+          quantity: fi.quantity,
+          unit: fi.unit,
+          created_at: fi.created_at,
+          updated_at: fi.updated_at
+        }))
       })));
 
       // Load external products
       const { data: externalProductsData, error: externalProductsError } = await supabase
         .from('external_products')
         .select('*')
-        .eq('owner_id', currentUser.id)
+        .eq('owner_id', ownerId)
         .order('name');
 
       if (externalProductsError) throw externalProductsError;
@@ -92,7 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             product_type
           )
         `)
-        .eq('user_id', currentUser.id)
+        .eq('user_id', ownerId)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -128,14 +153,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
         .select('*')
-        .eq('user_id', currentUser.id)
+        .eq('user_id', ownerId)
         .order('created_at', { ascending: false });
 
       if (salesError) throw salesError;
       console.log('Sales loaded:', salesData);
       setSales((salesData || []).map(sale => ({
         id: sale.id,
-        items: Array.isArray(sale.items) ? sale.items as OrderItem[] : [],
+        items: Array.isArray(sale.items) ? (sale.items as any[]).map((item: any) => ({
+          id: item.id || '',
+          productId: item.productId || item.product_id || '',
+          product_name: item.product_name || item.name || '',
+          quantity: item.quantity || 0,
+          unitPrice: item.unitPrice || item.unit_price || 0,
+          totalPrice: item.totalPrice || item.total_price || 0,
+          product_type: item.product_type || 'food'
+        })) : [],
         subtotal: sale.subtotal,
         tax: sale.tax,
         total: sale.total,
@@ -161,7 +194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: cashRegisterData, error: cashRegisterError } = await supabase
         .from('cash_registers')
         .select('*')
-        .eq('owner_id', currentUser.id)
+        .eq('owner_id', ownerId)
         .eq('is_open', true)
         .single();
 
@@ -171,15 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setCurrentCashRegister(cashRegisterData || null);
 
-      console.log('Data loading results:', {
-        ingredients: ingredientsData?.length || 0,
-        foods: foodsData?.length || 0,
-        externalProducts: externalProductsData?.length || 0,
-        orders: ordersData?.length || 0,
-        sales: salesData?.length || 0,
-        serviceTaxes: serviceTaxesData?.length || 0,
-        cashRegister: cashRegisterData?.id || 'none'
-      });
+      console.log('Data loading completed successfully');
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -312,7 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           quantity: item.quantity,
           unit_price: item.unitPrice,
           total_price: item.totalPrice,
-          product_type: 'product' in item.product ? 'food' : 'external_product',
+          product_type: 'price' in item.product ? 'food' : 'external_product',
           cash_register_id: currentCashRegister?.id || ''
         }])
         .select()
@@ -643,6 +668,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateStock = async (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => {
+    try {
+      const { data, error } = await supabase.rpc(
+        quantity > 0 ? 'add_stock' : 'remove_stock',
+        {
+          p_item_type: itemType,
+          p_item_id: itemId,
+          p_quantity: Math.abs(quantity),
+          p_reason: reason,
+          p_user_id: currentUser?.id
+        }
+      );
+
+      if (error) throw error;
+      await loadData();
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      throw error;
+    }
+  };
+
   const checkCashRegisterAccess = () => {
     if (!currentUser) return false;
     return currentUser.role === 'admin' || currentUser.role === 'employee';
@@ -681,6 +727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     openCashRegister,
     closeCashRegister,
     checkCashRegisterAccess,
+    updateStock,
     refreshData: loadData,
   };
 
@@ -695,5 +742,4 @@ export const useAppContext = () => {
   return context;
 };
 
-// Export both names for compatibility
 export const useApp = useAppContext;

@@ -1,4 +1,5 @@
 
+
 // Core interfaces
 export interface User {
   id: string;
@@ -21,6 +22,16 @@ export interface Ingredient {
   updated_at: string;
 }
 
+export interface FoodIngredient {
+  id: string;
+  food_id: string;
+  ingredient_id: string;
+  quantity: number;
+  unit: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -33,6 +44,7 @@ export interface Product {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  ingredients?: FoodIngredient[];
 }
 
 export interface ExternalProduct {
@@ -160,4 +172,15 @@ export interface AppContextType {
   closeCashRegister: (amount: number) => Promise<void>;
   checkCashRegisterAccess: () => boolean;
   refreshData: () => Promise<void>;
+  updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
 }
+
+// Unit conversion types
+export type Unit = 'kg' | 'g' | 'l' | 'ml' | 'unidade' | 'caixa' | 'pacote';
+
+export interface UnitConversion {
+  from: Unit;
+  to: Unit;
+  factor: number;
+}
+
