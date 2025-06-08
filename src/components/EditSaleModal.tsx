@@ -54,9 +54,9 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
 
   return (
     <Dialog open={!!sale} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-lg p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>Editar Venda</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">Editar Venda</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -67,13 +67,14 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Digite o nome do cliente"
+              className="mt-1"
             />
           </div>
 
           <div>
             <Label htmlFor="editPaymentMethod">Forma de Pagamento</Label>
             <Select value={paymentMethod} onValueChange={(value: 'cash' | 'card' | 'pix') => setPaymentMethod(value)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -84,45 +85,50 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
             </Select>
           </div>
 
-          {sale.items && (
-            <div>
-              <Label>Itens da Venda</Label>
-              <div className="space-y-2 mt-2">
-                {sale.items.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                    <span>{item.quantity}x {item.product_name}</span>
-                    <span>R$ {item.totalPrice.toFixed(2)}</span>
+          <div>
+            <Label>Itens da Venda</Label>
+            <div className="space-y-2 mt-2">
+              {sale.items.map((item, index) => (
+                <div key={index} className="flex justify-between items-center text-sm p-3 bg-gray-50 rounded">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm sm:text-base">{item.product_name}</div>
+                    <div className="text-xs sm:text-sm text-gray-500">
+                      {item.quantity}x R$ {(item.totalPrice / item.quantity).toFixed(2)}
+                    </div>
                   </div>
-                ))}
-                <div className="border-t pt-2 mt-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>R$ {sale.subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Taxa:</span>
-                    <span>R$ {sale.tax.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span>Total:</span>
-                    <span>R$ {sale.total.toFixed(2)}</span>
-                  </div>
+                  <span className="font-medium text-sm sm:text-base">
+                    R$ {item.totalPrice.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+              <div className="border-t pt-2 mt-2 space-y-2">
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span>R$ {sale.subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-gray-600">Taxa:</span>
+                  <span>R$ {sale.tax.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-medium text-sm sm:text-base pt-2 border-t">
+                  <span>Total:</span>
+                  <span>R$ {sale.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          <div className="flex space-x-2 mt-4">
+          <div className="flex flex-col sm:flex-row gap-2 pt-4">
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1"
+              className="w-full sm:flex-1"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleSave}
-              className="flex-1 bg-green-500 hover:bg-green-600"
+              className="w-full sm:flex-1 bg-green-500 hover:bg-green-600"
             >
               Salvar
             </Button>

@@ -187,17 +187,17 @@ export const Sales = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Vendas</h1>
           <p className="text-gray-600">Gerencie e acompanhe suas vendas</p>
         </div>
 
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           {isOwner && !currentCashRegister && (
             <Button
               onClick={() => setIsOpenCashRegisterModalOpen(true)}
-              className="bg-green-500 hover:bg-green-600"
+              className="bg-green-500 hover:bg-green-600 w-full sm:w-auto"
             >
               Abrir Caixa
             </Button>
@@ -206,13 +206,14 @@ export const Sales = () => {
             <Button
               onClick={() => setIsCloseCashRegisterModalOpen(true)}
               variant="destructive"
+              className="w-full sm:w-auto"
             >
               Fechar Caixa
             </Button>
           )}
           <Button
             onClick={() => setIsDirectSaleOpen(true)}
-            className="bg-green-500 hover:bg-green-600"
+            className="bg-green-500 hover:bg-green-600 w-full sm:w-auto"
             disabled={!currentCashRegister}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -297,52 +298,52 @@ export const Sales = () => {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
               <BarChart3 className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold">R$ {totalSales.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold">R$ {totalSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
               <DollarSign className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Dinheiro</p>
-                <p className="text-2xl font-bold">R$ {totalCashSales.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold">R$ {totalCashSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
               <CreditCard className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Cartão</p>
-                <p className="text-2xl font-bold">R$ {totalCardSales.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold">R$ {totalCardSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
               <div className="h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-sm">P</span>
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">PIX</p>
-                <p className="text-2xl font-bold">R$ {totalPixSales.toFixed(2)}</p>
+                <p className="text-xl sm:text-2xl font-bold">R$ {totalPixSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
@@ -367,20 +368,21 @@ export const Sales = () => {
             <Accordion type="single" collapsible className="space-y-4">
               {filteredSales.map((sale) => (
                 <AccordionItem key={sale.id} value={sale.id} className="border rounded-lg overflow-hidden">
-                  <AccordionTrigger className="px-6 py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
-                    <div className="flex flex-1 items-center justify-between pr-4">
+                  <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
+                    <div className="flex flex-1 items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div>
-                          <h3 className="font-semibold text-left">
+                          <h3 className="font-semibold text-left text-sm sm:text-base">
                             {sale.customerName || 'Cliente não identificado'}
                           </h3>
-                          <p className="text-sm text-gray-500 text-left">
+                          <p className="text-xs sm:text-sm text-gray-500 text-left">
                             {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 sm:gap-4">
                         <Badge className={cn(
+                          'hidden sm:inline-flex',
                           sale.paymentMethod === 'cash' && 'bg-green-100 text-green-800',
                           sale.paymentMethod === 'card' && 'bg-blue-100 text-blue-800',
                           sale.paymentMethod === 'pix' && 'bg-purple-100 text-purple-800'
@@ -388,45 +390,45 @@ export const Sales = () => {
                           {sale.paymentMethod === 'cash' ? 'Dinheiro' :
                             sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
                         </Badge>
-                        <span className="font-bold">R$ {sale.total.toFixed(2)}</span>
+                        <span className="font-bold text-sm sm:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
                         <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                       </div>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="px-6 pb-4 bg-gray-50">
+                  <AccordionContent className="px-4 sm:px-6 pb-4 bg-gray-50">
                     <div className="space-y-4">
                       {/* Sale Items */}
                       <div className="space-y-2">
                         {sale.items?.map((item, index) => (
                           <div key={index} className="flex flex-col p-3 bg-white rounded-lg">
                             <div className="flex justify-between items-start">
-                              <div className="flex items-start gap-3">
-                                <span className="font-medium text-base bg-gray-100 px-2 py-1 rounded">
+                              <div className="flex items-start gap-2 sm:gap-3">
+                                <span className="font-medium text-sm sm:text-base bg-gray-100 px-2 py-1 rounded">
                                   {item.quantity}x
                                 </span>
                                 <div>
-                                  <span className="font-medium">{item.product_name}</span>
-                                  <div className="text-sm text-gray-500 mt-1">
+                                  <span className="font-medium text-sm sm:text-base">{item.product_name}</span>
+                                  <div className="text-xs sm:text-sm text-gray-500 mt-1">
                                     Valor unitário: R$ {item.unitPrice.toFixed(2)}
                                   </div>
                                 </div>
                               </div>
-                              <span className="font-medium">R$ {item.totalPrice.toFixed(2)}</span>
+                              <span className="font-medium text-sm sm:text-base">R$ {item.totalPrice.toFixed(2)}</span>
                             </div>
                           </div>
                         ))}
                       </div>
                       {/* Sale Summary */}
                       <div className="border-t border-gray-200 pt-3">
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-gray-600">Subtotal:</span>
                           <span>R$ {sale.subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
+                        <div className="flex justify-between text-xs sm:text-sm">
                           <span className="text-gray-600">Taxa:</span>
                           <span>R$ {sale.tax.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between font-medium text-base mt-2 pt-2 border-t">
+                        <div className="flex justify-between font-medium text-sm sm:text-base mt-2 pt-2 border-t">
                           <span>Total:</span>
                           <span>R$ {sale.total.toFixed(2)}</span>
                         </div>
