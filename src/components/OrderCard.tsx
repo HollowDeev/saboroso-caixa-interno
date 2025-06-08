@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,17 +83,26 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">
-            {order.customerName ? (
-              <div className="flex items-center">
-                <User className="h-4 w-4 mr-2" />
-                {order.customerName}
-              </div>
-            ) : (
-              <div className="flex items-center">
-                <Hash className="h-4 w-4 mr-2" />
-                Mesa {order.tableNumber || 'S/N'}
-              </div>
-            )}
+            <div className="flex items-center">
+              {order.customerName && (
+                <>
+                  <User className="h-4 w-4 mr-2" />
+                  {order.customerName}
+                </>
+              )}
+              {order.tableNumber !== undefined && order.tableNumber !== null && (
+                <>
+                  <Hash className="h-4 w-4 ml-2 mr-2" />
+                  Mesa {order.tableNumber}
+                </>
+              )}
+              {!order.customerName && !order.tableNumber && (
+                <>
+                  <Hash className="h-4 w-4 mr-2" />
+                  Mesa S/N
+                </>
+              )}
+            </div>
           </CardTitle>
           <Badge variant={getStatusColor(order.status)}>
             {getStatusText(order.status)}
@@ -112,7 +120,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           <div className="border-t pt-2 font-semibold">
             Total: R$ {order.total.toFixed(2)}
           </div>
-          
+
           {order.status === 'open' && (
             <div className="flex space-x-2 mt-4">
               <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>

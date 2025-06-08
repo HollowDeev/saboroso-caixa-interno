@@ -335,6 +335,7 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          product_type: 'food' | 'external_product'
         }
         Insert: {
           cash_register_id: string
@@ -346,6 +347,7 @@ export type Database = {
           quantity: number
           total_price: number
           unit_price: number
+          product_type: 'food' | 'external_product'
         }
         Update: {
           cash_register_id?: string
@@ -357,6 +359,7 @@ export type Database = {
           quantity?: number
           total_price?: number
           unit_price?: number
+          product_type?: 'food' | 'external_product'
         }
         Relationships: [
           {

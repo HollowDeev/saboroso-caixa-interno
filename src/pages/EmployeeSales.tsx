@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +44,7 @@ export const EmployeeSales = () => {
           <p className="text-gray-600">Visualize e gerencie as vendas realizadas</p>
         </div>
 
-        <Button 
+        <Button
           onClick={() => setIsDirectSaleOpen(true)}
           className="bg-green-500 hover:bg-green-600"
         >
@@ -124,7 +123,7 @@ export const EmployeeSales = () => {
                           </div>
                           <div>
                             <p className="font-medium">
-                              {order.customerName || `Mesa ${order.tableNumber}`}
+                              {order.customerName || `Mesa ${order.tableNumber || 'S/N'}`}
                             </p>
                             <p className="text-sm text-gray-600">
                               {new Date(order.createdAt).toLocaleTimeString()}
@@ -167,7 +166,7 @@ export const EmployeeSales = () => {
                           </div>
                           <div>
                             <p className="font-medium">
-                              {order.customerName || `Mesa ${order.tableNumber}`}
+                              {order.customerName || `Mesa ${order.tableNumber || 'S/N'}`}
                             </p>
                             <p className="text-sm text-gray-600">
                               {new Date(order.createdAt).toLocaleDateString()} às {new Date(order.createdAt).toLocaleTimeString()}

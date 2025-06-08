@@ -176,9 +176,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (itemsError) throw itemsError;
 
-      const ordersWithItems = ordersData.map(order => ({
-        ...order,
-        userId: order.user_id,
+      const ordersWithItems: Order[] = ordersData.map(order => ({
+        id: order.id,
+        customerName: order.customer_name || undefined,
+        tableNumber: order.table_number !== null ? Number(order.table_number) : undefined,
         items: orderItemsData
           .filter(item => item.order_id === order.id)
           .map(item => ({
@@ -190,8 +191,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             unitPrice: item.unit_price,
             totalPrice: item.total_price
           })),
+        subtotal: order.subtotal,
+        tax: order.tax,
+        total: order.total,
+        status: order.status as OrderStatus,
+        paymentMethod: order.payment_method as PaymentMethod | undefined,
         createdAt: new Date(order.created_at),
-        updatedAt: new Date(order.updated_at)
+        updatedAt: new Date(order.updated_at),
+        userId: order.user_id
       }));
 
       setOrders(ordersWithItems);
@@ -289,7 +296,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           subtotal: orderData.subtotal,
           tax: orderData.tax,
           total: orderData.total,
-          status: orderData.status,
+          status: orderData.status as OrderStatus,
           user_id: currentUser.id,
           cash_register_id: currentCashRegister.id
         }])
@@ -305,7 +312,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         quantity: item.quantity,
         unit_price: item.unitPrice,
         total_price: item.totalPrice,
-        cash_register_id: currentCashRegister.id
+        cash_register_id: currentCashRegister.id,
+        product_type: 'current_stock' in item.product ? 'external_product' : 'food'
       }));
 
       const { error: itemsError } = await supabase
@@ -346,7 +354,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           quantity: item.quantity,
           unit_price: item.unitPrice,
           total_price: item.totalPrice,
-          cash_register_id: currentCashRegister.id
+          cash_register_id: currentCashRegister.id,
+          product_type: 'current_stock' in item.product ? 'external_product' : 'food'
         }]);
 
       if (error) throw error;

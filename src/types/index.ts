@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -49,6 +48,7 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
+  product_type?: 'food' | 'external_product';
 }
 
 export interface NewOrderItem {
@@ -59,7 +59,7 @@ export interface NewOrderItem {
   totalPrice: number;
 }
 
-export type OrderStatus = 'open' | 'closed';
+export type OrderStatus = 'open' | 'closed' | 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled';
 export type PaymentMethod = 'cash' | 'card' | 'pix';
 
 export interface Order {

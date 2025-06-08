@@ -80,7 +80,7 @@ export const EmployeeOrders = () => {
 
       const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
         customerName: customerName || undefined,
-        tableNumber: tableNumber,
+        tableNumber: tableNumber !== undefined && tableNumber !== null ? Number(tableNumber) : undefined,
         items: selectedProducts,
         subtotal,
         tax,
@@ -284,17 +284,26 @@ export const EmployeeOrders = () => {
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">
-                        {order.customerName ? (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            {order.customerName}
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <Hash className="h-4 w-4 mr-2" />
-                            Mesa {order.tableNumber}
-                          </div>
-                        )}
+                        <div className="flex items-center">
+                          {order.customerName && (
+                            <>
+                              <User className="h-4 w-4 mr-2" />
+                              {order.customerName}
+                            </>
+                          )}
+                          {order.tableNumber !== undefined && order.tableNumber !== null && (
+                            <>
+                              <Hash className="h-4 w-4 ml-2 mr-2" />
+                              Mesa {order.tableNumber}
+                            </>
+                          )}
+                          {!order.customerName && !order.tableNumber && (
+                            <>
+                              <Hash className="h-4 w-4 mr-2" />
+                              Mesa S/N
+                            </>
+                          )}
+                        </div>
                       </CardTitle>
                       <Badge variant={getStatusColor(order.status)}>
                         {getStatusText(order.status)}
@@ -353,17 +362,26 @@ export const EmployeeOrders = () => {
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">
-                        {order.customerName ? (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            {order.customerName}
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <Hash className="h-4 w-4 mr-2" />
-                            Mesa {order.tableNumber}
-                          </div>
-                        )}
+                        <div className="flex items-center">
+                          {order.customerName && (
+                            <>
+                              <User className="h-4 w-4 mr-2" />
+                              {order.customerName}
+                            </>
+                          )}
+                          {order.tableNumber !== undefined && order.tableNumber !== null && (
+                            <>
+                              <Hash className="h-4 w-4 ml-2 mr-2" />
+                              Mesa {order.tableNumber}
+                            </>
+                          )}
+                          {!order.customerName && !order.tableNumber && (
+                            <>
+                              <Hash className="h-4 w-4 mr-2" />
+                              Mesa S/N
+                            </>
+                          )}
+                        </div>
                       </CardTitle>
                       <Badge variant={getStatusColor(order.status)}>
                         {getStatusText(order.status)}

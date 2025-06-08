@@ -277,6 +277,8 @@ export const processOrderItemsStockConsumption = async (
           quantity: item.quantity,
           productName: externalProduct.name
         });
+      } else {
+        allErrors.push(`Produto ${item.productId} não encontrado em nenhuma tabela`);
       }
       continue;
     }

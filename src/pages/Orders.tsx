@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -103,7 +102,7 @@ export const Orders = () => {
 
       const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
         customerName: customerName || undefined,
-        tableNumber: tableNumber,
+        tableNumber: tableNumber !== undefined && tableNumber !== null ? Number(tableNumber) : undefined,
         items: selectedProducts,
         subtotal,
         tax,

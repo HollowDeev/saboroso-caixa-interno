@@ -1,16 +1,17 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ShoppingCart, 
-  DollarSign, 
-  Package, 
+import {
+  ShoppingCart,
+  DollarSign,
+  Package,
   TrendingUp,
   Users,
   Clock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  User,
+  Hash
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
@@ -26,15 +27,15 @@ export const Dashboard = () => {
 
   const totalSalesToday = todaysSales.reduce((sum, sale) => sum + sale.total, 0);
   const totalOrdersToday = todaysSales.length;
-  
+
   const openOrders = orders.filter(order => order.status === 'open');
   const closedOrders = orders.filter(order => order.status === 'closed');
 
-  const lowStockIngredients = ingredients.filter(ingredient => 
+  const lowStockIngredients = ingredients.filter(ingredient =>
     ingredient.currentStock <= ingredient.minStock
   );
 
-  const lowStockExternalProducts = externalProducts.filter(product => 
+  const lowStockExternalProducts = externalProducts.filter(product =>
     product.current_stock <= product.min_stock
   );
 
@@ -158,7 +159,7 @@ export const Dashboard = () => {
                       <div key={ingredient.id} className="bg-white p-2 rounded border">
                         <p className="font-medium text-sm">{ingredient.name}</p>
                         <p className="text-xs text-gray-600">
-                          Atual: {ingredient.currentStock} {ingredient.unit} | 
+                          Atual: {ingredient.currentStock} {ingredient.unit} |
                           Mínimo: {ingredient.minStock} {ingredient.unit}
                         </p>
                       </div>
@@ -197,8 +198,25 @@ export const Dashboard = () => {
             {orders.slice(0, 5).map((order) => (
               <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <p className="font-medium">
-                    {order.customerName || `Mesa ${order.tableNumber || 'S/N'}`}
+                  <p className="font-medium flex items-center">
+                    {order.customerName && (
+                      <>
+                        <User className="h-4 w-4 mr-2" />
+                        {order.customerName}
+                      </>
+                    )}
+                    {order.tableNumber !== undefined && order.tableNumber !== null && (
+                      <>
+                        <Hash className="h-4 w-4 ml-2 mr-2" />
+                        Mesa {order.tableNumber}
+                      </>
+                    )}
+                    {!order.customerName && !order.tableNumber && (
+                      <>
+                        <Hash className="h-4 w-4 mr-2" />
+                        Mesa S/N
+                      </>
+                    )}
                   </p>
                   <p className="text-sm text-gray-600">
                     {order.items.length} itens - R$ {order.total.toFixed(2)}

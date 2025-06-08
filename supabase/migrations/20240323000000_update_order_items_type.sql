@@ -1,0 +1,2 @@
+-- Atualizar o tipo da tabela order_items para incluir o campo product_type
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS product_type text NOT NULL DEFAULT 'food' CHECK (product_type IN ('food', 'external_product')); 
