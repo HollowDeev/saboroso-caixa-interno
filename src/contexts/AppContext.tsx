@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Order, Product, Sale, OrderItem, NewOrderItem } from '@/types';
@@ -384,7 +383,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
           payment_method: saleData.paymentMethod,
           user_id: ownerId,
           cash_register_id: cashRegister,
-          is_direct_sale: saleData.isDirectSale,
+          is_direct_sale: saleData.isDirectSale || saleData.is_direct_sale,
           items: saleData.items
         });
 

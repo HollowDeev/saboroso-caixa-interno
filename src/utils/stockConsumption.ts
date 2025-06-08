@@ -15,6 +15,65 @@ export interface ExternalProductConsumption {
   productName: string;
 }
 
+// Função principal para consumir estoque em uma venda
+export const consumeStockForSale = async (
+  productId: string,
+  quantity: number,
+  userId: string
+): Promise<{ success: boolean; errors: string[] }> => {
+  try {
+    // Verificar se é uma comida (tem ingredientes)
+    const { data: foodExists, error: foodError } = await supabase
+      .from('foods')
+      .select('id')
+      .eq('id', productId)
+      .single();
+
+    if (!foodError && foodExists) {
+      // É uma comida - consumir ingredientes
+      const ingredients = await getFoodIngredients(productId);
+      
+      if (ingredients.length === 0) {
+        return { success: true, errors: [] };
+      }
+
+      return await consumeIngredientsFromStock(
+        ingredients,
+        quantity,
+        'Venda registrada',
+        userId
+      );
+    } else {
+      // Verificar se é um produto externo
+      const { data: externalProduct, error: externalError } = await supabase
+        .from('external_products')
+        .select('id, name')
+        .eq('id', productId)
+        .single();
+
+      if (!externalError && externalProduct) {
+        return await consumeExternalProductsFromStock(
+          [{
+            productId: productId,
+            quantity: quantity,
+            productName: externalProduct.name
+          }],
+          'Venda registrada',
+          userId
+        );
+      }
+    }
+
+    return { success: true, errors: [] };
+  } catch (error) {
+    console.error('Erro ao consumir estoque:', error);
+    return { 
+      success: false, 
+      errors: [`Erro ao processar produto ${productId}: ${error}`] 
+    };
+  }
+};
+
 // Função para buscar os ingredientes de uma comida
 export const getFoodIngredients = async (foodId: string): Promise<IngredientConsumption[]> => {
   try {

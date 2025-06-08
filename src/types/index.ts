@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   name: string;
@@ -30,8 +31,9 @@ export interface Product {
   preparationTime?: number;
   available: boolean;
   ingredients?: ProductIngredient[];
-  created_at: Date;
-  updated_at: Date;
+  type?: 'food' | 'external_product';
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 export interface ProductIngredient {
@@ -75,6 +77,7 @@ export interface Order {
   createdAt: Date;
   updatedAt: Date;
   userId: string;
+  cashRegisterId?: string;
 }
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
@@ -85,7 +88,7 @@ export interface SaleItem {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  product_type: 'food' | 'external_product';
+  product_type?: 'food' | 'external_product';
 }
 
 export interface DatabaseSaleItem {
@@ -106,9 +109,11 @@ export interface Sale {
   paymentMethod: PaymentMethod;
   createdAt: Date;
   userId: string;
-  is_direct_sale: boolean;
+  isDirectSale?: boolean;
+  is_direct_sale?: boolean;
   items: SaleItem[];
   customerName?: string;
+  cashRegisterId?: string;
 }
 
 export interface SupabaseSaleItem {
@@ -177,15 +182,18 @@ export interface CashRegister {
 export interface ExternalProduct {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
   cost: number;
   current_stock: number;
   min_stock: number;
-  brand: string;
+  brand?: string;
   owner_id: string;
-  created_at: string;
-  updated_at: string;
+  type?: 'external_product';
+  category?: string;
+  available?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CashRegisterSale {
