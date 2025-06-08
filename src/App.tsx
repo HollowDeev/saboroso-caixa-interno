@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "./contexts/AppContext";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
@@ -14,9 +14,6 @@ import { Users } from "./pages/Users";
 import { Settings } from "./pages/Settings";
 import { ProfitCalculator } from "./pages/ProfitCalculator";
 import { Login } from "./pages/Login";
-import { EmployeeOrders } from "./pages/EmployeeOrders";
-import { EmployeeSales } from "./pages/EmployeeSales";
-import { EmployeeLayout } from "./components/EmployeeLayout";
 import NotFound from "./pages/NotFound";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,32 +137,11 @@ const App = () => {
     );
   }
 
-  // Se há dados de funcionário, mostrar interface de funcionário
-  if (employeeData) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AppProvider>
-            <BrowserRouter>
-              <EmployeeLayout employee={employeeData} onLogout={handleEmployeeLogout}>
-                <Routes>
-                  <Route path="/" element={<EmployeeOrders />} />
-                  <Route path="/employee/orders" element={<EmployeeOrders />} />
-                  <Route path="/employee/sales" element={<EmployeeSales />} />
-                  <Route path="*" element={<EmployeeOrders />} />
-                </Routes>
-              </EmployeeLayout>
-            </BrowserRouter>
-          </AppProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  }
+  const currentUser = adminData || employeeData;
+  const isEmployee = !!employeeData;
 
-  // Se há dados de admin, mostrar interface admin
-  if (adminData) {
+  // Se há usuário logado (admin ou funcionário), mostrar interface principal
+  if (currentUser) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
@@ -173,16 +149,38 @@ const App = () => {
           <Sonner />
           <AppProvider>
             <BrowserRouter>
-              <Layout adminData={adminData} onLogout={handleAdminLogout}>
+              <Layout 
+                adminData={adminData} 
+                employeeData={employeeData}
+                onLogout={isEmployee ? handleEmployeeLogout : handleAdminLogout}
+                isEmployee={isEmployee}
+              >
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+                  {/* Rotas disponíveis para funcionários */}
+                  <Route path="/" element={<Orders />} />
                   <Route path="/orders" element={<Orders />} />
-                  <Route path="/stock" element={<StockManagement />} />
                   <Route path="/sales" element={<Sales />} />
-                  <Route path="/users" element={<Users />} />
-                  <Route path="/settings" element={<Settings />} />
-                  <Route path="/calculator" element={<ProfitCalculator />} />
-                  <Route path="*" element={<NotFound />} />
+                  
+                  {/* Rotas apenas para admin */}
+                  {!isEmployee && (
+                    <>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/stock" element={<StockManagement />} />
+                      <Route path="/users" element={<Users />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/calculator" element={<ProfitCalculator />} />
+                    </>
+                  )}
+                  
+                  {/* Redirecionar funcionários para comandas se tentarem acessar rotas restritas */}
+                  {isEmployee && (
+                    <Route path="*" element={<Navigate to="/orders" replace />} />
+                  )}
+                  
+                  {/* Admin 404 */}
+                  {!isEmployee && (
+                    <Route path="*" element={<NotFound />} />
+                  )}
                 </Routes>
               </Layout>
             </BrowserRouter>

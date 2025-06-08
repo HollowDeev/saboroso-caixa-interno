@@ -3,54 +3,69 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'cashier' | 'employee';
-  created_at: Date;
-  updated_at: Date;
+  role: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  owner_id: string;
 }
 
 export interface Ingredient {
   id: string;
   name: string;
-  currentStock: number;
-  minStock: number;
+  description?: string;
   unit: string;
   cost: number;
+  current_stock: number;
+  min_stock: number;
   supplier?: string;
-  lastUpdated: Date;
-  created_at: Date;
-  updated_at: Date;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Product {
   id: string;
   name: string;
   description?: string;
-  category: string;
   price: number;
   cost: number;
-  preparationTime?: number;
   available: boolean;
-  ingredients?: ProductIngredient[];
-  type?: 'food' | 'external_product';
-  created_at?: Date;
-  updated_at?: Date;
+  category?: string;
+  preparation_time?: number;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ProductIngredient {
-  ingredientId: string;
-  quantity: number;
-  unit?: string;
+export interface ExternalProduct {
+  id: string;
+  name: string;
+  description?: string;
+  brand?: string;
+  price: number;
+  cost: number;
+  current_stock: number;
+  min_stock: number;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OrderItem {
   id?: string;
   productId: string;
-  product: Product | ExternalProduct;
   product_name?: string;
+  product?: Product | ExternalProduct;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  product_type?: 'food' | 'external_product';
+  order_id?: string;
+  cash_register_id?: string;
+  product_type?: string;
+  created_at?: string;
 }
 
 export interface NewOrderItem {
@@ -61,9 +76,6 @@ export interface NewOrderItem {
   totalPrice: number;
 }
 
-export type OrderStatus = 'open' | 'closed' | 'pending' | 'preparing' | 'ready' | 'delivered' | 'paid' | 'cancelled';
-export type PaymentMethod = 'cash' | 'card' | 'pix';
-
 export interface Order {
   id: string;
   customerName?: string;
@@ -72,97 +84,27 @@ export interface Order {
   subtotal: number;
   tax: number;
   total: number;
-  status: OrderStatus;
+  status: 'open' | 'closed';
   paymentMethod?: PaymentMethod;
-  createdAt: Date;
-  updatedAt: Date;
   userId: string;
-  cashRegisterId?: string;
-}
-
-export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
-
-export interface SaleItem {
-  productId: string;
-  product_name: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  product_type?: 'food' | 'external_product';
-}
-
-export interface DatabaseSaleItem {
-  product_id: string;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product_type: 'food' | 'external_product';
+  cash_register_id?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Sale {
   id: string;
-  orderId?: string;
-  total: number;
+  items: OrderItem[];
   subtotal: number;
   tax: number;
+  total: number;
   paymentMethod: PaymentMethod;
-  createdAt: Date;
-  userId: string;
-  isDirectSale?: boolean;
-  is_direct_sale?: boolean;
-  items: SaleItem[];
   customerName?: string;
-  cashRegisterId?: string;
-}
-
-export interface SupabaseSaleItem {
-  product_id: string;
-  product_name: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  product_type: 'food' | 'external_product';
-}
-
-export interface SupabaseSale {
-  id: string;
-  order_id?: string;
-  total: number;
-  subtotal: number;
-  tax: number;
-  payment_method: PaymentMethod;
-  created_at: string;
-  user_id: string;
-  is_direct_sale: boolean;
-  items: SupabaseSaleItem[];
-  customer_name?: string;
+  userId: string;
   cash_register_id: string;
-}
-
-export interface DatabaseSale {
-  id: string;
   order_id?: string;
-  total: number;
-  subtotal: number;
-  tax: number;
-  payment_method: PaymentMethod;
-  created_at: string;
-  user_id: string;
   is_direct_sale: boolean;
-  items: DatabaseSaleItem[];
-  customer_name?: string;
-  cash_register_id: string;
-}
-
-export interface ServiceTax {
-  id: string;
-  name: string;
-  percentage: number;
-  isActive: boolean;
-  description?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
 }
 
 export interface CashRegister {
@@ -171,6 +113,7 @@ export interface CashRegister {
   opening_amount: number;
   closing_amount?: number;
   total_sales: number;
+  total_cost: number;
   total_orders: number;
   is_open: boolean;
   opened_at: string;
@@ -179,85 +122,53 @@ export interface CashRegister {
   updated_at: string;
 }
 
-export interface ExternalProduct {
+export interface ServiceTax {
   id: string;
   name: string;
   description?: string;
-  price: number;
-  cost: number;
-  current_stock: number;
-  min_stock: number;
-  brand?: string;
-  owner_id: string;
-  type?: 'external_product';
-  category?: string;
-  available?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  percentage: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface CashRegisterSale {
-  id: string;
-  cash_register_id: string;
-  total: number;
-  subtotal: number;
-  tax: number;
-  payment_method: PaymentMethod;
-  created_at: Date;
-  user_id: string;
-  is_direct_sale: boolean;
-  items?: any[];
-  customer_name?: string;
-  order_id?: string;
-}
+export type PaymentMethod = 'cash' | 'card' | 'pix';
+export type Unit = 'kg' | 'g' | 'l' | 'ml' | 'units';
 
-export interface Database {
-  public: {
-    Tables: {
-      sales: {
-        Row: {
-          id: string;
-          order_id?: string;
-          total: number;
-          subtotal: number;
-          tax: number;
-          payment_method: PaymentMethod;
-          created_at: string;
-          user_id: string;
-          is_direct_sale: boolean;
-          items: Json;
-          customer_name?: string;
-          cash_register_id: string;
-        };
-        Insert: {
-          id?: string;
-          order_id?: string;
-          total: number;
-          subtotal: number;
-          tax: number;
-          payment_method: PaymentMethod;
-          created_at?: string;
-          user_id: string;
-          is_direct_sale: boolean;
-          items: Json;
-          customer_name?: string;
-          cash_register_id: string;
-        };
-        Update: {
-          id?: string;
-          order_id?: string;
-          total?: number;
-          subtotal?: number;
-          tax?: number;
-          payment_method?: PaymentMethod;
-          created_at?: string;
-          user_id?: string;
-          is_direct_sale?: boolean;
-          items?: Json;
-          customer_name?: string;
-          cash_register_id?: string;
-        };
-      };
-    };
-  };
+export interface AppContextType {
+  // User data
+  currentUser: User | Employee | null;
+  isEmployee: boolean;
+  
+  // Data
+  ingredients: Ingredient[];
+  products: Product[];
+  externalProducts: ExternalProduct[];
+  orders: Order[];
+  sales: Sale[];
+  serviceTaxes: ServiceTax[];
+  currentCashRegister: CashRegister | null;
+  
+  // Loading states
+  isLoading: boolean;
+  
+  // Methods
+  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
+  addIngredient: (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateIngredient: (id: string, updates: Partial<Ingredient>) => Promise<void>;
+  deleteIngredient: (id: string) => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  addExternalProduct: (product: Omit<ExternalProduct, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateExternalProduct: (id: string, updates: Partial<ExternalProduct>) => Promise<void>;
+  deleteExternalProduct: (id: string) => Promise<void>;
+  addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
+  updateSale: (id: string, updates: Partial<Sale>) => Promise<void>;
+  deleteSale: (id: string) => Promise<void>;
+  openCashRegister: (amount: number) => Promise<void>;
+  closeCashRegister: (amount: number) => Promise<void>;
+  checkCashRegisterAccess: () => boolean;
+  refreshData: () => Promise<void>;
 }

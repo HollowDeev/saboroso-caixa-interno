@@ -1,6 +1,4 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Product, ExternalProduct } from '@/types';
 
 export interface IngredientConsumption {
   ingredientId: string;

@@ -10,24 +10,34 @@ interface LayoutProps {
     name: string;
     email: string;
   };
+  employeeData?: {
+    id: string;
+    name: string;
+    owner_id: string;
+  };
   onLogout?: () => void;
+  isEmployee?: boolean;
 }
 
-export const Layout = ({ children, adminData, onLogout }: LayoutProps) => {
+export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const currentUser = adminData || employeeData;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
         onMenuClick={() => setSidebarOpen(true)} 
         adminData={adminData}
+        employeeData={employeeData}
         onLogout={onLogout}
+        isEmployee={isEmployee}
       />
       
       <div className="flex">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
-          <Sidebar />
+          <Sidebar isEmployee={isEmployee} />
         </div>
         
         {/* Mobile Sidebar */}
@@ -38,7 +48,7 @@ export const Layout = ({ children, adminData, onLogout }: LayoutProps) => {
               onClick={() => setSidebarOpen(false)}
             />
             <div className="relative">
-              <Sidebar onClose={() => setSidebarOpen(false)} />
+              <Sidebar onClose={() => setSidebarOpen(false)} isEmployee={isEmployee} />
             </div>
           </div>
         )}
