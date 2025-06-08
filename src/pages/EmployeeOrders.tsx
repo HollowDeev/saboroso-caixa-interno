@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,6 @@ import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Order, OrderItem, Product, NewOrderItem } from '@/types';
-import { CheckoutModal } from '@/components/CheckoutModal';
 import { toast } from '@/components/ui/use-toast';
 
 export const EmployeeOrders = () => {
@@ -19,7 +19,6 @@ export const EmployeeOrders = () => {
   const [customerName, setCustomerName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | undefined>();
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
-  const [checkoutOrder, setCheckoutOrder] = useState<Order | null>(null);
 
   const addProductToOrder = (product: Product) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
@@ -85,25 +84,22 @@ export const EmployeeOrders = () => {
         subtotal,
         tax,
         total,
-        status: 'pending',
+        status: 'open',
         userId: 'employee-temp-id'
       };
 
       await addOrder(newOrder);
 
-      // Limpar o formulário e fechar o modal
       setSelectedProducts([]);
       setCustomerName('');
       setTableNumber(undefined);
       setIsNewOrderOpen(false);
 
-      // Mostrar mensagem de sucesso
       toast({
         title: "Sucesso",
         description: "Comanda criada com sucesso!",
       });
     } catch (error: any) {
-      // Mostrar mensagem de erro
       toast({
         title: "Erro ao criar comanda",
         description: error.message || "Ocorreu um erro ao criar a comanda. Tente novamente.",
@@ -382,11 +378,6 @@ export const EmployeeOrders = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      <CheckoutModal
-        order={checkoutOrder}
-        onClose={() => setCheckoutOrder(null)}
-      />
     </div>
   );
 };

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Order, Product, Sale, OrderItem, NewOrderItem, ServiceTax, ExternalProduct, User, CashRegister, Ingredient } from '@/types';
@@ -73,7 +72,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         return session.user.id;
       } else {
         // Se não há sessão, pode ser um funcionário
-        // Verificar se há dados de funcionário no localStorage ou state management
+        // Verificar se há dados de funcionário no localStorage
         const employeeData = JSON.parse(localStorage.getItem('employee_data') || 'null');
         if (employeeData?.owner_id) {
           return employeeData.owner_id;
@@ -118,7 +117,15 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         items: order.order_items.map((item: any) => ({
           productId: item.product_id,
           product_name: item.product_name,
-          product: { name: item.product_name },
+          product: { 
+            id: item.product_id,
+            name: item.product_name,
+            price: item.unit_price,
+            type: item.product_type,
+            category: '',
+            cost: 0,
+            available: true
+          },
           quantity: item.quantity,
           unitPrice: item.unit_price,
           totalPrice: item.total_price
@@ -129,8 +136,8 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         status: order.status as Order['status'],
         paymentMethod: order.payment_method as Order['paymentMethod'],
         userId: order.user_id,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at
+        createdAt: new Date(order.created_at),
+        updatedAt: new Date(order.updated_at)
       }));
 
       setOrders(formattedOrders);
@@ -225,7 +232,7 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         cashRegisterId: sale.cash_register_id,
         isDirectSale: sale.is_direct_sale,
         orderId: sale.order_id,
-        createdAt: sale.created_at
+        createdAt: new Date(sale.created_at)
       }));
 
       setSales(formattedSales);
@@ -411,7 +418,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       const ownerId = await getOwnerData();
       if (!ownerId) throw new Error('Usuário não identificado');
 
-      // Buscar caixa aberto
       const { data: cashRegister } = await supabase.rpc('get_open_cash_register', {
         p_owner_id: ownerId
       });
@@ -420,7 +426,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
         throw new Error('Não há caixa aberto. Abra o caixa primeiro.');
       }
 
-      // Criar ordem
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -438,7 +443,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
       if (orderError) throw orderError;
 
-      // Criar itens da ordem
       const orderItems = orderData.items.map(item => ({
         order_id: order.id,
         product_id: item.productId,
@@ -487,14 +491,12 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
       if (error) throw error;
 
-      // Se a ordem foi fechada, criar venda e consumir estoque
       if (updates.status === 'closed') {
         const order = orders.find(o => o.id === id);
         if (order) {
           const ownerId = await getOwnerData();
           if (!ownerId) throw new Error('Usuário não identificado');
 
-          // Buscar caixa aberto
           const { data: cashRegister } = await supabase.rpc('get_open_cash_register', {
             p_owner_id: ownerId
           });
@@ -503,7 +505,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
             throw new Error('Não há caixa aberto.');
           }
 
-          // Criar venda
           const { error: saleError } = await supabase
             .from('sales')
             .insert({
@@ -527,7 +528,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
           if (saleError) throw saleError;
 
-          // Consumir estoque
           for (const item of order.items) {
             await consumeStockForSale(item.productId, item.quantity, ownerId);
           }
@@ -556,7 +556,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
       const ownerId = await getOwnerData();
       if (!ownerId) throw new Error('Usuário não identificado');
 
-      // Buscar caixa aberto
       const { data: cashRegister } = await supabase.rpc('get_open_cash_register', {
         p_owner_id: ownerId
       });
@@ -581,7 +580,6 @@ export const AppProvider = ({ children }: AppProviderProps) => {
 
       if (error) throw error;
 
-      // Consumir estoque para cada item da venda
       if (saleData.items && Array.isArray(saleData.items)) {
         for (const item of saleData.items) {
           await consumeStockForSale(item.productId, item.quantity, ownerId);

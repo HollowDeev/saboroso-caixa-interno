@@ -1,11 +1,11 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Product, ExternalProduct } from '@/types';
-import { Unit, convertToBaseUnit } from '@/utils/unitConversion';
 
 export interface IngredientConsumption {
   ingredientId: string;
   quantity: number;
-  unit: Unit;
+  unit: string;
   ingredientName: string;
 }
 
@@ -92,7 +92,7 @@ export const getFoodIngredients = async (foodId: string): Promise<IngredientCons
     return foodIngredients?.map(fi => ({
       ingredientId: fi.ingredient_id,
       quantity: fi.quantity,
-      unit: fi.unit as Unit,
+      unit: fi.unit,
       ingredientName: fi.ingredients.name
     })) || [];
   } catch (error) {
@@ -128,52 +128,29 @@ export const consumeIngredientsFromStock = async (
         continue;
       }
 
-      if (currentIngredient.unit === 'kg') {
-        const totalQuantityToConsume = ingredient.quantity * quantityMultiplier;
+      let quantityInKg = ingredient.quantity;
+      if (ingredient.unit === 'g') {
+        quantityInKg = ingredient.quantity / 1000;
+      }
 
-        if (currentIngredient.current_stock < totalQuantityToConsume) {
-          errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}kg, Necessário: ${totalQuantityToConsume}kg`);
-          continue;
-        }
+      const totalQuantityToConsume = quantityInKg * quantityMultiplier;
 
-        const { error: updateError } = await supabase.rpc('remove_stock', {
-          p_item_type: 'ingredient',
-          p_item_id: ingredient.ingredientId,
-          p_quantity: totalQuantityToConsume,
-          p_reason: reason,
-          p_user_id: userId
-        });
+      if (currentIngredient.current_stock < totalQuantityToConsume) {
+        errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}kg, Necessário: ${totalQuantityToConsume}kg`);
+        continue;
+      }
 
-        if (updateError) {
-          errors.push(`Erro ao atualizar estoque de ${ingredient.ingredientName}: ${updateError.message}`);
-          continue;
-        }
-      } else {
-        // Se a unidade é 'g', converte para 'kg' antes de consumir
-        let quantityInKg = ingredient.quantity;
-        if (ingredient.unit === 'g') {
-          quantityInKg = ingredient.quantity / 1000;
-        }
+      const { error: updateError } = await supabase.rpc('remove_stock', {
+        p_item_type: 'ingredient',
+        p_item_id: ingredient.ingredientId,
+        p_quantity: totalQuantityToConsume,
+        p_reason: reason,
+        p_user_id: userId
+      });
 
-        const totalQuantityToConsume = quantityInKg * quantityMultiplier;
-
-        if (currentIngredient.current_stock < totalQuantityToConsume) {
-          errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}kg, Necessário: ${totalQuantityToConsume}kg`);
-          continue;
-        }
-
-        const { error: updateError } = await supabase.rpc('remove_stock', {
-          p_item_type: 'ingredient',
-          p_item_id: ingredient.ingredientId,
-          p_quantity: totalQuantityToConsume,
-          p_reason: reason,
-          p_user_id: userId
-        });
-
-        if (updateError) {
-          errors.push(`Erro ao atualizar estoque de ${ingredient.ingredientName}: ${updateError.message}`);
-          continue;
-        }
+      if (updateError) {
+        errors.push(`Erro ao atualizar estoque de ${ingredient.ingredientName}: ${updateError.message}`);
+        continue;
       }
     } catch (error) {
       console.error('Erro ao consumir ingrediente:', error);
@@ -197,7 +174,6 @@ export const consumeExternalProductsFromStock = async (
 
   for (const product of products) {
     try {
-      // Get current external product stock
       const { data: currentProduct, error: getError } = await supabase
         .from('external_products')
         .select('current_stock, name')
@@ -214,16 +190,13 @@ export const consumeExternalProductsFromStock = async (
         continue;
       }
 
-      // Check if there's enough stock
       if (currentProduct.current_stock < product.quantity) {
         errors.push(`Estoque insuficiente para ${product.productName}. Disponível: ${currentProduct.current_stock}, Necessário: ${product.quantity}`);
         continue;
       }
 
-      // Consume from stock using FIFO
       let remainingToConsume = product.quantity;
 
-      // Get available stock entries ordered by date (FIFO)
       const { data: productEntries, error: entriesError } = await supabase
         .from('external_product_entries')
         .select('id, remaining_quantity')
@@ -236,7 +209,6 @@ export const consumeExternalProductsFromStock = async (
         continue;
       }
 
-      // Consume from entries following FIFO
       for (const entry of productEntries || []) {
         if (remainingToConsume <= 0) break;
 
@@ -257,7 +229,6 @@ export const consumeExternalProductsFromStock = async (
         remainingToConsume -= toConsume;
       }
 
-      // Update the total stock of the product
       const newStock = currentProduct.current_stock - product.quantity;
       const { error: updateProductError } = await supabase
         .from('external_products')
@@ -272,7 +243,6 @@ export const consumeExternalProductsFromStock = async (
         continue;
       }
 
-      // Register stock movement
       const { error: movementError } = await supabase
         .from('stock_movements')
         .insert({
@@ -299,87 +269,5 @@ export const consumeExternalProductsFromStock = async (
   return {
     success: errors.length === 0,
     errors
-  };
-};
-
-// Função para processar consumo de ingredientes e produtos externos de uma venda
-export const processOrderItemsStockConsumption = async (
-  orderItems: Array<{ productId: string; quantity: number; product?: Product | ExternalProduct }>,
-  userId: string,
-  reason: string = 'Venda registrada'
-): Promise<{ success: boolean; errors: string[] }> => {
-  const allErrors: string[] = [];
-
-  // Separar comidas de produtos externos
-  const foodItems: Array<{ productId: string; quantity: number; product?: Product | ExternalProduct }> = [];
-  const externalProductItems: ExternalProductConsumption[] = [];
-
-  for (const item of orderItems) {
-    // Verificar se o produto é uma comida (tem ingredientes)
-    const { data: foodExists, error: foodError } = await supabase
-      .from('foods')
-      .select('id')
-      .eq('id', item.productId)
-      .single();
-
-    if (foodError || !foodExists) {
-      // Se não é uma comida, verificar se é um produto externo
-      const { data: externalProduct, error: externalError } = await supabase
-        .from('external_products')
-        .select('id, name')
-        .eq('id', item.productId)
-        .single();
-
-      if (!externalError && externalProduct) {
-        externalProductItems.push({
-          productId: item.productId,
-          quantity: item.quantity,
-          productName: externalProduct.name
-        });
-      } else {
-        allErrors.push(`Produto ${item.productId} não encontrado em nenhuma tabela`);
-      }
-      continue;
-    }
-
-    foodItems.push(item);
-  }
-
-  // Processar consumo de ingredientes para comidas
-  for (const item of foodItems) {
-    const ingredients = await getFoodIngredients(item.productId);
-    
-    if (ingredients.length === 0) {
-      continue;
-    }
-
-    const result = await consumeIngredientsFromStock(
-      ingredients,
-      item.quantity,
-      `${reason} - ${item.product?.name || 'Produto'} (${item.quantity}x)`,
-      userId
-    );
-
-    if (!result.success) {
-      allErrors.push(...result.errors);
-    }
-  }
-
-  // Processar consumo de produtos externos
-  if (externalProductItems.length > 0) {
-    const result = await consumeExternalProductsFromStock(
-      externalProductItems,
-      reason,
-      userId
-    );
-
-    if (!result.success) {
-      allErrors.push(...result.errors);
-    }
-  }
-
-  return {
-    success: allErrors.length === 0,
-    errors: allErrors
   };
 };
