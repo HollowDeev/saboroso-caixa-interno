@@ -389,19 +389,17 @@ export const StockManagement = () => {
     e.preventDefault();
 
     try {
-      // Converte todos os ingredientes não-unitários para kg antes de salvar
+      // Converte todas as quantidades para kg
       const ingredientsInKg = newFoodForm.ingredients.map(ing => {
-        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-        if (!ingredient || ingredient.unit === 'unidade') return ing;
-
-        // Se estiver em g, converte para kg
         let quantityInKg = ing.quantity;
+
+        // Se a unidade for g, converte para kg
         if (ing.unit === 'g') {
           quantityInKg = ing.quantity / 1000;
         }
 
         return {
-          ...ing,
+          ingredientId: ing.ingredientId,
           quantity: Number(quantityInKg.toFixed(3)),
           unit: 'kg'  // Sempre salva em kg
         };
@@ -415,7 +413,7 @@ export const StockManagement = () => {
         cost: newFoodForm.cost,
         available: newFoodForm.available,
         ingredients: ingredientsInKg,
-        preparationTime: 0
+        preparation_time: 0
       });
 
       setIsNewFoodDialogOpen(false);

@@ -7,7 +7,49 @@ import React, {
 } from 'react';
 import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, AppContextType, OrderItem, NewOrderItem, PaymentMethod } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+<<<<<<< Updated upstream
 import { useToast } from "@/components/ui/use-toast"
+=======
+import { useToast } from '@/hooks/use-toast';
+import {
+  User,
+  Product,
+  ExternalProduct,
+  Ingredient,
+  Order,
+  Sale,
+  CashRegister,
+  NewOrderItem,
+  PaymentMethod,
+  Unit,
+  DiscountCoupon
+} from '@/types';
+import { useCashRegister } from '@/hooks/useCashRegister';
+
+interface AppContextType {
+  user: User | null;
+  products: Product[];
+  externalProducts: ExternalProduct[];
+  ingredients: Ingredient[];
+  orders: Order[];
+  sales: Sale[];
+  coupons: DiscountCoupon[];
+  currentCashRegister: CashRegister | null;
+  isLoading: boolean;
+  currentUserId: string | null;
+  checkCashRegisterAccess: () => boolean;
+  openCashRegister: (amount: number) => Promise<CashRegister>;
+  closeCashRegister: (amount: number) => Promise<void>;
+  addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
+  closeOrder: (orderId: string, paymentMethod: PaymentMethod) => Promise<Sale | null>;
+  updateStock: (productId: string, quantity: number, type: 'ingredient' | 'external_product') => Promise<void>;
+  deleteSale: (saleId: string) => Promise<void>;
+  createOrder: (tableNumber?: number, customerName?: string) => Promise<Order>;
+  deleteOrder: (orderId: string) => Promise<void>;
+  refreshData: () => Promise<void>;
+  addProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'owner_id'>) => Promise<Product>;
+}
+>>>>>>> Stashed changes
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -29,7 +71,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       setIsLoading(true);
+<<<<<<< Updated upstream
       console.log('Loading data for user:', currentUser.id, 'role:', currentUser.role);
+=======
+
+      // Get current user
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      console.log('Current auth user:', authUser);
+
+      if (!authUser) {
+        console.log('No authenticated user');
+        setIsLoading(false);
+        return;
+      }
+>>>>>>> Stashed changes
 
       // Para funcionários, usar o owner_id; para admin, usar o próprio id
       const ownerId = currentUser.role === 'employee'
@@ -38,8 +93,272 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       console.log('Using owner ID:', ownerId);
 
+<<<<<<< Updated upstream
       // Load ingredients
       const { data: ingredientsData, error: ingredientsError } = await supabase
+=======
+      let ownerId = authUser.id;
+      let userRole = 'cashier';
+
+      if (employee) {
+        // User is an employee, use owner_id for data fetching
+        ownerId = employee.owner_id;
+        userRole = 'employee';
+
+        setUser({
+          id: employee.id,
+          email: employee.access_code,
+          role: 'employee',
+          name: employee.name,
+          created_at: employee.created_at,
+          updated_at: employee.updated_at,
+          owner_id: employee.owner_id
+        });
+      } else {
+        // Check profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (profile) {
+          userRole = profile.role;
+          setUser({
+            id: profile.id,
+            email: profile.email || authUser.email || '',
+            role: profile.role as 'admin' | 'employee',
+            name: profile.name || '',
+            created_at: profile.created_at,
+            updated_at: profile.updated_at
+          });
+        }
+      }
+
+      console.log('Using owner_id for data fetching:', ownerId);
+
+      // Fetch products (foods + external products combined)
+      const [foodsResult, externalProductsResult, ingredientsResult, ordersResult, salesResult, couponsResult] = await Promise.all([
+        supabase
+          .from('foods')
+          .select(`
+            *,
+            food_ingredients (
+              ingredient_id,
+              quantity,
+              unit
+            )
+          `)
+          .eq('owner_id', ownerId)
+          .is('deleted_at', null),
+        supabase
+          .from('external_products')
+          .select('*')
+          .eq('owner_id', ownerId),
+        supabase
+          .from('ingredients')
+          .select('*')
+          .eq('owner_id', ownerId),
+        supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              product_id,
+              product_name,
+              quantity,
+              unit_price,
+              total_price,
+              product_type
+            )
+          `)
+          .eq('user_id', ownerId),
+        supabase
+          .from('sales')
+          .select('*')
+          .eq('user_id', ownerId),
+        supabase
+          .from('discount_coupons')
+          .select('*')
+          .eq('owner_id', ownerId)
+      ]);
+
+      // Transform and combine products
+      const transformedFoods = (foodsResult.data || []).map(food => ({
+        id: food.id,
+        name: food.name,
+        description: food.description || '',
+        price: food.price,
+        cost: food.cost,
+        category: food.category,
+        preparation_time: food.preparation_time,
+        available: food.available,
+        owner_id: food.owner_id,
+        created_at: food.created_at,
+        updated_at: food.updated_at,
+        ingredients: (food.food_ingredients || []).map((ing: any) => ({
+          ingredientId: ing.ingredient_id,
+          quantity: ing.quantity,
+          unit: ing.unit
+        }))
+      }));
+
+      setProducts(transformedFoods);
+
+      const transformedExternalProducts = (externalProductsResult.data || []).map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description || '',
+        brand: product.brand || '',
+        price: product.price,
+        cost: product.cost,
+        current_stock: product.current_stock,
+        min_stock: product.min_stock,
+        owner_id: product.owner_id,
+        created_at: product.created_at,
+        updated_at: product.updated_at
+      }));
+
+      setExternalProducts(transformedExternalProducts);
+
+      // Fetch ingredients
+      const transformedIngredients = (ingredientsResult.data || []).map(ingredient => ({
+        ...ingredient,
+        unit: ingredient.unit as Unit
+      }));
+
+      setIngredients(transformedIngredients);
+
+      // Fetch orders
+      const transformedOrders = (ordersResult.data || []).map(order => ({
+        id: order.id,
+        tableNumber: order.table_number,
+        customerName: order.customer_name,
+        status: order.status as 'open' | 'closed',
+        total: order.total,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        items: (order.order_items || []).map((item: any) => ({
+          id: item.id,
+          productId: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          totalPrice: item.total_price,
+          product_type: item.product_type
+        })),
+        createdAt: order.created_at,
+        userId: order.user_id,
+        paymentMethod: order.payment_method as PaymentMethod
+      }));
+
+      setOrders(transformedOrders);
+
+      // Fetch sales
+      const transformedSales = (salesResult.data || []).map(sale => ({
+        id: sale.id,
+        total: sale.total,
+        subtotal: sale.subtotal,
+        tax: sale.tax,
+        paymentMethod: sale.payment_method as PaymentMethod,
+        userId: sale.user_id,
+        customerName: sale.customer_name,
+        createdAt: sale.created_at,
+        is_direct_sale: sale.is_direct_sale,
+        cash_register_id: sale.cash_register_id,
+        order_id: sale.order_id,
+        items: sale.items ? JSON.parse(sale.items as string) : []
+      }));
+
+      setSales(transformedSales);
+
+      // Fetch coupons
+      setCoupons(couponsResult.data || []);
+
+      console.log('Orders loaded:', transformedOrders);
+      console.log('Sales loaded:', transformedSales);
+      console.log('Coupons loaded:', couponsResult.data);
+      console.log('Data loading completed successfully');
+
+    } catch (error: any) {
+      console.error('Erro ao carregar dados iniciais:', error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchEmployeeData = async (employeeOwnerId: string) => {
+    try {
+      console.log('=== CARREGANDO DADOS DO FUNCIONÁRIO ===');
+      console.log('Owner ID do funcionário:', employeeOwnerId);
+
+      // Fetch products (foods + external products combined)
+      const [foodsResult, externalProductsResult] = await Promise.all([
+        supabase
+          .from('foods')
+          .select(`
+            *,
+            food_ingredients (
+              ingredient_id,
+              quantity,
+              unit
+            )
+          `)
+          .eq('owner_id', employeeOwnerId)
+          .is('deleted_at', null),
+        supabase
+          .from('external_products')
+          .select('*')
+          .eq('owner_id', employeeOwnerId)
+      ]);
+
+      // Transform and combine products
+      const transformedFoods = (foodsResult.data || []).map(food => ({
+        id: food.id,
+        name: food.name,
+        description: food.description || '',
+        price: food.price,
+        cost: food.cost,
+        category: food.category,
+        preparation_time: food.preparation_time,
+        available: food.available,
+        owner_id: food.owner_id,
+        created_at: food.created_at,
+        updated_at: food.updated_at,
+        ingredients: (food.food_ingredients || []).map((ing: any) => ({
+          ingredientId: ing.ingredient_id,
+          quantity: ing.quantity,
+          unit: ing.unit
+        }))
+      }));
+
+      setProducts(transformedFoods);
+
+      const transformedExternalProducts = (externalProductsResult.data || []).map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description || '',
+        brand: product.brand || '',
+        price: product.price,
+        cost: product.cost,
+        current_stock: product.current_stock,
+        min_stock: product.min_stock,
+        owner_id: product.owner_id,
+        created_at: product.created_at,
+        updated_at: product.updated_at
+      }));
+
+      setExternalProducts(transformedExternalProducts);
+
+      // Fetch ingredients
+      const { data: ingredientsData } = await supabase
+>>>>>>> Stashed changes
         .from('ingredients')
         .select('*')
         .eq('owner_id', ownerId)
@@ -388,17 +707,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) throw error;
 
+<<<<<<< Updated upstream
       // Buscar todos os itens da comanda para recalcular os totais
       const { data: orderItems, error: itemsError } = await supabase
         .from('order_items')
         .select('*')
         .eq('order_id', orderId);
+=======
+      // Update order total
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        const newTotal = order.total + item.totalPrice;
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            total: newTotal,
+            subtotal: newTotal,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', orderId);
+>>>>>>> Stashed changes
 
       if (itemsError) throw itemsError;
 
+<<<<<<< Updated upstream
       // Calcular novos totais
       const subtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
       const total = subtotal; // Removida a taxa automática
+=======
+        // Update local state
+        setOrders(prevOrders =>
+          prevOrders.map(o =>
+            o.id === orderId
+              ? {
+                ...o,
+                total: newTotal,
+                subtotal: newTotal,
+                items: [...o.items, {
+                  id: '',
+                  productId: item.productId,
+                  product_name: item.product.name,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  totalPrice: item.totalPrice,
+                  product_type: 'external_product' in item.product ? 'external_product' : 'food'
+                }]
+              }
+              : o
+          )
+        );
+      }
+>>>>>>> Stashed changes
 
       // Atualizar os totais da comanda
       const { error: updateError } = await supabase
@@ -425,6 +784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Buscar a comanda e seus itens
       const { data: order, error: orderError } = await supabase
         .from('orders')
+<<<<<<< Updated upstream
         .select(`
           *,
           order_items (*)
@@ -494,6 +854,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Atualizar o status da comanda
       const { error: updateError } = await supabase
         .from('orders')
+=======
+>>>>>>> Stashed changes
         .update({
           status: 'closed',
           payment_method: paymentMethod,
@@ -522,6 +884,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .select()
         .single();
 
+<<<<<<< Updated upstream
+=======
+      if (saleError) throw saleError;
+
+      // Update local state
+      setOrders(prevOrders =>
+        prevOrders.map(o =>
+          o.id === orderId
+            ? { ...o, status: 'closed' as const, paymentMethod }
+            : o
+        )
+      );
+
+      const newSale: Sale = {
+        id: sale.id,
+        total: sale.total,
+        subtotal: sale.subtotal,
+        tax: sale.tax,
+        paymentMethod: sale.payment_method as PaymentMethod,
+        userId: sale.user_id,
+        customerName: sale.customer_name,
+        createdAt: sale.created_at,
+        is_direct_sale: sale.is_direct_sale,
+        cash_register_id: sale.cash_register_id,
+        order_id: sale.order_id,
+        items: order.items
+      };
+
+      setSales(prevSales => [newSale, ...prevSales]);
+
+      toast({
+        title: "Comanda fechada",
+        description: "Comanda fechada com sucesso!",
+      });
+
+      return newSale;
+
+    } catch (error: any) {
+      console.error('Erro ao fechar comanda:', error);
+      throw error;
+    }
+  };
+
+  const updateStock = async (productId: string, quantity: number, type: 'ingredient' | 'external_product') => {
+    try {
+      const { error } = await supabase.rpc('remove_stock', {
+        p_item_type: type,
+        p_item_id: productId,
+        p_quantity: quantity,
+        p_reason: 'Venda',
+        p_user_id: currentUserId
+      });
+
+>>>>>>> Stashed changes
       if (error) throw error;
       await loadData();
     } catch (error) {
@@ -864,11 +1280,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+<<<<<<< Updated upstream
   const openCashRegister = async (amount: number) => {
     try {
       const ownerId = currentUser?.role === 'employee'
         ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
+=======
+  const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'owner_id'>): Promise<Product> => {
+    try {
+      // Primeiro, vamos extrair os ingredientes e o product_type do produto
+      const { ingredients: productIngredients, product_type, ...foodData } = product as any;
+
+      // Inserir o produto na tabela foods
+      const { data: foodData_, error: foodError } = await supabase
+        .from('foods')
+        .insert([{
+          ...foodData,
+          owner_id: user?.owner_id || user?.id
+        }])
+        .select()
+        .single();
+
+      if (foodError) throw foodError;
+
+      // Se houver ingredientes, vamos salvá-los na tabela food_ingredients
+      if (productIngredients && productIngredients.length > 0) {
+        const foodIngredients = productIngredients.map((ing: any) => ({
+          food_id: foodData_.id,
+          ingredient_id: ing.ingredientId,
+          quantity: ing.quantity,
+          unit: ing.unit
+        }));
+
+        const { error: ingredientsError } = await supabase
+          .from('food_ingredients')
+          .insert(foodIngredients);
+
+        if (ingredientsError) throw ingredientsError;
+      }
+
+      const newProduct: Product = {
+        id: foodData_.id,
+        name: foodData_.name,
+        description: foodData_.description || '',
+        price: foodData_.price,
+        cost: foodData_.cost,
+        category: foodData_.category,
+        preparation_time: foodData_.preparation_time,
+        available: foodData_.available,
+        owner_id: foodData_.owner_id,
+        created_at: foodData_.created_at,
+        updated_at: foodData_.updated_at,
+        product_type: 'food' // Adicionamos aqui apenas para o tipo, não vai para o banco
+      };
+
+      setProducts(prev => [...prev, newProduct]);
+      return newProduct;
+    } catch (error) {
+      console.error('Erro ao adicionar produto:', error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+>>>>>>> Stashed changes
 
       const { data, error } = await supabase
         .from('cash_registers')
@@ -892,6 +1370,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+<<<<<<< Updated upstream
   const closeCashRegister = async (amount: number) => {
     try {
       const { error } = await supabase
@@ -975,6 +1454,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+=======
+  return (
+    <AppContext.Provider value={{
+      user,
+      products,
+      externalProducts,
+      ingredients,
+      orders,
+      sales,
+      coupons,
+      currentCashRegister,
+      isLoading,
+      currentUserId,
+      checkCashRegisterAccess,
+      openCashRegister,
+      closeCashRegister,
+      addItemToOrder,
+      closeOrder,
+      updateStock,
+      deleteSale,
+      createOrder,
+      deleteOrder,
+      refreshData,
+      addProduct
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+>>>>>>> Stashed changes
 };
 
 export const useAppContext = () => {

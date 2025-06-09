@@ -25,6 +25,13 @@ export interface Ingredient {
   updated_at: string;
 }
 
+export interface FoodIngredient {
+  food_id: string;
+  ingredient_id: string;
+  quantity: number;
+  unit: Unit;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -38,6 +45,7 @@ export interface Product {
   created_at: string;
   updated_at: string;
   product_type: 'food';
+  ingredients?: FoodIngredient[];
 }
 
 export interface ExternalProduct {
