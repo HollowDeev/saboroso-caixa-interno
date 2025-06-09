@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { usePrint } from '@/hooks/usePrint';
 
 export const Sales = () => {
   const {
@@ -55,6 +56,8 @@ export const Sales = () => {
   const [saleToDelete, setSaleToDelete] = useState<any | null>(null);
 
   const isOwner = checkCashRegisterAccess();
+
+  const { printSale } = usePrint();
 
   useEffect(() => {
     const loadCashRegisterSales = async () => {
@@ -402,6 +405,18 @@ export const Sales = () => {
                         </Badge>
                         <span className="font-bold text-sm sm:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
                         <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              printSale(sale);
+                            }}
+                            title="Imprimir venda"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
