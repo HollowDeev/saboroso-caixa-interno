@@ -389,10 +389,38 @@ export const StockManagement = () => {
     e.preventDefault();
 
     try {
+      // Validações
+      if (!newFoodForm.name.trim()) {
+        throw new Error('O nome da comida é obrigatório');
+      }
+
+      if (!newFoodForm.ingredients.length) {
+        throw new Error('Adicione pelo menos um ingrediente');
+      }
+
+      // Validar cada ingrediente
+      const invalidIngredient = newFoodForm.ingredients.find(
+        ing => !ing.ingredientId || !ing.quantity || ing.quantity <= 0
+      );
+
+      if (invalidIngredient) {
+        throw new Error('Todos os ingredientes precisam ter um item selecionado e uma quantidade válida');
+      }
+
       // Converte todos os ingredientes não-unitários para kg antes de salvar
       const ingredientsInKg = newFoodForm.ingredients.map(ing => {
         const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-        if (!ingredient || ingredient.unit === 'unidade') return ing;
+        if (!ingredient) {
+          throw new Error(`Ingrediente não encontrado: ${ing.ingredientId}`);
+        }
+
+        if (ingredient.unit === 'unidade') {
+          return {
+            ingredient_id: ing.ingredientId,
+            quantity: ing.quantity,
+            unit: 'unidade'
+          };
+        }
 
         // Se estiver em g, converte para kg
         let quantityInKg = ing.quantity;
@@ -401,7 +429,7 @@ export const StockManagement = () => {
         }
 
         return {
-          ...ing,
+          ingredient_id: ing.ingredientId,
           quantity: Number(quantityInKg.toFixed(3)),
           unit: 'kg'  // Sempre salva em kg
         };
@@ -409,13 +437,13 @@ export const StockManagement = () => {
 
       const newProduct = await addProduct({
         name: newFoodForm.name,
-        description: newFoodForm.description,
-        category: newFoodForm.category,
-        price: newFoodForm.price,
-        cost: newFoodForm.cost,
-        available: newFoodForm.available,
-        ingredients: ingredientsInKg,
-        preparationTime: 0
+        description: newFoodForm.description || '',
+        category: newFoodForm.category || 'Geral',
+        price: newFoodForm.price || 0,
+        cost: newFoodForm.cost || 0,
+        available: true,
+        preparation_time: 0,
+        ingredients: ingredientsInKg
       });
 
       setIsNewFoodDialogOpen(false);
@@ -433,11 +461,11 @@ export const StockManagement = () => {
         title: 'Comida adicionada',
         description: 'A comida foi adicionada com sucesso.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar comida:', error);
       toast({
         title: 'Erro ao salvar comida',
-        description: 'Não foi possível salvar a comida.',
+        description: error.message || 'Não foi possível salvar a comida.',
         variant: 'destructive',
       });
     }

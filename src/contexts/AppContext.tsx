@@ -566,13 +566,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
-      const { data, error } = await supabase
+      // Separar os ingredientes do produto
+      const { ingredients: productIngredients, ...foodData } = product;
+
+      // Primeiro criar o produto
+      const { data: newFood, error: foodError } = await supabase
         .from('foods')
-        .insert([{ ...product, owner_id: ownerId }])
+        .insert([{
+          ...foodData,
+          owner_id: ownerId,
+          deleted_at: null
+        }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (foodError) {
+        console.error('Erro ao criar comida:', foodError);
+        throw foodError;
+      }
+
+      // Se houver ingredientes, criar os relacionamentos
+      if (productIngredients && productIngredients.length > 0) {
+        const foodIngredients = productIngredients.map(ing => ({
+          food_id: newFood.id,
+          ingredient_id: ing.ingredient_id,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }));
+
+        const { error: ingredientsError } = await supabase
+          .from('food_ingredients')
+          .insert(foodIngredients);
+
+        if (ingredientsError) {
+          // Se falhar ao criar os ingredientes, deletar a comida criada
+          await supabase.from('foods').delete().eq('id', newFood.id);
+          console.error('Erro ao criar ingredientes:', ingredientsError);
+          throw ingredientsError;
+        }
+      }
+
       await loadData();
     } catch (error) {
       console.error('Error adding product:', error);
