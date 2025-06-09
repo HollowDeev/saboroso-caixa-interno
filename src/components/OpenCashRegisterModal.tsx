@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { DollarSign, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface OpenCashRegisterModalProps {
   isOpen: boolean;
@@ -65,16 +66,22 @@ export const OpenCashRegisterModal = ({ isOpen, onClose, onConfirm }: OpenCashRe
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Abrir Caixa</DialogTitle>
+          <DialogTitle className="flex items-center space-x-2">
+            <DollarSign className="h-5 w-5 text-green-500" />
+            <span>Abrir Caixa</span>
+          </DialogTitle>
+          <DialogDescription>
+            Informe o valor inicial disponível no caixa.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
             <Label htmlFor="openingAmount">Valor inicial do caixa</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2">R$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
               <Input
                 id="openingAmount"
                 type="text"
@@ -84,6 +91,9 @@ export const OpenCashRegisterModal = ({ isOpen, onClose, onConfirm }: OpenCashRe
                 className="pl-8"
               />
             </div>
+            <p className="text-sm text-gray-500">
+              Este valor será usado como base para o fechamento do caixa.
+            </p>
           </div>
 
           {error && (
@@ -92,12 +102,30 @@ export const OpenCashRegisterModal = ({ isOpen, onClose, onConfirm }: OpenCashRe
             </Alert>
           )}
 
-          <div className="flex space-x-2">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <p className="text-sm text-orange-800 flex items-center">
+              <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
+              Certifique-se de contar o dinheiro corretamente antes de abrir o caixa.
+            </p>
+          </div>
+
+          <div className="flex space-x-2 pt-2">
             <Button variant="outline" onClick={onClose} disabled={loading} className="flex-1">
               Cancelar
             </Button>
-            <Button onClick={handleConfirm} disabled={loading} className="flex-1">
-              {loading ? 'Abrindo...' : 'Abrir Caixa'}
+            <Button
+              onClick={handleConfirm}
+              disabled={loading}
+              className="flex-1 bg-green-500 hover:bg-green-600"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Abrindo...
+                </>
+              ) : (
+                'Abrir Caixa'
+              )}
             </Button>
           </div>
         </div>

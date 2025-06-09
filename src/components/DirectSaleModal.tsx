@@ -6,8 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { OrderItem, Product, ServiceTax, ExternalProduct } from '@/types';
-import { Switch } from '@/components/ui/switch';
+import { OrderItem, Product, ExternalProduct } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 
@@ -17,21 +16,11 @@ interface DirectSaleModalProps {
 }
 
 export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
-  const { products, externalProducts, currentUser, addSale, serviceTaxes, currentCashRegister } = useApp();
+  const { products, externalProducts, currentUser, addSale, currentCashRegister } = useApp();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
-  const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
-    serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id)
-  );
   const [searchTerm, setSearchTerm] = useState('');
-
-  React.useEffect(() => {
-    if (isOpen) {
-      // Reseta as taxas selecionadas quando o modal é aberto
-      setSelectedTaxes(serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id));
-    }
-  }, [isOpen, serviceTaxes]);
 
   const addItem = (product: Product | ExternalProduct) => {
     const existingItem = selectedItems.find(item => item.productId === product.id);
@@ -47,7 +36,8 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         productId: product.id,
         product: {
           ...product,
-          available: 'current_stock' in product ? product.current_stock > 0 : product.available
+          available: 'current_stock' in product ? product.current_stock > 0 : product.available,
+          product_type: 'current_stock' in product ? 'external_product' : 'food'
         },
         quantity: 1,
         unitPrice: product.price,
@@ -74,27 +64,6 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     ));
   };
 
-  const calculateTotal = () => {
-    const subtotal = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const taxes = serviceTaxes
-      .filter(tax => selectedTaxes.includes(tax.id))
-      .map(tax => ({
-        id: tax.id,
-        name: tax.name,
-        value: subtotal * (tax.percentage / 100)
-      }));
-    const taxesTotal = taxes.reduce((sum, tax) => sum + tax.value, 0);
-    return { subtotal, taxes, taxesTotal, total: subtotal + taxesTotal };
-  };
-
-  const toggleTax = (taxId: string) => {
-    setSelectedTaxes(prev =>
-      prev.includes(taxId)
-        ? prev.filter(id => id !== taxId)
-        : [...prev, taxId]
-    );
-  };
-
   const createDirectSale = async () => {
     if (selectedItems.length === 0) {
       toast({
@@ -115,7 +84,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     }
 
     try {
-      const { subtotal, taxesTotal, total } = calculateTotal();
+      const total = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
       // Verificar estoque antes de criar a venda
       const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
@@ -124,10 +93,17 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         selectedItems.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
-          product: item.product
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            price: item.product.price,
+            available: item.product.available,
+            current_stock: 'current_stock' in item.product ? item.product.current_stock : undefined,
+            product_type: item.product.product_type
+          }
         })),
-        'temp-user-id', // Será substituído no addSale
-        'Verificação de estoque'
+        currentUser!.id,
+        'Venda Direta'
       );
 
       // Se há erros críticos de estoque, mostrar aviso mas permitir continuar
@@ -144,18 +120,21 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
       // Criar a venda direta (isso já processará o consumo de estoque)
       await addSale({
         total,
-        subtotal,
-        tax: taxesTotal,
+        subtotal: total, // Garantindo que o subtotal seja igual ao total
+        tax: 0,
         paymentMethod,
         userId: currentUser!.id,
         customerName: customerName || undefined,
         is_direct_sale: true,
+        cash_register_id: currentCashRegister.id,
         items: selectedItems.map(item => ({
+          id: '', // ID será gerado pelo banco
           productId: item.productId,
           product_name: item.product.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice
+          totalPrice: item.totalPrice,
+          product_type: item.product.product_type
         }))
       });
 
@@ -180,7 +159,11 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     }
   };
 
-  const { subtotal, taxes, taxesTotal, total } = calculateTotal();
+  const handleRemoveItem = (index: number) => {
+    removeItem(selectedItems[index].productId);
+  };
+
+  const total = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -196,10 +179,6 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     setSelectedItems(updatedItems);
   };
 
-  const handleRemoveItem = (index: number) => {
-    removeItem(selectedItems[index].productId);
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
@@ -211,7 +190,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
           {/* Left Column - Product Selection */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="customerName">Nome do Cliente</Label>
+              <Label htmlFor="customerName">Nome do Cliente (opcional)</Label>
               <Input
                 id="customerName"
                 value={customerName}
@@ -219,38 +198,6 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                 placeholder="Digite o nome do cliente"
                 className="mt-1"
               />
-            </div>
-
-            <div>
-              <Label>Produtos</Label>
-              <div className="mt-1 relative">
-                <Input
-                  type="text"
-                  placeholder="Buscar produto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
-                {searchTerm && filteredProducts.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
-                    {filteredProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => handleProductSelect(product)}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-100 flex justify-between items-center"
-                      >
-                        <div>
-                          <div className="font-medium text-sm sm:text-base">{product.name}</div>
-                          <div className="text-xs sm:text-sm text-gray-500">R$ {product.price.toFixed(2)}</div>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {product.category}
-                        </Badge>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
 
             <div>
@@ -266,50 +213,86 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
+              <div className="grid grid-cols-1 gap-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
+                  {products.filter(p => p.available).map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => addItem(product)}
+                        className="bg-green-500 hover:bg-green-600"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
+                  {externalProducts.filter(p => p.current_stock > 0).map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                        {product.brand && (
+                          <p className="text-xs text-gray-500">{product.brand}</p>
+                        )}
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => addItem(product)}
+                        className="bg-green-500 hover:bg-green-600"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Column - Selected Items */}
           <div className="space-y-4">
             <div>
-              <Label>Itens Selecionados</Label>
-              <div className="mt-2 space-y-2">
+              <h3 className="font-semibold">Itens Selecionados</h3>
+              <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
                 {selectedItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 p-3 bg-gray-50 rounded-lg"
-                  >
+                  <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <div className="font-medium text-sm sm:text-base">{item.product.name}</div>
-                      <div className="text-xs sm:text-sm text-gray-500">
-                        R$ {item.unitPrice.toFixed(2)} cada
-                      </div>
+                      <p className="font-medium">{item.product.name}</p>
+                      <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center space-x-2">
                       <Button
-                        variant="outline"
                         size="sm"
-                        onClick={() => handleQuantityChange(index, -1)}
+                        variant="outline"
+                        onClick={() => handleQuantityChange(index, item.quantity - 1)}
                         disabled={item.quantity <= 1}
-                        className="px-2"
                       >
                         -
                       </Button>
-                      <span className="text-sm sm:text-base font-medium min-w-[40px] text-center">
-                        {item.quantity}
-                      </span>
+                      <span className="w-8 text-center">{item.quantity}</span>
                       <Button
-                        variant="outline"
                         size="sm"
-                        onClick={() => handleQuantityChange(index, 1)}
-                        className="px-2"
+                        variant="outline"
+                        onClick={() => handleQuantityChange(index, item.quantity + 1)}
                       >
                         +
                       </Button>
                       <Button
-                        variant="destructive"
                         size="sm"
+                        variant="destructive"
                         onClick={() => handleRemoveItem(index)}
-                        className="px-2"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -326,17 +309,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
             </div>
 
             <div className="border-t pt-4 space-y-2 mt-4">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span>R$ {subtotal.toFixed(2)}</span>
-              </div>
-              {taxes.map((tax) => (
-                <div key={tax.id} className="flex justify-between text-sm">
-                  <span>{tax.name}:</span>
-                  <span>R$ {tax.value.toFixed(2)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between font-bold text-base sm:text-lg pt-2 border-t">
+              <div className="flex justify-between font-bold text-base sm:text-lg">
                 <span>Total:</span>
                 <span>R$ {total.toFixed(2)}</span>
               </div>

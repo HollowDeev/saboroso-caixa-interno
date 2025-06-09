@@ -83,8 +83,7 @@ export const Orders = () => {
 
   const calculateTotal = () => {
     const subtotal = selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0);
-    const tax = subtotal * 0.1;
-    return { subtotal, tax, total: subtotal + tax };
+    return { subtotal, tax: 0, total: subtotal };
   };
 
   const createOrder = async () => {
@@ -273,10 +272,6 @@ export const Orders = () => {
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
                       <span>R$ {calculateTotal().subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Taxa (10%):</span>
-                      <span>R$ {calculateTotal().tax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg">
                       <span>Total:</span>

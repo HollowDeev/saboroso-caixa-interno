@@ -101,16 +101,8 @@ export const EditSaleModal = ({ sale, onClose }: EditSaleModalProps) => {
                   </span>
                 </div>
               ))}
-              <div className="border-t pt-2 mt-2 space-y-2">
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span>R$ {sale.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm">
-                  <span className="text-gray-600">Taxa:</span>
-                  <span>R$ {sale.tax.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between font-medium text-sm sm:text-base pt-2 border-t">
+              <div className="border-t pt-2 mt-2">
+                <div className="flex justify-between font-medium text-sm sm:text-base">
                   <span>Total:</span>
                   <span>R$ {sale.total.toFixed(2)}</span>
                 </div>

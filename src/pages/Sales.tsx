@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -225,26 +225,36 @@ export const Sales = () => {
       {/* Cash Register Status */}
       {currentCashRegister && (
         <Card className="border-green-200 bg-green-50">
-          <CardHeader>
-            <CardTitle className="text-green-800">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center text-green-800">
+              <CheckCircle className="h-5 w-5 mr-2" />
               Caixa Aberto
             </CardTitle>
+            <p className="text-sm text-green-600">
+              Aberto em: {new Date(currentCashRegister.opened_at).toLocaleString()}
+            </p>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-3 bg-white rounded-lg">
                 <p className="text-sm text-green-600">Valor de Abertura</p>
                 <p className="text-lg font-semibold text-green-800">
                   R$ {currentCashRegister.opening_amount.toFixed(2)}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-green-600">Total de Vendas</p>
+              <div className="p-3 bg-white rounded-lg">
+                <p className="text-sm text-green-600">Total em Vendas</p>
                 <p className="text-lg font-semibold text-green-800">
                   R$ {currentCashRegister.total_sales.toFixed(2)}
                 </p>
               </div>
-              <div>
+              <div className="p-3 bg-white rounded-lg">
+                <p className="text-sm text-green-600">Total em Caixa</p>
+                <p className="text-lg font-semibold text-green-800">
+                  R$ {(currentCashRegister.opening_amount + currentCashRegister.total_sales).toFixed(2)}
+                </p>
+              </div>
+              <div className="p-3 bg-white rounded-lg">
                 <p className="text-sm text-green-600">Número de Pedidos</p>
                 <p className="text-lg font-semibold text-green-800">
                   {currentCashRegister.total_orders}
@@ -391,6 +401,30 @@ export const Sales = () => {
                             sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
                         </Badge>
                         <span className="font-bold text-sm sm:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setEditingSale(sale);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSaleToDelete(sale);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                         <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                       </div>
                     </div>
@@ -418,43 +452,12 @@ export const Sales = () => {
                           </div>
                         ))}
                       </div>
-                      {/* Sale Summary */}
+                      {/* Sale Total */}
                       <div className="border-t border-gray-200 pt-3">
-                        <div className="flex justify-between text-xs sm:text-sm">
-                          <span className="text-gray-600">Subtotal:</span>
-                          <span>R$ {sale.subtotal.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs sm:text-sm">
-                          <span className="text-gray-600">Taxa:</span>
-                          <span>R$ {sale.tax.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between font-medium text-sm sm:text-base mt-2 pt-2 border-t">
+                        <div className="flex justify-between font-medium text-sm sm:text-base">
                           <span>Total:</span>
                           <span>R$ {sale.total.toFixed(2)}</span>
                         </div>
-                      </div>
-                      {/* Actions */}
-                      <div className="flex justify-end gap-2 mt-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setEditingSale(sale);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSaleToDelete(sale);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                   </AccordionContent>

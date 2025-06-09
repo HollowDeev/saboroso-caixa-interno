@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -38,6 +37,7 @@ export interface Product {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  product_type: 'food';
 }
 
 export interface ExternalProduct {
@@ -52,20 +52,17 @@ export interface ExternalProduct {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  product_type: 'external_product';
 }
 
 export interface OrderItem {
   id?: string;
   productId: string;
-  product_name?: string;
-  product?: Product | ExternalProduct;
+  product: Product | ExternalProduct;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  order_id?: string;
-  cash_register_id?: string;
-  product_type?: string;
-  created_at?: string;
+  product_name?: string;
 }
 
 export interface NewOrderItem {

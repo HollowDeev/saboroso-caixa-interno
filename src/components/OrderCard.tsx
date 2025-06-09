@@ -210,10 +210,6 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                         <span>Subtotal:</span>
                         <span>R$ {order.subtotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Taxa (10%):</span>
-                        <span>R$ {order.tax.toFixed(2)}</span>
-                      </div>
                       <div className="flex justify-between font-bold text-lg">
                         <span>Total:</span>
                         <span>R$ {order.total.toFixed(2)}</span>

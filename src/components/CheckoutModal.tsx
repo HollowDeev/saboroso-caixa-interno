@@ -7,31 +7,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { Order, OrderItem, Product, ServiceTax, NewOrderItem, ExternalProduct } from '@/types/index';
+import { Order, OrderItem, Product, ExternalProduct } from '@/types';
 import { Switch } from '@/components/ui/switch';
 
 interface CheckoutModalProps {
-  order: Order | null;
   isOpen: boolean;
   onClose: () => void;
+  order: Order | null;
 }
 
-export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) => {
-  const { products, externalProducts, updateOrder, addSale, updateIngredient, ingredients, serviceTaxes } = useApp();
-  const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>(order?.items || []);
+export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) => {
+  const { products, externalProducts, updateOrder } = useApp();
+  const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
-  const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
-    serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id)
-  );
 
   React.useEffect(() => {
     if (isOpen && order) {
       setSelectedProducts(order.items);
       setCustomerName(order.customerName || '');
-      setSelectedTaxes(serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id));
     }
-  }, [isOpen, order, serviceTaxes]);
+  }, [isOpen, order]);
 
   const addProductToOrder = (product: Product | ExternalProduct) => {
     const existingItem = selectedProducts.find(item => item.productId === product.id);
@@ -74,40 +70,19 @@ export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) =>
     ));
   };
 
-  const calculateFinalTotal = () => {
-    const subtotal = selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0);
-    const taxes = serviceTaxes
-      .filter(tax => selectedTaxes.includes(tax.id))
-      .map(tax => ({
-        id: tax.id,
-        name: tax.name,
-        value: subtotal * (tax.percentage / 100)
-      }));
-    const taxesTotal = taxes.reduce((sum, tax) => sum + tax.value, 0);
-    return { subtotal, taxes, taxesTotal, total: subtotal + taxesTotal };
-  };
-
-  const toggleTax = (taxId: string) => {
-    setSelectedTaxes(prev =>
-      prev.includes(taxId)
-        ? prev.filter(id => id !== taxId)
-        : [...prev, taxId]
-    );
-  };
+  const total = selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0);
 
   const finalizeSale = async () => {
     if (!order) return;
 
     try {
-      const { total, subtotal, taxesTotal } = calculateFinalTotal();
-
       // Preparar dados atualizados da comanda
       const updatedOrderData = {
         status: 'paid' as const,
         paymentMethod,
         customerName: customerName || order.customerName,
-        subtotal,
-        tax: taxesTotal,
+        subtotal: total,
+        tax: 0,
         total,
         items: selectedProducts
       };
@@ -125,8 +100,6 @@ export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) =>
       // Aqui você pode adicionar uma notificação de erro para o usuário
     }
   };
-
-  const { subtotal, taxes, taxesTotal, total } = calculateFinalTotal();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -161,113 +134,40 @@ export const CheckoutModal = ({ order, isOpen, onClose }: CheckoutModalProps) =>
               </Select>
             </div>
 
-            <div>
-              <h3 className="font-semibold mb-3">Taxas Aplicadas</h3>
-              <div className="space-y-2">
-                {serviceTaxes.map((tax) => (
-                  <div key={tax.id} className="flex items-center justify-between p-2 border rounded">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{tax.name}</p>
-                      <p className="text-xs text-gray-600">{tax.percentage}%</p>
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-3">Itens da Comanda</h3>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {selectedProducts.map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                      <span>{item.quantity}x {item.product_name || item.product.name}</span>
+                      <span>R$ {item.totalPrice.toFixed(2)}</span>
                     </div>
-                    <Switch
-                      checked={selectedTaxes.includes(tax.id)}
-                      onCheckedChange={() => toggleTax(tax.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-3">Adicionar Produtos</h3>
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {products.filter(p => p.available).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-2 border rounded">
-                    <div>
-                      <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => addProductToOrder(product)}
-                      className="bg-green-500 hover:bg-green-600"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-3">Adicionar Produtos Externos</h3>
-              <div className="max-h-60 overflow-y-auto space-y-2">
-                {externalProducts.filter(p => p.current_stock > 0).map((product) => (
-                  <div key={product.id} className="flex items-center justify-between p-2 border rounded">
-                    <div>
-                      <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
-                      {product.brand && (
-                        <p className="text-xs text-gray-500">{product.brand}</p>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => addProductToOrder(product)}
-                      className="bg-green-500 hover:bg-green-600"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-3">Itens da Comanda</h3>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
-                {selectedProducts.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                    <span>{item.quantity}x {item.product_name || item.product.name}</span>
-                    <span>R$ {item.totalPrice.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
-                <span>R$ {subtotal.toFixed(2)}</span>
-              </div>
-              {taxes.map((tax) => (
-                <div key={tax.id} className="flex justify-between text-sm">
-                  <span>{tax.name}:</span>
-                  <span>R$ {tax.value.toFixed(2)}</span>
+                  ))}
                 </div>
-              ))}
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total:</span>
-                <span>R$ {total.toFixed(2)}</span>
               </div>
 
-              <div className="flex space-x-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={finalizeSale}
-                  className="flex-1 bg-green-500 hover:bg-green-600"
-                >
-                  Finalizar Venda
-                </Button>
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Total:</span>
+                  <span>R$ {total.toFixed(2)}</span>
+                </div>
+
+                <div className="flex space-x-2 mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={finalizeSale}
+                    className="flex-1 bg-green-500 hover:bg-green-600"
+                  >
+                    Finalizar Venda
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

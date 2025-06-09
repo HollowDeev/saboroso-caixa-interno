@@ -14,6 +14,24 @@ export interface ExternalProductConsumption {
   productName: string;
 }
 
+interface StockItem {
+  productId: string;
+  quantity: number;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    available: boolean;
+    current_stock?: number;
+    product_type?: string;
+  };
+}
+
+interface StockConsumptionResult {
+  success: boolean;
+  errors: string[];
+}
+
 // Função principal para consumir estoque em uma venda
 export const consumeStockForSale = async (
   productId: string,
@@ -75,22 +93,216 @@ export const consumeStockForSale = async (
 
 // Nova função para processar items de pedido
 export const processOrderItemsStockConsumption = async (
-  items: OrderItem[],
-  userId: string
-): Promise<{ success: boolean; errors: string[] }> => {
-  const allErrors: string[] = [];
-  
-  for (const item of items) {
-    const result = await consumeStockForSale(item.productId, item.quantity, userId);
-    if (!result.success) {
-      allErrors.push(...result.errors);
+  items: StockItem[],
+  userId: string,
+  description: string = 'Consumo de estoque'
+): Promise<StockConsumptionResult> => {
+  const errors: string[] = [];
+  let success = true;
+
+  try {
+    console.log('Iniciando processamento de itens:', items);
+
+    for (const item of items) {
+      const isExternalProduct = item.product.product_type === 'external_product';
+      console.log('Processando item:', {
+        id: item.productId,
+        name: item.product.name,
+        quantity: item.quantity,
+        type: item.product.product_type,
+        isExternalProduct
+      });
+
+      if (isExternalProduct) {
+        // Processar produto externo
+        console.log('Processando produto externo:', item.product.name);
+        const { data: productData, error: productError } = await supabase
+          .from('external_products')
+          .select('current_stock, name')
+          .eq('id', item.productId)
+          .single();
+
+        if (productError) {
+          console.error('Erro ao buscar produto externo:', productError);
+          errors.push(`Erro ao verificar estoque de ${item.product.name}: ${productError.message}`);
+          success = false;
+          continue;
+        }
+
+        console.log('Dados do produto externo:', productData);
+
+        if (!productData) {
+          errors.push(`Produto ${item.product.name} não encontrado`);
+          success = false;
+          continue;
+        }
+
+        const quantity = item.quantity;
+        const quantityToUpdate = quantity;
+
+        if (item.quantity > 0 && productData.current_stock < quantity) {
+          errors.push(`Estoque insuficiente para ${productData.name}. Disponível: ${productData.current_stock}, Necessário: ${quantity}`);
+          success = false;
+          continue;
+        }
+
+        // Atualizar estoque do produto externo
+        const newStock = productData.current_stock - quantityToUpdate;
+        console.log('Atualizando estoque do produto externo:', {
+          produto: item.product.name,
+          estoqueAtual: productData.current_stock,
+          quantidade: quantityToUpdate,
+          novoEstoque: newStock,
+          operacao: item.quantity > 0 ? 'consumo' : 'reversão'
+        });
+
+        const { error: updateError } = await supabase
+          .from('external_products')
+          .update({
+            current_stock: newStock,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', item.productId);
+
+        if (updateError) {
+          console.error('Erro ao atualizar estoque do produto externo:', updateError);
+          errors.push(`Erro ao atualizar estoque de ${item.product.name}: ${updateError.message}`);
+          success = false;
+          continue;
+        }
+
+        // Registrar movimento
+        const { error: movementError } = await supabase
+          .from('stock_movements')
+          .insert({
+            item_type: 'external_product',
+            item_id: item.productId,
+            movement_type: item.quantity > 0 ? 'remove' : 'add',
+            quantity: Math.abs(quantity),
+            previous_stock: productData.current_stock,
+            new_stock: newStock,
+            reason: description,
+            user_id: userId
+          });
+
+        if (movementError) {
+          console.error(`Erro ao registrar movimento para ${item.product.name}:`, movementError);
+        }
+      } else {
+        // Processar comida (consumir ingredientes)
+        console.log('Processando comida:', item.product.name);
+        const { data: foodIngredients, error: ingredientsError } = await supabase
+          .from('food_ingredients')
+          .select(`
+            id,
+            ingredient_id,
+            quantity,
+            unit,
+            ingredients (
+              id,
+              name,
+              current_stock,
+              unit
+            )
+          `)
+          .eq('food_id', item.productId);
+
+        if (ingredientsError) {
+          console.error('Erro ao buscar ingredientes:', ingredientsError);
+          errors.push(`Erro ao buscar ingredientes de ${item.product.name}: ${ingredientsError.message}`);
+          success = false;
+          continue;
+        }
+
+        console.log('Ingredientes encontrados:', foodIngredients);
+
+        if (!foodIngredients || foodIngredients.length === 0) {
+          console.log(`Comida ${item.product.name} não tem ingredientes cadastrados`);
+          continue;
+        }
+
+        // Verificar e consumir cada ingrediente
+        for (const foodIngredient of foodIngredients) {
+          console.log('Processando ingrediente:', foodIngredient);
+          
+          // Converter quantidade para a unidade base (kg) se necessário
+          let quantityToConsume = foodIngredient.quantity;
+          if (foodIngredient.unit === 'g') {
+            quantityToConsume = foodIngredient.quantity / 1000;
+          }
+
+          const totalQuantity = quantityToConsume * Math.abs(item.quantity);
+          console.log('Quantidade total a consumir:', {
+            base: quantityToConsume,
+            multiplicador: item.quantity,
+            total: totalQuantity
+          });
+
+          if (!foodIngredient.ingredients) {
+            console.error('Dados do ingrediente não encontrados:', foodIngredient);
+            errors.push(`Dados do ingrediente não encontrados para ${foodIngredient.ingredient_id}`);
+            success = false;
+            continue;
+          }
+
+          if (item.quantity > 0 && foodIngredient.ingredients.current_stock < totalQuantity) {
+            errors.push(`Estoque insuficiente para ${foodIngredient.ingredients.name}. Disponível: ${foodIngredient.ingredients.current_stock}, Necessário: ${totalQuantity}`);
+            success = false;
+            continue;
+          }
+
+          // Atualizar estoque do ingrediente
+          const newStock = foodIngredient.ingredients.current_stock - (item.quantity > 0 ? totalQuantity : -totalQuantity);
+          console.log('Atualizando estoque:', {
+            ingrediente: foodIngredient.ingredients.name,
+            estoqueAtual: foodIngredient.ingredients.current_stock,
+            novoEstoque: newStock
+          });
+
+          const { error: updateError } = await supabase
+            .from('ingredients')
+            .update({
+              current_stock: newStock,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', foodIngredient.ingredient_id);
+
+          if (updateError) {
+            console.error('Erro ao atualizar estoque do ingrediente:', updateError);
+            errors.push(`Erro ao atualizar estoque de ${foodIngredient.ingredients.name}: ${updateError.message}`);
+            success = false;
+            continue;
+          }
+
+          // Registrar movimento
+          const { error: movementError } = await supabase
+            .from('stock_movements')
+            .insert({
+              item_type: 'ingredient',
+              item_id: foodIngredient.ingredient_id,
+              movement_type: item.quantity > 0 ? 'remove' : 'add',
+              quantity: Math.abs(totalQuantity),
+              previous_stock: foodIngredient.ingredients.current_stock,
+              new_stock: newStock,
+              reason: description,
+              user_id: userId
+            });
+
+          if (movementError) {
+            console.error(`Erro ao registrar movimento para ${foodIngredient.ingredients.name}:`, movementError);
+          }
+        }
+      }
     }
+
+    console.log('Processamento concluído:', { success, errors });
+  } catch (error: any) {
+    console.error('Erro inesperado:', error);
+    errors.push(`Erro inesperado: ${error.message}`);
+    success = false;
   }
-  
-  return {
-    success: allErrors.length === 0,
-    errors: allErrors
-  };
+
+  return { success, errors };
 };
 
 // Função para buscar os ingredientes de uma comida

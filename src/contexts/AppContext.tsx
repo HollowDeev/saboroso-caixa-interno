@@ -32,8 +32,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('Loading data for user:', currentUser.id, 'role:', currentUser.role);
 
       // Para funcionários, usar o owner_id; para admin, usar o próprio id
-      const ownerId = currentUser.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
+      const ownerId = currentUser.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
         : currentUser.id;
 
       console.log('Using owner ID:', ownerId);
@@ -123,7 +123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (ordersError) throw ordersError;
       console.log('Orders loaded:', ordersData);
-      
+
       const formattedOrders: Order[] = (ordersData || []).map(order => ({
         id: order.id,
         customerName: order.customer_name,
@@ -147,7 +147,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createdAt: order.created_at,
         updatedAt: order.updated_at
       }));
-      
+
       setOrders(formattedOrders);
 
       // Load sales - usar ownerId
@@ -222,7 +222,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
     const storedEmployee = localStorage.getItem('employee_data');
-    
+
     if (storedEmployee) {
       const employee = JSON.parse(storedEmployee);
       setCurrentUser({
@@ -288,11 +288,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const ownerId = currentUser?.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
+      const ownerId = currentUser?.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
-      const { data, error } = await supabase
+      // Primeiro, criar a comanda
+      const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([{
           user_id: ownerId,
@@ -300,15 +301,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           customer_name: order.customerName,
           table_number: order.tableNumber,
           subtotal: order.subtotal,
-          tax: order.tax,
-          total: order.total,
+          tax: 0, // Removida a taxa automática
+          total: order.subtotal, // Total agora é igual ao subtotal
           status: order.status,
           payment_method: order.paymentMethod
         }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (orderError) throw orderError;
+
+      // Depois, criar os itens da comanda
+      if (order.items && order.items.length > 0) {
+        const orderItems = order.items.map(item => ({
+          order_id: orderData.id,
+          product_id: item.productId,
+          product_name: item.product.name,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.totalPrice,
+          product_type: 'current_stock' in item.product ? 'external_product' : 'food',
+          cash_register_id: currentCashRegister?.id || ''
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(orderItems);
+
+        if (itemsError) throw itemsError;
+      }
+
       await loadData();
     } catch (error) {
       console.error('Error adding order:', error);
@@ -327,7 +349,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.status !== undefined) dbUpdates.status = updates.status;
       if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
       if (updates.cash_register_id !== undefined) dbUpdates.cash_register_id = updates.cash_register_id;
-      
+
       dbUpdates.updated_at = new Date().toISOString();
 
       const { error } = await supabase
@@ -345,6 +367,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addItemToOrder = async (orderId: string, item: NewOrderItem) => {
     try {
+      // Determinar o tipo de produto
+      const isExternalProduct = 'current_stock' in item.product;
+
+      // Primeiro, adicionar o item
       const { data, error } = await supabase
         .from('order_items')
         .insert([{
@@ -354,13 +380,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           quantity: item.quantity,
           unit_price: item.unitPrice,
           total_price: item.totalPrice,
-          product_type: 'price' in item.product ? 'food' : 'external_product',
+          product_type: isExternalProduct ? 'external_product' : 'food',
           cash_register_id: currentCashRegister?.id || ''
         }])
         .select()
         .single();
 
       if (error) throw error;
+
+      // Buscar todos os itens da comanda para recalcular os totais
+      const { data: orderItems, error: itemsError } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', orderId);
+
+      if (itemsError) throw itemsError;
+
+      // Calcular novos totais
+      const subtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+      const total = subtotal; // Removida a taxa automática
+
+      // Atualizar os totais da comanda
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          subtotal,
+          tax: 0,
+          total,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
+
+      if (updateError) throw updateError;
 
       await loadData();
     } catch (error) {
@@ -369,19 +420,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const closeOrder = async (orderId: string, paymentMethod: PaymentMethod, customerName?: string) => {
+  const closeOrder = async (orderId: string, paymentMethod: PaymentMethod) => {
     try {
-      const { error } = await supabase
+      // Buscar a comanda e seus itens
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (*)
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Processar o consumo de estoque
+      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+      const stockResult = await processOrderItemsStockConsumption(
+        order.order_items.map((item: any) => ({
+          productId: item.product_id,
+          quantity: item.quantity,
+          product: {
+            id: item.product_id,
+            name: item.product_name,
+            price: item.unit_price,
+            available: true,
+            product_type: item.product_type
+          }
+        })),
+        currentUser!.id,
+        'Fechamento de Comanda'
+      );
+
+      // Se há erros críticos de estoque, mostrar aviso mas permitir continuar
+      if (!stockResult.success && stockResult.errors.some(error => error.includes('Estoque insuficiente'))) {
+        const proceed = window.confirm(
+          `Atenção: Alguns itens têm estoque insuficiente:\n\n${stockResult.errors.join('\n')}\n\nDeseja continuar mesmo assim?`
+        );
+
+        if (!proceed) {
+          throw new Error('Operação cancelada pelo usuário');
+        }
+      }
+
+      // Criar a venda
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .insert({
+          order_id: orderId,
+          total: order.total,
+          subtotal: order.total,
+          tax: 0,
+          payment_method: paymentMethod,
+          user_id: currentUser!.id,
+          cash_register_id: currentCashRegister!.id,
+          is_direct_sale: false,
+          customer_name: order.customer_name,
+          items: order.order_items.map((item: any) => ({
+            id: item.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+            product_type: item.product_type || 'food'
+          }))
+        })
+        .select()
+        .single();
+
+      if (saleError) throw saleError;
+
+      // Atualizar o status da comanda
+      const { error: updateError } = await supabase
         .from('orders')
         .update({
           status: 'closed',
           payment_method: paymentMethod,
-          customer_name: customerName,
           updated_at: new Date().toISOString()
         })
         .eq('id', orderId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       await loadData();
     } catch (error) {
@@ -392,8 +512,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      const ownerId = currentUser?.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
+      const ownerId = currentUser?.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
       const { data, error } = await supabase
@@ -442,8 +562,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      const ownerId = currentUser?.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
+      const ownerId = currentUser?.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
       const { data, error } = await supabase
@@ -492,8 +612,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addExternalProduct = async (product: Omit<ExternalProduct, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      const ownerId = currentUser?.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
+      const ownerId = currentUser?.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
       const { data, error } = await supabase
@@ -542,28 +662,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
-      const ownerId = currentUser?.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
-        : currentUser?.id;
+      if (!currentUser) throw new Error('Usuário não autenticado');
+      if (!currentCashRegister) throw new Error('Não há caixa aberto');
+
+      const ownerId = currentUser.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
+        : currentUser.id;
+
+      // Converter os itens para o formato esperado pelo Supabase
+      const formattedItems = sale.items.map(item => ({
+        product_id: item.productId,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.totalPrice,
+        product_type: item.product_type
+      }));
 
       const { data, error } = await supabase
         .from('sales')
-        .insert([{
-          user_id: ownerId,
+        .insert({
+          user_id: sale.userId,
           customer_name: sale.customerName,
-          items: sale.items as any,
-          subtotal: sale.subtotal,
-          tax: sale.tax,
+          items: formattedItems,
+          subtotal: sale.total, // Usando o total como subtotal
+          tax: 0, // Taxa sempre será 0
           total: sale.total,
           payment_method: sale.paymentMethod,
           cash_register_id: sale.cash_register_id,
           order_id: sale.order_id,
           is_direct_sale: sale.is_direct_sale
-        }])
+        })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Atualizar o caixa
+      const { error: updateError } = await supabase
+        .from('cash_registers')
+        .update({
+          total_sales: currentCashRegister.total_sales + sale.total,
+          total_orders: currentCashRegister.total_orders + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentCashRegister.id);
+
+      if (updateError) throw updateError;
+
       await loadData();
     } catch (error) {
       console.error('Error adding sale:', error);
@@ -599,12 +745,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSale = async (id: string) => {
     try {
-      const { error } = await supabase
+      if (!currentUser || !currentCashRegister) {
+        throw new Error('Usuário não autenticado ou caixa não está aberto');
+      }
+
+      // Primeiro, buscar os dados da venda antes de excluir
+      const { data: sale, error: fetchError } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Atualizar o caixa (subtrair o valor da venda)
+      const { error: updateCashError } = await supabase
+        .from('cash_registers')
+        .update({
+          total_sales: currentCashRegister.total_sales - sale.total,
+          total_orders: currentCashRegister.total_orders - 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sale.cash_register_id);
+
+      if (updateCashError) throw updateCashError;
+
+      // Reverter o consumo de estoque
+      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+      const items = Array.isArray(sale.items) ? sale.items : [];
+
+      console.log('Revertendo estoque para os itens:', items);
+
+      // Reverter o estoque (quantidade negativa para adicionar de volta)
+      if (items.length > 0) {
+        await processOrderItemsStockConsumption(
+          items.map((item: any) => {
+            console.log('Processando item para reversão:', item);
+            return {
+              productId: item.product_id,
+              quantity: -(item.quantity), // Quantidade negativa para reverter
+              product: {
+                id: item.product_id,
+                name: item.product_name,
+                price: item.unit_price,
+                available: true,
+                product_type: item.product_type
+              }
+            };
+          }),
+          currentUser.id,
+          'Exclusão de Venda'
+        );
+      }
+
+      // Finalmente, excluir a venda
+      const { error: deleteError } = await supabase
         .from('sales')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('cash_register_id', currentCashRegister.id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // Atualizar o estado local
+      setSales(prevSales => prevSales.filter(s => s.id !== id));
+
+      // Recarregar os dados para garantir sincronização
       await loadData();
     } catch (error) {
       console.error('Error deleting sale:', error);
@@ -660,8 +866,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const openCashRegister = async (amount: number) => {
     try {
-      const ownerId = currentUser?.role === 'employee' 
-        ? (currentUser as any).owner_id || currentUser.id 
+      const ownerId = currentUser?.role === 'employee'
+        ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
       const { data, error } = await supabase
@@ -728,7 +934,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const checkCashRegisterAccess = () => {
     if (!currentUser) return false;
-    return currentUser.role === 'admin' || currentUser.role === 'employee';
+    return ['admin', 'manager', 'cashier'].includes(currentUser.role);
   };
 
   const value: AppContextType = {
