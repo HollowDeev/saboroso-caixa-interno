@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Sale } from "@/types";
+import { ReceiptPrint } from "@/components/ReceiptPrint";
 
 export const Sales = () => {
   const {
@@ -47,12 +49,13 @@ export const Sales = () => {
   } = useApp();
 
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
-  const [editingSale, setEditingSale] = useState<any | null>(null);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date());
-  const [cashRegisterSales, setCashRegisterSales] = useState<any[]>([]);
+  const [cashRegisterSales, setCashRegisterSales] = useState<Sale[]>([]);
   const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
-  const [saleToDelete, setSaleToDelete] = useState<any | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [saleToPrint, setSaleToPrint] = useState<Sale | null>(null);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -88,6 +91,16 @@ export const Sales = () => {
 
     loadCashRegisterSales();
   }, [currentCashRegister]);
+
+  useEffect(() => {
+    if (saleToPrint) {
+      const timer = setTimeout(() => {
+        window.print();
+        setSaleToPrint(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [saleToPrint]);
 
   const filteredSales = sales.filter(sale => {
     if (!dateFilter) return true;
@@ -167,7 +180,7 @@ export const Sales = () => {
     }
   };
 
-  const handleDeleteSale = async (sale: any) => {
+  const handleDeleteSale = async (sale: Sale) => {
     try {
       await deleteSale(sale.id);
       setSaleToDelete(null);
@@ -187,6 +200,7 @@ export const Sales = () => {
 
   return (
     <div className="space-y-6">
+      {saleToPrint && <ReceiptPrint sale={saleToPrint} />}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Vendas</h1>
@@ -414,6 +428,17 @@ export const Sales = () => {
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setSaleToPrint(sale);
+                            }}
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button
                             variant="destructive"
                             size="sm"
                             onClick={(e) => {
@@ -497,16 +522,21 @@ export const Sales = () => {
       <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir esta venda? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir esta venda? Itens de estoque não
+              serão repostos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-red-600 hover:bg-red-700"
-              onClick={() => saleToDelete && handleDeleteSale(saleToDelete)}
+              onClick={() => {
+                if (saleToDelete) {
+                  handleDeleteSale(saleToDelete);
+                }
+              }}
             >
               Excluir
             </AlertDialogAction>
