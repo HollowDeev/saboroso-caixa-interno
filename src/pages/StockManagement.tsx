@@ -5,13 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Minus, Package, AlertTriangle, CheckCircle, Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import { Plus, Minus, Package, AlertTriangle, CheckCircle, Edit, Trash2, MoreHorizontal, Search, Filter } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Ingredient, Product } from '@/types';
+import { Ingredient, Product, ExternalProduct, FoodIngredient, Unit } from '@/types';
 import { useStock } from '@/hooks/useStock';
 import { toast } from '@/components/ui/use-toast';
 import { Unit, isMassUnit, isVolumeUnit, convertFromBaseUnit, getAvailableSubunits, convertToBaseUnit, convertValue } from '@/utils/unitConversion';
@@ -95,15 +95,27 @@ const getStockStatus = (currentStock: number, minStock: number) => {
 };
 
 export const StockManagement = () => {
-  const { currentUser, products, addProduct, updateProduct, deleteProduct } = useApp();
   const {
     ingredients,
+    products,
     externalProducts,
     addIngredient,
+    updateIngredient,
+    deleteIngredient,
+    addProduct,
+    updateProduct,
+    deleteProduct,
     addExternalProduct,
     updateExternalProduct,
-    updateStock,
-    updateIngredient,
+    deleteExternalProduct
+  } = useApp();
+  const {
+    ingredients: stockIngredients,
+    externalProducts: stockExternalProducts,
+    addIngredient: addStockIngredient,
+    addExternalProduct: addStockExternalProduct,
+    updateExternalProduct: updateStockExternalProduct,
+    updateStock: updateStock,
     loading: stockLoading,
     addStockEntry,
     addExternalProductEntry,
@@ -111,7 +123,7 @@ export const StockManagement = () => {
     consumeExternalProductStock,
     stockEntries,
     externalProductEntries,
-    deleteIngredient
+    deleteIngredient: deleteStockIngredient
   } = useStock(currentUser?.id || '');
 
   const [activeTab, setActiveTab] = useState('ingredients');
@@ -129,6 +141,13 @@ export const StockManagement = () => {
   const [supplier, setSupplier] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingExternalProduct, setEditingExternalProduct] = useState<ExternalProduct | null>(null);
+  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
+  const [isEditFoodDialogOpen, setIsEditFoodDialogOpen] = useState(false);
+  const [selectedFood, setSelectedFood] = useState<Product | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<DeleteItem | null>(null);
 
   const [newIngredientForm, setNewIngredientForm] = useState<NewIngredientForm>({
     name: '',
@@ -620,11 +639,6 @@ export const StockManagement = () => {
       console.error('Erro ao atualizar ingrediente:', error);
     }
   };
-
-  const [isEditFoodDialogOpen, setIsEditFoodDialogOpen] = useState(false);
-  const [selectedFood, setSelectedFood] = useState<Product | null>(null);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<DeleteItem | null>(null);
 
   // Função para abrir diálogo de edição de comida
   const openEditFoodDialog = (food: Product) => {
