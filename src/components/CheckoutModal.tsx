@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -40,7 +41,9 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
       ));
     } else {
       const newItem: OrderItem = {
+        id: `temp-${Date.now()}`, // ID temporário
         productId: product.id,
+        product_name: product.name,
         product: {
           ...product,
           available: 'current_stock' in product ? product.current_stock > 0 : product.available
@@ -78,7 +81,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
     try {
       // Preparar dados atualizados da comanda
       const updatedOrderData = {
-        status: 'paid' as const,
+        status: 'closed' as const, // Mudado de 'paid' para 'closed'
         paymentMethod,
         customerName: customerName || order.customerName,
         subtotal: total,
@@ -140,7 +143,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {selectedProducts.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                      <span>{item.quantity}x {item.product_name || item.product.name}</span>
+                      <span>{item.quantity}x {item.product_name || item.product?.name}</span>
                       <span>R$ {item.totalPrice.toFixed(2)}</span>
                     </div>
                   ))}

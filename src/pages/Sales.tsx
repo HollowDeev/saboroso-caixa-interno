@@ -73,14 +73,18 @@ export const Sales = () => {
         if (error) throw error;
 
         const salesWithMappedData = data.map(sale => ({
-          ...sale,
+          id: sale.id,
+          items: sale.items || [],
+          subtotal: sale.subtotal,
+          tax: sale.tax,
+          total: sale.total,
+          paymentMethod: sale.payment_method,
+          customerName: sale.customer_name,
+          userId: sale.user_id,
           cash_register_id: sale.cash_register_id,
-          payment_method: sale.payment_method,
-          created_at: sale.created_at,
-          user_id: sale.user_id,
+          order_id: sale.order_id,
           is_direct_sale: sale.is_direct_sale,
-          customer_name: sale.customer_name,
-          order_id: sale.order_id
+          createdAt: sale.created_at
         }));
 
         setCashRegisterSales(salesWithMappedData);

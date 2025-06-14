@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -32,16 +33,16 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
           : item
       ));
     } else {
+      const isExternalProduct = 'current_stock' in product;
       const newItem: OrderItem = {
+        id: `temp-${Date.now()}`, // ID temporário
         productId: product.id,
-        product: {
-          ...product,
-          available: 'current_stock' in product ? product.current_stock > 0 : product.available,
-          product_type: 'current_stock' in product ? 'external_product' : 'food'
-        },
+        product_name: product.name,
+        product: product,
         quantity: 1,
         unitPrice: product.price,
-        totalPrice: product.price
+        totalPrice: product.price,
+        product_type: isExternalProduct ? 'external_product' : 'food'
       };
       setSelectedItems(prev => [...prev, newItem]);
     }
@@ -94,12 +95,12 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
           productId: item.productId,
           quantity: item.quantity,
           product: {
-            id: item.product.id,
-            name: item.product.name,
-            price: item.product.price,
-            available: item.product.available,
-            current_stock: 'current_stock' in item.product ? item.product.current_stock : undefined,
-            product_type: item.product.product_type
+            id: item.product!.id,
+            name: item.product!.name,
+            price: item.product!.price,
+            available: 'available' in item.product! ? item.product!.available : true,
+            current_stock: 'current_stock' in item.product! ? item.product!.current_stock : undefined,
+            product_type: item.product_type
           }
         })),
         currentUser!.id,
@@ -130,11 +131,11 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         items: selectedItems.map(item => ({
           id: '', // ID será gerado pelo banco
           productId: item.productId,
-          product_name: item.product.name,
+          product_name: item.product_name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           totalPrice: item.totalPrice,
-          product_type: item.product.product_type
+          product_type: item.product_type
         }))
       });
 
@@ -269,7 +270,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                 {selectedItems.map((item, index) => (
                   <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <p className="font-medium">{item.product.name}</p>
+                      <p className="font-medium">{item.product?.name}</p>
                       <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
                     </div>
                     <div className="flex items-center space-x-2">
