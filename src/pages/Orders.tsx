@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,7 +24,7 @@ export const Orders = () => {
     isLoading
   } = useApp();
 
-  const [selectedProducts, setSelectedProducts] = useState<NewOrderItem[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
   const [tableNumber, setTableNumber] = useState<number | undefined>();
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
@@ -50,8 +51,10 @@ export const Orders = () => {
           : item
       ));
     } else {
-      const newItem: NewOrderItem = {
+      const newItem: OrderItem = {
+        id: `temp-${Date.now()}`,
         productId: product.id,
+        product_name: product.name,
         product: {
           ...product,
           available: 'current_stock' in product ? product.current_stock > 0 : product.available
@@ -236,7 +239,7 @@ export const Orders = () => {
                   {selectedProducts.map((item) => (
                     <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1">
-                        <p className="font-medium">{item.product.name}</p>
+                        <p className="font-medium">{item.product_name}</p>
                         <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
                       </div>
                       <div className="flex items-center space-x-2">

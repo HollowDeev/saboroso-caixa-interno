@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +33,7 @@ export const Dashboard = () => {
   const closedOrders = orders.filter(order => order.status === 'closed');
 
   const lowStockIngredients = ingredients.filter(ingredient =>
-    ingredient.currentStock <= ingredient.minStock
+    ingredient.current_stock <= ingredient.min_stock
   );
 
   const lowStockExternalProducts = externalProducts.filter(product =>
@@ -159,8 +160,8 @@ export const Dashboard = () => {
                       <div key={ingredient.id} className="bg-white p-2 rounded border">
                         <p className="font-medium text-sm">{ingredient.name}</p>
                         <p className="text-xs text-gray-600">
-                          Atual: {ingredient.currentStock} {ingredient.unit} |
-                          Mínimo: {ingredient.minStock} {ingredient.unit}
+                          Atual: {ingredient.current_stock} {ingredient.unit} |
+                          Mínimo: {ingredient.min_stock} {ingredient.unit}
                         </p>
                       </div>
                     ))}

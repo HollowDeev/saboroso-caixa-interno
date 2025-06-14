@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,9 @@ export const EmployeeSales = () => {
   const { sales, orders } = useApp();
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
 
-  const paidOrders = orders.filter(order => order.status === 'paid');
-  const totalSales = paidOrders.reduce((sum, order) => sum + order.total, 0);
-  const todaysSales = paidOrders.filter(
+  const closedOrders = orders.filter(order => order.status === 'closed');
+  const totalSales = closedOrders.reduce((sum, order) => sum + order.total, 0);
+  const todaysSales = closedOrders.filter(
     order => new Date(order.createdAt).toDateString() === new Date().toDateString()
   );
   const todaysTotal = todaysSales.reduce((sum, order) => sum + order.total, 0);
@@ -154,10 +155,10 @@ export const EmployeeSales = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {paidOrders.length === 0 ? (
+                {closedOrders.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">Nenhuma venda realizada</p>
                 ) : (
-                  paidOrders.map((order) => (
+                  closedOrders.map((order) => (
                     <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">

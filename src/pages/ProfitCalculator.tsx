@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,13 +14,13 @@ export const ProfitCalculator = () => {
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [customPrice, setCustomPrice] = useState<number>(0);
     const [selectedTaxes, setSelectedTaxes] = useState<string[]>(
-        serviceTaxes.filter(tax => tax.isActive).map(tax => tax.id)
+        serviceTaxes.filter(tax => tax.is_active).map(tax => tax.id)
     );
 
     // Calcula o custo total do produto baseado nos ingredientes
     const calculateProductCost = (product: Product) => {
         return product.ingredients.reduce((total, ing) => {
-            const ingredient = ingredients.find(i => i.id === ing.ingredientId);
+            const ingredient = ingredients.find(i => i.id === ing.ingredient_id);
             if (!ingredient) return total;
 
             // Se o ingrediente é do tipo 'unidade', usa o custo direto
@@ -234,4 +235,4 @@ export const ProfitCalculator = () => {
             </div>
         </div>
     );
-}; 
+};

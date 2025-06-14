@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ export const Settings = () => {
         name: '',
         description: '',
         percentage: 0,
-        isActive: true
+        is_active: true
     });
 
     const handleAddTax = () => {
@@ -28,7 +29,7 @@ export const Settings = () => {
             name: '',
             description: '',
             percentage: 0,
-            isActive: true
+            is_active: true
         });
         setIsAddTaxOpen(false);
     };
@@ -41,7 +42,7 @@ export const Settings = () => {
                 name: '',
                 description: '',
                 percentage: 0,
-                isActive: true
+                is_active: true
             });
         }
     };
@@ -58,7 +59,7 @@ export const Settings = () => {
             name: tax.name,
             description: tax.description,
             percentage: tax.percentage,
-            isActive: tax.isActive
+            is_active: tax.is_active
         });
     };
 
@@ -138,11 +139,11 @@ export const Settings = () => {
                                             <div className="flex items-center space-x-4">
                                                 <div className="flex items-center space-x-2">
                                                     <Switch
-                                                        checked={tax.isActive}
-                                                        onCheckedChange={(checked) => updateServiceTax(tax.id, { isActive: checked })}
+                                                        checked={tax.is_active}
+                                                        onCheckedChange={(checked) => updateServiceTax(tax.id, { is_active: checked })}
                                                     />
                                                     <span className="text-sm text-gray-600">
-                                                        {tax.isActive ? 'Ativa' : 'Inativa'}
+                                                        {tax.is_active ? 'Ativa' : 'Inativa'}
                                                     </span>
                                                 </div>
                                                 <Button variant="ghost" size="icon" onClick={() => openEditTax(tax)}>
@@ -205,8 +206,8 @@ export const Settings = () => {
                         <div className="flex items-center space-x-2">
                             <Switch
                                 id="taxActive"
-                                checked={newTax.isActive}
-                                onCheckedChange={(checked) => setNewTax({ ...newTax, isActive: checked })}
+                                checked={newTax.is_active}
+                                onCheckedChange={(checked) => setNewTax({ ...newTax, is_active: checked })}
                             />
                             <Label htmlFor="taxActive">Taxa Ativa</Label>
                         </div>
@@ -218,7 +219,7 @@ export const Settings = () => {
                                     name: '',
                                     description: '',
                                     percentage: 0,
-                                    isActive: true
+                                    is_active: true
                                 });
                             }}>
                                 Cancelar
@@ -232,4 +233,4 @@ export const Settings = () => {
             </Dialog>
         </div>
     );
-}; 
+};
