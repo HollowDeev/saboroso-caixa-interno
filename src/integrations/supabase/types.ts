@@ -54,6 +54,48 @@ export type Database = {
         }
         Relationships: []
       }
+      discount_coupons: {
+        Row: {
+          created_at: string
+          description: string | null
+          discount_value: number
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string
+          product_id: string | null
+          scope: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          discount_value: number
+          id?: string
+          is_active?: boolean
+          name: string
+          owner_id: string
+          product_id?: string | null
+          scope: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          discount_value?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner_id?: string
+          product_id?: string | null
+          scope?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           access_key: string
@@ -477,6 +519,36 @@ export type Database = {
         Relationships: []
       }
       profiles: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          email?: string | null
+          id: string
+          name?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles_duplicate: {
         Row: {
           created_at: string
           email: string | null

@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -103,7 +104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // Load orders with items - usar ownerId tanto para user_id quanto para filtrar por dono
+      // Load orders with items - CORRIGIDO: buscar por cash_register do owner
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -116,9 +117,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             unit_price,
             total_price,
             product_type
+          ),
+          cash_registers!inner (
+            owner_id
           )
         `)
-        .eq('user_id', ownerId)
+        .eq('cash_registers.owner_id', ownerId)
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -150,11 +154,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setOrders(formattedOrders);
 
-      // Load sales - usar ownerId
+      // Load sales - CORRIGIDO: buscar por cash_register do owner
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
-        .select('*')
-        .eq('user_id', ownerId)
+        .select(`
+          *,
+          cash_registers!inner (
+            owner_id
+          )
+        `)
+        .eq('cash_registers.owner_id', ownerId)
         .order('created_at', { ascending: false });
 
       if (salesError) throw salesError;
@@ -292,17 +301,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? (currentUser as any).owner_id || currentUser.id
         : currentUser?.id;
 
+      // CORRIGIDO: usar ownerId para user_id quando for funcionário
+      const userIdForOrder = currentUser?.role === 'employee' ? ownerId : currentUser?.id;
+
       // Primeiro, criar a comanda
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([{
-          user_id: ownerId,
+          user_id: userIdForOrder,
           cash_register_id: currentCashRegister?.id || '',
           customer_name: order.customerName,
           table_number: order.tableNumber,
           subtotal: order.subtotal,
-          tax: 0, // Removida a taxa automática
-          total: order.subtotal, // Total agora é igual ao subtotal
+          tax: 0,
+          total: order.subtotal,
           status: order.status,
           payment_method: order.paymentMethod
         }])
@@ -704,6 +716,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ? (currentUser as any).owner_id || currentUser.id
         : currentUser.id;
 
+      // CORRIGIDO: usar ownerId para user_id quando for funcionário  
+      const userIdForSale = currentUser.role === 'employee' ? ownerId : currentUser.id;
+
       // Converter os itens para o formato esperado pelo Supabase
       const formattedItems = sale.items.map(item => ({
         product_id: item.productId,
@@ -717,11 +732,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data, error } = await supabase
         .from('sales')
         .insert({
-          user_id: sale.userId,
+          user_id: userIdForSale,
           customer_name: sale.customerName,
           items: formattedItems,
-          subtotal: sale.total, // Usando o total como subtotal
-          tax: 0, // Taxa sempre será 0
+          subtotal: sale.total,
+          tax: 0,
           total: sale.total,
           payment_method: sale.paymentMethod,
           cash_register_id: sale.cash_register_id,
