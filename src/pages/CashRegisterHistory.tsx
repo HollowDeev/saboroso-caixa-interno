@@ -24,22 +24,14 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { CashRegister } from '@/types';
+import { CashRegister, Sale } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ArrowLeft, Calendar, DollarSign, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-interface SaleData {
-  id: string;
-  total: number;
-  payment_method: string;
-  customer_name?: string;
-  created_at: string;
-}
-
 interface CashRegisterWithSales extends CashRegister {
-  sales: SaleData[];
+  sales: Sale[];
   profit: number;
 }
 
@@ -78,20 +70,13 @@ export const CashRegisterHistory = () => {
         registers.map(async (register) => {
           const { data: sales, error: salesError } = await supabase
             .from('sales')
-            .select('id, total, payment_method, customer_name, created_at')
+            .select('*')
             .eq('cash_register_id', register.id)
             .order('created_at', { ascending: false });
 
           if (salesError) throw salesError;
 
-          const salesData: SaleData[] = (sales || []).map(sale => ({
-            id: sale.id,
-            total: sale.total,
-            payment_method: sale.payment_method,
-            customer_name: sale.customer_name,
-            created_at: sale.created_at
-          }));
-
+          const salesData = sales || [];
           const profit = register.total_sales - register.total_cost - register.total_expenses;
 
           return {
@@ -121,15 +106,15 @@ export const CashRegisterHistory = () => {
     return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR });
   };
 
-  const groupSalesByDate = (sales: SaleData[]) => {
+  const groupSalesByDate = (sales: Sale[]) => {
     const grouped = sales.reduce((acc, sale) => {
-      const date = format(new Date(sale.created_at), 'dd/MM/yyyy', { locale: ptBR });
+      const date = format(new Date(sale.createdAt), 'dd/MM/yyyy', { locale: ptBR });
       if (!acc[date]) {
         acc[date] = [];
       }
       acc[date].push(sale);
       return acc;
-    }, {} as Record<string, SaleData[]>);
+    }, {} as Record<string, Sale[]>);
 
     return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
   };
@@ -300,15 +285,15 @@ export const CashRegisterHistory = () => {
                                 {sales.map((sale) => (
                                   <TableRow key={sale.id}>
                                     <TableCell>
-                                      {format(new Date(sale.created_at), 'HH:mm', { locale: ptBR })}
+                                      {format(new Date(sale.createdAt), 'HH:mm', { locale: ptBR })}
                                     </TableCell>
                                     <TableCell>
-                                      {sale.customer_name || 'Cliente não informado'}
+                                      {sale.customerName || 'Cliente não informado'}
                                     </TableCell>
                                     <TableCell>
                                       <Badge variant="outline">
-                                        {sale.payment_method === 'cash' ? 'Dinheiro' :
-                                         sale.payment_method === 'card' ? 'Cartão' : 'PIX'}
+                                        {sale.paymentMethod === 'cash' ? 'Dinheiro' :
+                                         sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="text-right font-semibold">
@@ -332,3 +317,4 @@ export const CashRegisterHistory = () => {
     </div>
   );
 };
+
