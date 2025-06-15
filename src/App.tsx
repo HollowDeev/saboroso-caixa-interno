@@ -7,18 +7,18 @@ import { Layout } from '@/components/Layout';
 import { Toaster } from '@/components/ui/toaster';
 
 // Pages
-import { Index } from '@/pages/Index';
-import { Login } from '@/pages/Login';
-import { EmployeeLogin } from '@/pages/EmployeeLogin';
-import { Dashboard } from '@/pages/Dashboard';
-import { Orders } from '@/pages/Orders';
-import { Sales } from '@/pages/Sales';
-import { StockManagement } from '@/pages/StockManagement';
-import { Users } from '@/pages/Users';
-import { Settings } from '@/pages/Settings';
-import { ProfitCalculator } from '@/pages/ProfitCalculator';
+import Index from '@/pages/Index';
+import Login from '@/pages/Login';
+import EmployeeLogin from '@/pages/EmployeeLogin';
+import Dashboard from '@/pages/Dashboard';
+import Orders from '@/pages/Orders';
+import Sales from '@/pages/Sales';
+import StockManagement from '@/pages/StockManagement';
+import Users from '@/pages/Users';
+import Settings from '@/pages/Settings';
+import ProfitCalculator from '@/pages/ProfitCalculator';
 import { CashRegisterHistory } from '@/pages/CashRegisterHistory';
-import { NotFound } from '@/pages/NotFound';
+import NotFound from '@/pages/NotFound';
 
 function App() {
   return (
