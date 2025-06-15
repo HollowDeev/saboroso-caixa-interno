@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -103,7 +104,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // First, get the cash register IDs for the owner
+      // Get the cash register IDs for the owner
       const { data: cashRegisters, error: cashRegisterError } = await supabase
         .from('cash_registers')
         .select('id')
@@ -112,9 +113,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (cashRegisterError) throw cashRegisterError;
 
       const cashRegisterIds = cashRegisters?.map(cr => cr.id) || [];
-      console.log('Cash register IDs:', cashRegisterIds);
+      console.log('Cash register IDs for owner:', cashRegisterIds);
 
-      // Load orders with items
+      // Load orders with items - CORRIGIDO: buscar por cash_register_id
       if (cashRegisterIds.length > 0) {
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
@@ -141,7 +142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setOrders([]);
       }
 
-      // Load sales
+      // Load sales - CORRIGIDO: buscar por cash_register_id
       if (cashRegisterIds.length > 0) {
         const { data: salesData, error: salesError } = await supabase
           .from('sales')
@@ -166,7 +167,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (serviceTaxesError) throw serviceTaxesError;
       setServiceTaxes(serviceTaxesData || []);
 
-      // Load current cash register - usar ownerId
+      // Load current cash register
       const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
         .from('cash_registers')
         .select('*')
