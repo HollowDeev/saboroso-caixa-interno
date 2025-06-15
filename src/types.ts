@@ -1,3 +1,4 @@
+
 // Core interfaces
 export interface User {
   id: string;

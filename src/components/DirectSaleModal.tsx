@@ -179,37 +179,39 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-6">
         <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl">Venda Direta</DialogTitle>
+          <DialogTitle className="text-xl">Venda Direta</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left Column - Product Selection */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="customerName">Nome do Cliente (opcional)</Label>
-              <Input
-                id="customerName"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Digite o nome do cliente"
-                className="mt-1"
-              />
-            </div>
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="customerName">Nome do Cliente (opcional)</Label>
+                <Input
+                  id="customerName"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Digite o nome do cliente"
+                  className="mt-1"
+                />
+              </div>
 
-            <div>
-              <Label>Forma de Pagamento</Label>
-              <Select value={paymentMethod} onValueChange={(value: 'cash' | 'card' | 'pix') => setPaymentMethod(value)}>
-                <SelectTrigger className="w-full mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Dinheiro</SelectItem>
-                  <SelectItem value="card">Cartão</SelectItem>
-                  <SelectItem value="pix">PIX</SelectItem>
-                </SelectContent>
-              </Select>
+              <div>
+                <Label>Forma de Pagamento</Label>
+                <Select value={paymentMethod} onValueChange={(value: 'cash' | 'card' | 'pix') => setPaymentMethod(value)}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Dinheiro</SelectItem>
+                    <SelectItem value="card">Cartão</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div>
@@ -228,23 +230,23 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
 
             <div>
               <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
-              <div className="grid grid-cols-1 gap-2 max-h-[calc(100vh-500px)] overflow-y-auto">
+              <div className="grid grid-cols-1 gap-2 h-96 overflow-y-auto border rounded-lg p-3">
                 {filteredFoodProducts.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas ({filteredFoodProducts.length})</h4>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Comidas ({filteredFoodProducts.length})</h4>
                     {filteredFoodProducts.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
-                        <div>
-                          <p className="font-medium">{product.name}</p>
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{product.name}</p>
                           <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
                           {product.description && (
-                            <p className="text-xs text-gray-500">{product.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">{product.description}</p>
                           )}
                         </div>
                         <Button
                           size="sm"
                           onClick={() => addItem(product)}
-                          className="bg-green-500 hover:bg-green-600"
+                          className="bg-green-500 hover:bg-green-600 ml-2"
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -254,14 +256,14 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                 )}
 
                 {filteredExternalProducts.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos ({filteredExternalProducts.length})</h4>
+                  <div className={filteredFoodProducts.length > 0 ? "mt-4" : ""}>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Produtos Externos ({filteredExternalProducts.length})</h4>
                     {filteredExternalProducts.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
-                        <div>
-                          <p className="font-medium">{product.name}</p>
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{product.name}</p>
                           <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                             {product.brand && <span>{product.brand}</span>}
                             <span>Estoque: {product.current_stock}</span>
                           </div>
@@ -269,7 +271,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                         <Button
                           size="sm"
                           onClick={() => addItem(product)}
-                          className="bg-green-500 hover:bg-green-600"
+                          className="bg-green-500 hover:bg-green-600 ml-2"
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -288,15 +290,16 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
           </div>
 
           {/* Right Column - Selected Items */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <h3 className="font-semibold">Itens Selecionados</h3>
-              <div className="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto">
+              <h3 className="font-semibold mb-3">Itens Selecionados</h3>
+              <div className="space-y-2 h-96 overflow-y-auto border rounded-lg p-3">
                 {selectedItems.map((item, index) => (
                   <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <p className="font-medium">{item.product?.name}</p>
+                      <p className="font-medium text-sm">{item.product?.name}</p>
                       <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                      <p className="text-xs text-gray-500">Total: R$ {item.totalPrice.toFixed(2)}</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
@@ -307,7 +310,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
                       >
                         -
                       </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
+                      <span className="w-8 text-center text-sm">{item.quantity}</span>
                       <Button
                         size="sm"
                         variant="outline"
@@ -334,13 +337,13 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
               </div>
             </div>
 
-            <div className="border-t pt-4 space-y-2 mt-4">
-              <div className="flex justify-between font-bold text-base sm:text-lg">
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex justify-between font-bold text-lg">
                 <span>Total:</span>
                 <span>R$ {total.toFixed(2)}</span>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 mt-4">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   variant="outline"
                   onClick={onClose}
