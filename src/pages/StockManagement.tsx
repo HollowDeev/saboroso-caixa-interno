@@ -61,8 +61,6 @@ export const StockManagement = () => {
     description: null,
     price: 0,
     cost: 0,
-    category: '',
-    preparation_time: 0,
     available: true,
     ingredients: [],
   });
@@ -150,7 +148,7 @@ export const StockManagement = () => {
       return;
     }
 
-    if (!newProduct.name || !newProduct.category || newProduct.price <= 0) {
+    if (!newProduct.name || newProduct.price <= 0) {
       toast.error('Preencha todos os campos obrigatórios');
       return;
     }
@@ -162,11 +160,17 @@ export const StockManagement = () => {
         description: newProduct.description,
         price: newProduct.price,
         cost: newProduct.cost,
-        category: newProduct.category,
-        preparation_time: newProduct.preparation_time,
         available: newProduct.available,
         owner_id: currentUser.id,
-        ingredients: newProduct.ingredients,
+        ingredients: newProduct.ingredients.map(ing => ({
+          id: '',
+          food_id: '',
+          ingredient_id: ing.ingredient_id,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })),
       };
 
       await addProduct(productData);

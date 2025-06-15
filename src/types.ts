@@ -39,8 +39,6 @@ export interface Product {
   price: number;
   cost: number;
   available: boolean;
-  category: string;
-  preparation_time: number;
   owner_id: string;
   created_at: string;
   updated_at: string;
@@ -192,14 +190,12 @@ export interface ProductIngredient {
   unit: string;
 }
 
-// Form data interface with ingredients
+// Form data interface with ingredients (removed category and preparation_time)
 export interface ProductFormData {
   name: string;
   description: string | null;
   price: number;
   cost: number;
-  category: string;
-  preparation_time: number;
   available: boolean;
   ingredients: ProductIngredient[];
 }

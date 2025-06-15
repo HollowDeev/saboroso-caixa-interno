@@ -30,17 +30,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const { ingredients } = useApp();
   const [calculatedCost, setCalculatedCost] = useState(0);
 
-  const categories = [
-    'Lanches',
-    'Pizzas',
-    'Bebidas',
-    'Sobremesas',
-    'Pratos Principais',
-    'Entradas',
-    'Saladas',
-    'Outros'
-  ];
-
   // Calcular custo automaticamente quando ingredientes mudarem
   useEffect(() => {
     const totalCost = product.ingredients.reduce((total, productIngredient) => {
@@ -129,38 +118,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           onChange={(e) => onChange('description', e.target.value || null)}
           placeholder="Descrição do produto"
           rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="category">Categoria *</Label>
-        <Select
-          value={product.category}
-          onValueChange={(value) => onChange('category', value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione uma categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="preparation_time">Tempo de Preparo (minutos) *</Label>
-        <Input
-          id="preparation_time"
-          type="number"
-          min="0"
-          value={product.preparation_time}
-          onChange={(e) => onChange('preparation_time', parseInt(e.target.value) || 0)}
-          placeholder="0"
-          required
         />
       </div>
 
