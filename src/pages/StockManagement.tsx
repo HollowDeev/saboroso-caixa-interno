@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +9,7 @@ import { ExternalProductCard } from '@/components/stock/ExternalProductCard';
 import { ProductCard } from '@/components/stock/ProductCard';
 import { IngredientForm } from '@/components/stock/IngredientForm';
 import { ExternalProductForm } from '@/components/stock/ExternalProductForm';
+import { ProductForm } from '@/components/stock/ProductForm';
 import { toast } from 'sonner';
 
 export const StockManagement = () => {
@@ -33,6 +33,7 @@ export const StockManagement = () => {
   const [activeTab, setActiveTab] = useState('ingredients');
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
   const [isAddExternalProductOpen, setIsAddExternalProductOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
 
   const [newIngredient, setNewIngredient] = useState({
     name: '',
@@ -52,6 +53,16 @@ export const StockManagement = () => {
     price: 0,
     current_stock: 0,
     min_stock: 0,
+  });
+
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    description: null as string | null,
+    price: 0,
+    cost: 0,
+    category: '',
+    preparation_time: 0,
+    available: true,
   });
 
   const resetNewIngredient = () => {
@@ -75,6 +86,18 @@ export const StockManagement = () => {
       price: 0,
       current_stock: 0,
       min_stock: 0,
+    });
+  };
+
+  const resetNewProduct = () => {
+    setNewProduct({
+      name: '',
+      description: null,
+      price: 0,
+      cost: 0,
+      category: '',
+      preparation_time: 0,
+      available: true,
     });
   };
 
@@ -115,6 +138,31 @@ export const StockManagement = () => {
     } catch (error) {
       console.error('Erro ao adicionar produto externo:', error);
       toast.error('Erro ao adicionar produto externo');
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!currentUser?.id) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
+
+    if (!newProduct.name || !newProduct.category || newProduct.price <= 0) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      await addProduct({
+        ...newProduct,
+        owner_id: currentUser.id,
+      });
+      setIsAddProductOpen(false);
+      resetNewProduct();
+      toast.success('Produto adicionado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar produto:', error);
+      toast.error('Erro ao adicionar produto');
     }
   };
 
@@ -260,11 +308,27 @@ export const StockManagement = () => {
         <TabsContent value="products" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Produtos (Comidas)</h2>
-            <Button size="sm" className="min-h-[44px]" disabled>
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Adicionar Produto</span>
-              <span className="sm:hidden">Adicionar</span>
-            </Button>
+            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="min-h-[44px]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Adicionar Produto</span>
+                  <span className="sm:hidden">Adicionar</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Produto</DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                  product={newProduct}
+                  onChange={(field, value) => setNewProduct(prev => ({ ...prev, [field]: value }))}
+                  onSubmit={handleAddProduct}
+                  onCancel={() => setIsAddProductOpen(false)}
+                  submitLabel="Adicionar Produto"
+                />
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
