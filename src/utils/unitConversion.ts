@@ -1,7 +1,9 @@
+
 // Tipos de unidades disponíveis
 export type MassUnit = 'kg' | 'g' | 'mg';
 export type VolumeUnit = 'L' | 'ml';
-export type Unit = MassUnit | VolumeUnit | 'unidade';
+export type CountUnit = 'unidade';
+export type Unit = MassUnit | VolumeUnit | CountUnit;
 
 // Fatores de conversão para massa (em relação à unidade base)
 const massConversionFactors: Record<MassUnit, number> = {

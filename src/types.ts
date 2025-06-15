@@ -175,8 +175,8 @@ export interface AppContextType {
   updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
 }
 
-// Unit conversion types
-export type Unit = 'kg' | 'g' | 'l' | 'ml' | 'unidade' | 'caixa' | 'pacote';
+// Unit conversion types - aligned with unitConversion.ts
+export type Unit = 'kg' | 'g' | 'mg' | 'L' | 'ml' | 'unidade';
 
 export interface UnitConversion {
   from: Unit;

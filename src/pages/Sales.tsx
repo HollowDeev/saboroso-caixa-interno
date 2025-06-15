@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +34,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Sale, OrderItem } from "@/types";
+import { Sale, OrderItem, PaymentMethod } from "@/types";
 import { ReceiptPrint } from "@/components/ReceiptPrint";
 
 export const Sales = () => {
@@ -75,11 +74,11 @@ export const Sales = () => {
 
         const salesWithMappedData = data.map(sale => ({
           id: sale.id,
-          items: Array.isArray(sale.items) ? sale.items as OrderItem[] : [],
+          items: Array.isArray(sale.items) ? (sale.items as unknown as OrderItem[]) : [],
           subtotal: sale.subtotal,
           tax: sale.tax,
           total: sale.total,
-          paymentMethod: sale.payment_method,
+          paymentMethod: sale.payment_method as PaymentMethod,
           customerName: sale.customer_name,
           userId: sale.user_id,
           cash_register_id: sale.cash_register_id,
