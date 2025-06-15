@@ -83,7 +83,7 @@ export const deleteSale = async (
   id: string,
   currentUser: User,
   currentCashRegister: CashRegister,
-  setSales: (sales: Sale[]) => void
+  onSuccess: () => void
 ) => {
   if (!currentUser || !currentCashRegister) {
     throw new Error('Usuário não autenticado ou caixa não está aberto');
@@ -147,6 +147,6 @@ export const deleteSale = async (
 
   if (deleteError) throw deleteError;
 
-  // Atualizar o estado local
-  setSales(prevSales => prevSales.filter(s => s.id !== id));
+  // Chamar callback de sucesso
+  onSuccess();
 };

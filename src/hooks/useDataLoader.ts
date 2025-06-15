@@ -19,31 +19,39 @@ export const useDataLoader = () => {
     setServiceTaxes: (taxes: ServiceTax[]) => void,
     setCurrentCashRegister: (register: CashRegister | null) => void
   ) => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id) {
+      console.log('❌ No current user found');
+      return;
+    }
 
     try {
       setIsLoading(true);
-      console.log('Loading data for user:', currentUser.id, 'role:', currentUser.role);
+      console.log('🔄 Loading data for user:', currentUser.id, 'role:', currentUser.role);
 
       // Para funcionários, usar o owner_id; para admin, usar o próprio id
       const ownerId = currentUser.role === 'employee'
         ? (currentUser as any).owner_id || currentUser.id
         : currentUser.id;
 
-      console.log('Using owner ID:', ownerId);
+      console.log('👤 Using owner ID:', ownerId);
 
       // Load ingredients
+      console.log('📦 Loading ingredients...');
       const { data: ingredientsData, error: ingredientsError } = await supabase
         .from('ingredients')
         .select('*')
         .eq('owner_id', ownerId)
         .order('name');
 
-      if (ingredientsError) throw ingredientsError;
-      console.log('Ingredients loaded:', ingredientsData);
+      if (ingredientsError) {
+        console.error('❌ Error loading ingredients:', ingredientsError);
+        throw ingredientsError;
+      }
+      console.log('✅ Ingredients loaded:', ingredientsData?.length || 0, 'items');
       setIngredients(ingredientsData || []);
 
       // Load foods (products) with ingredients
+      console.log('🍕 Loading foods...');
       const { data: foodsData, error: foodsError } = await supabase
         .from('foods')
         .select(`
@@ -61,8 +69,11 @@ export const useDataLoader = () => {
         .is('deleted_at', null)
         .order('name');
 
-      if (foodsError) throw foodsError;
-      console.log('Products loaded:', foodsData);
+      if (foodsError) {
+        console.error('❌ Error loading foods:', foodsError);
+        throw foodsError;
+      }
+      console.log('✅ Foods loaded:', foodsData?.length || 0, 'items');
       setProducts((foodsData || []).map(food => ({
         id: food.id,
         name: food.name,
@@ -87,17 +98,22 @@ export const useDataLoader = () => {
       })));
 
       // Load external products
+      console.log('📱 Loading external products...');
       const { data: externalProductsData, error: externalProductsError } = await supabase
         .from('external_products')
         .select('*')
         .eq('owner_id', ownerId)
         .order('name');
 
-      if (externalProductsError) throw externalProductsError;
-      console.log('External products loaded:', externalProductsData);
+      if (externalProductsError) {
+        console.error('❌ Error loading external products:', externalProductsError);
+        throw externalProductsError;
+      }
+      console.log('✅ External products loaded:', externalProductsData?.length || 0, 'items');
       setExternalProducts(externalProductsData || []);
 
       // Load current cash register primeiro para obter o ID
+      console.log('💰 Loading current cash register...');
       const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
         .from('cash_registers')
         .select('*')
@@ -106,14 +122,16 @@ export const useDataLoader = () => {
         .single();
 
       if (currentCashRegisterError && currentCashRegisterError.code !== 'PGRST116') {
+        console.error('❌ Error loading cash register:', currentCashRegisterError);
         throw currentCashRegisterError;
       }
 
-      console.log('Current cash register:', cashRegisterData);
+      console.log('✅ Current cash register:', cashRegisterData?.id || 'none');
       setCurrentCashRegister(cashRegisterData || null);
 
       // Se há caixa aberto, carregar orders e sales
       if (cashRegisterData) {
+        console.log('📋 Loading orders for cash register:', cashRegisterData.id);
         // Load orders with items
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
@@ -132,10 +150,14 @@ export const useDataLoader = () => {
           .eq('cash_register_id', cashRegisterData.id)
           .order('created_at', { ascending: false });
 
-        if (ordersError) throw ordersError;
-        console.log('Orders loaded:', ordersData);
+        if (ordersError) {
+          console.error('❌ Error loading orders:', ordersError);
+          throw ordersError;
+        }
+        console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
         setOrders(formatOrders(ordersData || []));
 
+        console.log('💳 Loading sales for cash register:', cashRegisterData.id);
         // Load sales
         const { data: salesData, error: salesError } = await supabase
           .from('sales')
@@ -143,28 +165,36 @@ export const useDataLoader = () => {
           .eq('cash_register_id', cashRegisterData.id)
           .order('created_at', { ascending: false });
 
-        if (salesError) throw salesError;
-        console.log('Sales loaded:', salesData);
+        if (salesError) {
+          console.error('❌ Error loading sales:', salesError);
+          throw salesError;
+        }
+        console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
         setSales(formatSales(salesData || []));
       } else {
-        console.log('No open cash register found');
+        console.log('ℹ️ No open cash register found - clearing orders and sales');
         setOrders([]);
         setSales([]);
       }
 
       // Load service taxes
+      console.log('🏷️ Loading service taxes...');
       const { data: serviceTaxesData, error: serviceTaxesError } = await supabase
         .from('service_taxes')
         .select('*')
         .order('name');
 
-      if (serviceTaxesError) throw serviceTaxesError;
+      if (serviceTaxesError) {
+        console.error('❌ Error loading service taxes:', serviceTaxesError);
+        throw serviceTaxesError;
+      }
+      console.log('✅ Service taxes loaded:', serviceTaxesData?.length || 0, 'items');
       setServiceTaxes(serviceTaxesData || []);
 
-      console.log('Data loading completed successfully');
+      console.log('🎉 Data loading completed successfully');
 
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error('💥 Error loading data:', error);
       toast({
         title: 'Erro ao carregar dados',
         description: 'Não foi possível carregar os dados do sistema.',

@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -259,7 +258,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSale = async (id: string) => {
     try {
-      await salesService.deleteSale(id, currentUser!, currentCashRegister!, setSales);
+      await salesService.deleteSale(id, currentUser!, currentCashRegister!, () => {
+        setSales(prevSales => prevSales.filter(s => s.id !== id));
+      });
       await refreshData();
     } catch (error) {
       console.error('Error deleting sale:', error);
