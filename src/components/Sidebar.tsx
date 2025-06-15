@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -10,8 +9,7 @@ import {
   Users, 
   Settings, 
   Calculator,
-  X,
-  History
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +26,6 @@ export const Sidebar = ({ onClose, isEmployee }: SidebarProps) => {
     ...(!isEmployee ? [
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
       { icon: Package, label: 'Estoque', path: '/stock' },
-      { icon: History, label: 'Histórico de Caixas', path: '/cash-history' },
       { icon: Users, label: 'Usuários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
       { icon: Settings, label: 'Configurações', path: '/settings' },
@@ -74,4 +71,3 @@ export const Sidebar = ({ onClose, isEmployee }: SidebarProps) => {
     </aside>
   );
 };
-
