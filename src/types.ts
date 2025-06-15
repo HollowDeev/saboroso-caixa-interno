@@ -135,8 +135,6 @@ export interface NewExpense {
   reason?: string;
   product_id?: string;
   ingredient_ids?: string[];
-  user_id: string;
-  cash_register_id: string;
 }
 
 export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';

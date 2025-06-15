@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/contexts/AppContext';
-import { NewExpense } from '@/types/expense';
+import { NewExpense } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 
 interface ExpenseModalProps {
@@ -17,7 +17,7 @@ interface ExpenseModalProps {
 }
 
 export const ExpenseModal = ({ isOpen, onClose }: ExpenseModalProps) => {
-  const { products, externalProducts, addExpense, currentCashRegister } = useApp();
+  const { products, externalProducts, addExpense, currentCashRegister, currentUser } = useApp();
   const [selectedTab, setSelectedTab] = useState('product_loss');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedFood, setSelectedFood] = useState('');
@@ -61,8 +61,17 @@ export const ExpenseModal = ({ isOpen, onClose }: ExpenseModalProps) => {
       return;
     }
 
+    if (!currentUser) {
+      toast({
+        title: "Erro",
+        description: "Usuário não encontrado.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      let expense: NewExpense;
+      let expense: Omit<NewExpense & { user_id: string; cash_register_id: string }, 'id' | 'created_at'>;
       const calculatedAmount = calculateAmount();
 
       if (selectedTab === 'product_loss') {
@@ -82,7 +91,9 @@ export const ExpenseModal = ({ isOpen, onClose }: ExpenseModalProps) => {
           description: `Perda/Consumo: ${product?.name}`,
           amount: calculatedAmount,
           quantity,
-          reason
+          reason,
+          user_id: currentUser.id,
+          cash_register_id: currentCashRegister.id
         };
       } else if (selectedTab === 'ingredient_loss') {
         if (!selectedFood || !quantity) {
@@ -102,7 +113,9 @@ export const ExpenseModal = ({ isOpen, onClose }: ExpenseModalProps) => {
           description: `Perda/Consumo: ${food?.name}`,
           amount: calculatedAmount,
           quantity,
-          reason
+          reason,
+          user_id: currentUser.id,
+          cash_register_id: currentCashRegister.id
         };
       } else {
         if (!description || amount <= 0) {
@@ -118,7 +131,9 @@ export const ExpenseModal = ({ isOpen, onClose }: ExpenseModalProps) => {
           type: 'other',
           description,
           amount,
-          reason
+          reason,
+          user_id: currentUser.id,
+          cash_register_id: currentCashRegister.id
         };
       }
 

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Pencil, Trash2, Clock, Chef } from 'lucide-react';
+import { Pencil, Trash2, Clock, UtensilsCrossed } from 'lucide-react';
 import { Product } from '@/types';
 import { toast } from 'sonner';
 
@@ -82,7 +82,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <div className="flex flex-wrap gap-1 mt-1">
                 {product.ingredients.slice(0, 3).map((ing, index) => (
                   <Badge key={index} variant="outline" className="text-xs">
-                    <Chef className="h-3 w-3 mr-1" />
+                    <UtensilsCrossed className="h-3 w-3 mr-1" />
                     {ing.quantity} {ing.unit}
                   </Badge>
                 ))}
