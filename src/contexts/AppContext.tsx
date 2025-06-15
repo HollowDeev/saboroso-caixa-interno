@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -104,7 +103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // Load orders with items - CORRIGIDO: buscar por cash_register do owner
+      // Load orders with items - CORRIGIDO: buscar diretamente por owner_id nos cash_registers
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
@@ -117,79 +116,90 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             unit_price,
             total_price,
             product_type
-          ),
-          cash_registers!inner (
-            owner_id
           )
         `)
-        .eq('cash_registers.owner_id', ownerId)
+        .in('cash_register_id', 
+          // Subquery para buscar IDs dos caixas do owner
+          supabase.from('cash_registers').select('id').eq('owner_id', ownerId).then(({ data }) => 
+            data?.map(cr => cr.id) || []
+          )
+        )
         .order('created_at', { ascending: false });
 
-      if (ordersError) throw ordersError;
-      console.log('Orders loaded:', ordersData);
+      if (ordersError) {
+        console.error('Error loading orders:', ordersError);
+        // Tentar query alternativa mais simples
+        const { data: cashRegisters } = await supabase
+          .from('cash_registers')
+          .select('id')
+          .eq('owner_id', ownerId);
 
-      const formattedOrders: Order[] = (ordersData || []).map(order => ({
-        id: order.id,
-        customerName: order.customer_name,
-        tableNumber: order.table_number,
-        items: (order.order_items || []).map((item: any) => ({
-          id: item.id,
-          productId: item.product_id,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unitPrice: item.unit_price,
-          totalPrice: item.total_price,
-          product_type: item.product_type
-        })),
-        subtotal: order.subtotal,
-        tax: order.tax,
-        total: order.total,
-        status: order.status as 'open' | 'closed',
-        paymentMethod: order.payment_method as PaymentMethod,
-        userId: order.user_id,
-        cash_register_id: order.cash_register_id,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at
-      }));
+        if (cashRegisters && cashRegisters.length > 0) {
+          const cashRegisterIds = cashRegisters.map(cr => cr.id);
+          
+          const { data: ordersDataAlt, error: ordersErrorAlt } = await supabase
+            .from('orders')
+            .select(`
+              *,
+              order_items (
+                id,
+                product_id,
+                product_name,
+                quantity,
+                unit_price,
+                total_price,
+                product_type
+              )
+            `)
+            .in('cash_register_id', cashRegisterIds)
+            .order('created_at', { ascending: false });
 
-      setOrders(formattedOrders);
+          if (ordersErrorAlt) throw ordersErrorAlt;
+          setOrders(formatOrders(ordersDataAlt || []));
+        } else {
+          setOrders([]);
+        }
+      } else {
+        setOrders(formatOrders(ordersData || []));
+      }
 
-      // Load sales - CORRIGIDO: buscar por cash_register do owner
+      // Load sales - CORRIGIDO: buscar por owner_id nos cash_registers
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
-        .select(`
-          *,
-          cash_registers!inner (
-            owner_id
+        .select('*')
+        .in('cash_register_id', 
+          // Subquery para buscar IDs dos caixas do owner
+          supabase.from('cash_registers').select('id').eq('owner_id', ownerId).then(({ data }) => 
+            data?.map(cr => cr.id) || []
           )
-        `)
-        .eq('cash_registers.owner_id', ownerId)
+        )
         .order('created_at', { ascending: false });
 
-      if (salesError) throw salesError;
-      console.log('Sales loaded:', salesData);
-      setSales((salesData || []).map(sale => ({
-        id: sale.id,
-        items: Array.isArray(sale.items) ? (sale.items as any[]).map((item: any) => ({
-          id: item.id || '',
-          productId: item.productId || item.product_id || '',
-          product_name: item.product_name || item.name || '',
-          quantity: item.quantity || 0,
-          unitPrice: item.unitPrice || item.unit_price || 0,
-          totalPrice: item.totalPrice || item.total_price || 0,
-          product_type: item.product_type || 'food'
-        })) : [],
-        subtotal: sale.subtotal,
-        tax: sale.tax,
-        total: sale.total,
-        paymentMethod: sale.payment_method as PaymentMethod,
-        customerName: sale.customer_name,
-        userId: sale.user_id,
-        cash_register_id: sale.cash_register_id,
-        order_id: sale.order_id,
-        is_direct_sale: sale.is_direct_sale,
-        createdAt: sale.created_at
-      })));
+      if (salesError) {
+        console.error('Error loading sales:', salesError);
+        // Tentar query alternativa
+        const { data: cashRegisters } = await supabase
+          .from('cash_registers')
+          .select('id')
+          .eq('owner_id', ownerId);
+
+        if (cashRegisters && cashRegisters.length > 0) {
+          const cashRegisterIds = cashRegisters.map(cr => cr.id);
+          
+          const { data: salesDataAlt, error: salesErrorAlt } = await supabase
+            .from('sales')
+            .select('*')
+            .in('cash_register_id', cashRegisterIds)
+            .order('created_at', { ascending: false });
+
+          if (salesErrorAlt) throw salesErrorAlt;
+          setSales(formatSales(salesDataAlt || []));
+        } else {
+          setSales([]);
+        }
+      } else {
+        setSales(formatSales(salesData || []));
+      }
 
       // Load service taxes
       const { data: serviceTaxesData, error: serviceTaxesError } = await supabase
@@ -226,6 +236,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Função auxiliar para formatar orders
+  const formatOrders = (ordersData: any[]): Order[] => {
+    return ordersData.map(order => ({
+      id: order.id,
+      customerName: order.customer_name,
+      tableNumber: order.table_number,
+      items: (order.order_items || []).map((item: any) => ({
+        id: item.id,
+        productId: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        totalPrice: item.total_price,
+        product_type: item.product_type
+      })),
+      subtotal: order.subtotal,
+      tax: order.tax,
+      total: order.total,
+      status: order.status as 'open' | 'closed',
+      paymentMethod: order.payment_method as PaymentMethod,
+      userId: order.user_id,
+      cash_register_id: order.cash_register_id,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at
+    }));
+  };
+
+  // Função auxiliar para formatar sales
+  const formatSales = (salesData: any[]): Sale[] => {
+    return salesData.map(sale => ({
+      id: sale.id,
+      items: Array.isArray(sale.items) ? (sale.items as any[]).map((item: any) => ({
+        id: item.id || '',
+        productId: item.productId || item.product_id || '',
+        product_name: item.product_name || item.name || '',
+        quantity: item.quantity || 0,
+        unitPrice: item.unitPrice || item.unit_price || 0,
+        totalPrice: item.totalPrice || item.total_price || 0,
+        product_type: item.product_type || 'food'
+      })) : [],
+      subtotal: sale.subtotal,
+      tax: sale.tax,
+      total: sale.total,
+      paymentMethod: sale.payment_method as PaymentMethod,
+      customerName: sale.customer_name,
+      userId: sale.user_id,
+      cash_register_id: sale.cash_register_id,
+      order_id: sale.order_id,
+      is_direct_sale: sale.is_direct_sale,
+      createdAt: sale.created_at
+    }));
   };
 
   useEffect(() => {
