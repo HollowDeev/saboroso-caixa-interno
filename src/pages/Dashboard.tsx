@@ -33,11 +33,19 @@ export const Dashboard = () => {
   const closedOrders = orders.filter(order => order.status === 'closed');
 
   const lowStockIngredients = ingredients.filter(ingredient =>
-    ingredient.current_stock <= ingredient.min_stock
+    ingredient.current_stock <= ingredient.min_stock && ingredient.current_stock > 0
+  );
+
+  const criticalStockIngredients = ingredients.filter(ingredient =>
+    ingredient.current_stock === 0
   );
 
   const lowStockExternalProducts = externalProducts.filter(product =>
-    product.current_stock <= product.min_stock
+    product.current_stock <= product.min_stock && product.current_stock > 0
+  );
+
+  const criticalStockExternalProducts = externalProducts.filter(product =>
+    product.current_stock === 0
   );
 
   const availableProducts = products.filter(product => product.available).length;
@@ -142,7 +150,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Stock Alerts */}
-      {(lowStockIngredients.length > 0 || lowStockExternalProducts.length > 0) && (
+      {(criticalStockIngredients.length > 0 || criticalStockExternalProducts.length > 0 || lowStockIngredients.length > 0 || lowStockExternalProducts.length > 0) && (
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <CardTitle className="flex items-center text-red-800">
@@ -152,33 +160,80 @@ export const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {lowStockIngredients.length > 0 && (
+              {/* Critical Stock Ingredients */}
+              {criticalStockIngredients.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-red-700 mb-2">Ingredientes com Estoque Baixo</h4>
+                  <h4 className="font-medium text-red-800 mb-2 flex items-center">
+                    <AlertTriangle className="h-4 w-4 mr-1" />
+                    Ingredientes em Estoque Crítico (Zerado)
+                  </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {lowStockIngredients.map((ingredient) => (
-                      <div key={ingredient.id} className="bg-white p-2 rounded border">
-                        <p className="font-medium text-sm">{ingredient.name}</p>
-                        <p className="text-xs text-gray-600">
-                          Atual: {ingredient.current_stock} {ingredient.unit} |
+                    {criticalStockIngredients.map((ingredient) => (
+                      <div key={ingredient.id} className="bg-red-100 p-2 rounded border border-red-300">
+                        <p className="font-medium text-sm text-red-800">{ingredient.name}</p>
+                        <p className="text-xs text-red-600">
+                          Estoque: {ingredient.current_stock} {ingredient.unit} | 
                           Mínimo: {ingredient.min_stock} {ingredient.unit}
                         </p>
+                        <Badge variant="destructive" className="text-xs mt-1">Crítico</Badge>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
+              {/* Critical Stock External Products */}
+              {criticalStockExternalProducts.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-red-800 mb-2 flex items-center">
+                    <AlertTriangle className="h-4 w-4 mr-1" />
+                    Produtos Externos em Estoque Crítico (Zerado)
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {criticalStockExternalProducts.map((product) => (
+                      <div key={product.id} className="bg-red-100 p-2 rounded border border-red-300">
+                        <p className="font-medium text-sm text-red-800">{product.name}</p>
+                        <p className="text-xs text-red-600">
+                          Estoque: {product.current_stock} | Mínimo: {product.min_stock}
+                        </p>
+                        <Badge variant="destructive" className="text-xs mt-1">Crítico</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Low Stock Ingredients */}
+              {lowStockIngredients.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-orange-700 mb-2">Ingredientes com Estoque Baixo</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {lowStockIngredients.map((ingredient) => (
+                      <div key={ingredient.id} className="bg-orange-50 p-2 rounded border border-orange-200">
+                        <p className="font-medium text-sm text-orange-800">{ingredient.name}</p>
+                        <p className="text-xs text-orange-600">
+                          Atual: {ingredient.current_stock} {ingredient.unit} |
+                          Mínimo: {ingredient.min_stock} {ingredient.unit}
+                        </p>
+                        <Badge className="bg-orange-200 text-orange-800 text-xs mt-1">Baixo</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Low Stock External Products */}
               {lowStockExternalProducts.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-red-700 mb-2">Produtos Externos com Estoque Baixo</h4>
+                  <h4 className="font-medium text-orange-700 mb-2">Produtos Externos com Estoque Baixo</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                     {lowStockExternalProducts.map((product) => (
-                      <div key={product.id} className="bg-white p-2 rounded border">
-                        <p className="font-medium text-sm">{product.name}</p>
-                        <p className="text-xs text-gray-600">
+                      <div key={product.id} className="bg-orange-50 p-2 rounded border border-orange-200">
+                        <p className="font-medium text-sm text-orange-800">{product.name}</p>
+                        <p className="text-xs text-orange-600">
                           Atual: {product.current_stock} | Mínimo: {product.min_stock}
                         </p>
+                        <Badge className="bg-orange-200 text-orange-800 text-xs mt-1">Baixo</Badge>
                       </div>
                     ))}
                   </div>
