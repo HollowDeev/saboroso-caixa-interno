@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Order, OrderItem, Product, NewOrderItem, ExternalProduct } from '@/types';
 import { OrderCard } from '@/components/OrderCard';
@@ -22,7 +21,7 @@ export const Orders = () => {
     currentCashRegister,
     checkCashRegisterAccess,
     isLoading
-  } = useApp();
+  } = useAppContext();
 
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [customerName, setCustomerName] = useState('');
@@ -133,6 +132,14 @@ export const Orders = () => {
     }
   };
 
+  console.log('Orders Debug:', {
+    currentUser: currentUser?.id,
+    currentCashRegister: currentCashRegister?.id,
+    ordersCount: orders?.length || 0,
+    productsCount: products?.length || 0,
+    externalProductsCount: externalProducts?.length || 0
+  });
+
   // Filter orders by the current cash register instead of the current user
   const filteredOrders = orders.filter(order => {
     // Only show orders from the current cash register
@@ -146,6 +153,14 @@ export const Orders = () => {
 
   return (
     <div className="space-y-6">
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-100 p-2 text-xs">
+          Debug: User: {currentUser?.id}, CashRegister: {currentCashRegister?.id}, 
+          Orders: {orders?.length}, Products: {products?.length}, External: {externalProducts?.length}
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Comandas</h1>

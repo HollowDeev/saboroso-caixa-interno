@@ -380,4 +380,5 @@ export const useAppContext = () => {
   return context;
 };
 
+// Manter compatibilidade com o hook useApp
 export const useApp = useAppContext;
