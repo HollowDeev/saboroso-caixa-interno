@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { useAuthContext } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Ingredient, ExternalProduct as ExternalProductType, Product, FoodIngredient, Unit } from '@/types';
+import { Ingredient, ExternalProduct, Product, FoodIngredient, Unit } from '@/types';
 import { convertValue, getAvailableSubunits } from '@/utils/unitConversion';
 import { Plus, Pencil, Trash2, AlertTriangle, Package, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
@@ -30,6 +29,7 @@ interface LocalExternalProduct {
 
 export const StockManagement = () => {
   const { 
+    currentUser,
     ingredients, 
     externalProducts, 
     products, 
@@ -41,10 +41,9 @@ export const StockManagement = () => {
     deleteExternalProduct,
     addProduct,
     updateProduct,
-    deleteProduct
+    deleteProduct,
+    updateStock
   } = useAppContext();
-  
-  const { currentUser } = useAuthContext();
 
   // State management
   const [activeTab, setActiveTab] = useState('ingredients');
@@ -55,7 +54,7 @@ export const StockManagement = () => {
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
-  const [selectedExternalProduct, setSelectedExternalProduct] = useState<ExternalProductType | null>(null);
+  const [selectedExternalProduct, setSelectedExternalProduct] = useState<ExternalProduct | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   // Form states
@@ -98,14 +97,8 @@ export const StockManagement = () => {
     available: true,
     category: '',
     preparation_time: 0,
-    ingredients: [] as { ingredientId: string; quantity: number; unit: Unit; }[],
+    ingredients: [] as { ingredient_id: string; quantity: number; unit: Unit; }[],
   });
-
-  // Placeholder updateStock function - this should be implemented in the context
-  const updateStock = async (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => {
-    console.log('updateStock called with:', { itemType, itemId, quantity, reason });
-    toast.info('Stock update functionality needs to be implemented');
-  };
 
   // Helper functions
   const resetNewIngredient = () => {
@@ -210,20 +203,10 @@ export const StockManagement = () => {
         owner_id: currentUser.id,
       };
 
-      await addProduct(productData);
+      // Remove ingredients from product data since they're handled separately
+      const { ingredients, ...productDataWithoutIngredients } = productData;
 
-      // Create food ingredients relationships
-      if (newProduct.ingredients.length > 0) {
-        const ingredientsToAdd: FoodIngredient[] = newProduct.ingredients.map((ing, index) => ({
-          id: `temp-${index}`, // Temporary ID, will be replaced by backend
-          food_id: 'temp-food-id', // Will be replaced by actual product ID
-          ingredient_id: ing.ingredient_id,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }));
-      }
+      await addProduct(productDataWithoutIngredients);
 
       setIsAddProductOpen(false);
       resetNewProduct();
@@ -247,19 +230,6 @@ export const StockManagement = () => {
         category: editProduct.category,
         preparation_time: editProduct.preparation_time,
       });
-
-      // Update ingredients
-      if (editProduct.ingredients.length > 0) {
-        const ingredientsToUpdate: FoodIngredient[] = editProduct.ingredients.map((ing, index) => ({
-          id: `temp-${index}`,
-          food_id: selectedProduct.id,
-          ingredient_id: ing.ingredientId,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }));
-      }
 
       setIsEditProductOpen(false);
       setSelectedProduct(null);
@@ -337,7 +307,7 @@ export const StockManagement = () => {
     setIsEditIngredientOpen(true);
   };
 
-  const openEditExternalProduct = (product: ExternalProductType) => {
+  const openEditExternalProduct = (product: ExternalProduct) => {
     setSelectedExternalProduct(product);
     setIsEditExternalProductOpen(true);
   };
@@ -353,7 +323,7 @@ export const StockManagement = () => {
       category: product.category,
       preparation_time: product.preparation_time,
       ingredients: (product.ingredients || []).map(ing => ({
-        ingredientId: ing.ingredient_id,
+        ingredient_id: ing.ingredient_id,
         quantity: ing.quantity,
         unit: ing.unit as Unit,
       })),
@@ -387,7 +357,7 @@ export const StockManagement = () => {
   const addIngredientToEditProduct = () => {
     setEditProduct(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { ingredientId: '', quantity: 0, unit: 'kg' as Unit }]
+      ingredients: [...prev.ingredients, { ingredient_id: '', quantity: 0, unit: 'kg' as Unit }]
     }));
   };
 
@@ -1268,8 +1238,8 @@ export const StockManagement = () => {
                 <div key={index} className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-6">
                     <Select
-                      value={ingredient.ingredientId}
-                      onValueChange={(value) => updateEditProductIngredient(index, 'ingredientId', value)}
+                      value={ingredient.ingredient_id}
+                      onValueChange={(value) => updateEditProductIngredient(index, 'ingredient_id', value)}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o ingrediente" />
