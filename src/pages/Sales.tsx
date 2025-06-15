@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +35,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Sale, OrderItem, PaymentMethod } from "@/types";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Sale, OrderItem, PaymentMethod, Expense } from "@/types";
 import { ReceiptPrint } from "@/components/ReceiptPrint";
 import { ExpenseModal } from '@/components/ExpenseModal';
 
@@ -47,7 +56,8 @@ export const Sales = () => {
     isLoading,
     openCashRegister,
     closeCashRegister,
-    deleteSale
+    deleteSale,
+    deleteExpense
   } = useApp();
 
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
@@ -57,6 +67,7 @@ export const Sales = () => {
   const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [saleToPrint, setSaleToPrint] = useState<Sale | null>(null);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
@@ -115,6 +126,12 @@ export const Sales = () => {
     return saleDate.toDateString() === dateFilter.toDateString();
   });
 
+  const filteredExpenses = expenses.filter(expense => {
+    if (!dateFilter) return true;
+    const expenseDate = new Date(expense.created_at);
+    return expenseDate.toDateString() === dateFilter.toDateString();
+  });
+
   const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
   const totalCashSales = filteredSales
     .filter(sale => sale.paymentMethod === 'cash')
@@ -126,7 +143,7 @@ export const Sales = () => {
     .filter(sale => sale.paymentMethod === 'pix')
     .reduce((sum, sale) => sum + sale.total, 0);
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const totalProfit = totalSales - totalExpenses;
 
   const getPaymentMethodLabel = (method: string) => {
@@ -144,6 +161,15 @@ export const Sales = () => {
       case 'card': return 'bg-blue-500';
       case 'pix': return 'bg-purple-500';
       default: return 'bg-gray-500';
+    }
+  };
+
+  const getExpenseTypeLabel = (type: string) => {
+    switch (type) {
+      case 'product_loss': return 'Perda de Produto';
+      case 'ingredient_loss': return 'Perda de Ingrediente';
+      case 'other': return 'Outras Despesas';
+      default: return type;
     }
   };
 
@@ -203,6 +229,24 @@ export const Sales = () => {
       toast({
         title: "Erro",
         description: "Não foi possível excluir a venda. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteExpense = async (expense: Expense) => {
+    try {
+      await deleteExpense(expense.id);
+      setExpenseToDelete(null);
+      toast({
+        title: "Sucesso",
+        description: "Despesa excluída com sucesso!",
+      });
+    } catch (error) {
+      console.error('Erro ao excluir despesa:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a despesa. Tente novamente.",
         variant: "destructive"
       });
     }
@@ -404,124 +448,202 @@ export const Sales = () => {
         </Card>
       </div>
 
-      {/* Sales List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Vendas do Dia</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">
-              <p>Carregando vendas...</p>
-            </div>
-          ) : filteredSales.length === 0 ? (
-            <div className="text-center py-8">
-              <p>Nenhuma venda encontrada para esta data.</p>
-            </div>
-          ) : (
-            <Accordion type="single" collapsible className="space-y-4">
-              {filteredSales.map((sale) => (
-                <AccordionItem key={sale.id} value={sale.id} className="border rounded-lg overflow-hidden">
-                  <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
-                    <div className="flex flex-1 items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <h3 className="font-semibold text-left text-sm sm:text-base">
-                            {sale.customerName || 'Cliente não identificado'}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-gray-500 text-left">
-                            {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                          </p>
+      {/* Tabs for Sales and Expenses */}
+      <Tabs defaultValue="sales" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sales">Vendas do Dia ({filteredSales.length})</TabsTrigger>
+          <TabsTrigger value="expenses">Despesas do Dia ({filteredExpenses.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sales">
+          <Card>
+            <CardHeader>
+              <CardTitle>Vendas do Dia</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <p>Carregando vendas...</p>
+                </div>
+              ) : filteredSales.length === 0 ? (
+                <div className="text-center py-8">
+                  <p>Nenhuma venda encontrada para esta data.</p>
+                </div>
+              ) : (
+                <Accordion type="single" collapsible className="space-y-4">
+                  {filteredSales.map((sale) => (
+                    <AccordionItem key={sale.id} value={sale.id} className="border rounded-lg overflow-hidden">
+                      <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
+                        <div className="flex flex-1 items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div>
+                              <h3 className="font-semibold text-left text-sm sm:text-base">
+                                {sale.customerName || 'Cliente não identificado'}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-gray-500 text-left">
+                                {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 sm:gap-4">
+                            <Badge className={cn(
+                              'hidden sm:inline-flex',
+                              sale.paymentMethod === 'cash' && 'bg-green-100 text-green-800',
+                              sale.paymentMethod === 'card' && 'bg-blue-100 text-blue-800',
+                              sale.paymentMethod === 'pix' && 'bg-purple-100 text-purple-800'
+                            )}>
+                              {sale.paymentMethod === 'cash' ? 'Dinheiro' :
+                                sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
+                            </Badge>
+                            <span className="font-bold text-sm sm:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setEditingSale(sale);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSaleToPrint(sale);
+                                }}
+                              >
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setSaleToDelete(sale);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 sm:gap-4">
-                        <Badge className={cn(
-                          'hidden sm:inline-flex',
-                          sale.paymentMethod === 'cash' && 'bg-green-100 text-green-800',
-                          sale.paymentMethod === 'card' && 'bg-blue-100 text-blue-800',
-                          sale.paymentMethod === 'pix' && 'bg-purple-100 text-purple-800'
-                        )}>
-                          {sale.paymentMethod === 'cash' ? 'Dinheiro' :
-                            sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
-                        </Badge>
-                        <span className="font-bold text-sm sm:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setEditingSale(sale);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setSaleToPrint(sale);
-                            }}
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 sm:px-6 pb-4 bg-gray-50">
+                        <div className="space-y-4">
+                          {/* Sale Items */}
+                          <div className="space-y-2">
+                            {sale.items?.map((item, index) => (
+                              <div key={index} className="flex flex-col p-3 bg-white rounded-lg">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex items-start gap-2 sm:gap-3">
+                                    <span className="font-medium text-sm sm:text-base bg-gray-100 px-2 py-1 rounded">
+                                      {item.quantity}x
+                                    </span>
+                                    <div>
+                                      <span className="font-medium text-sm sm:text-base">{item.product_name}</span>
+                                      <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                                        Valor unitário: R$ {item.unitPrice.toFixed(2)}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className="font-medium text-sm sm:text-base">R$ {item.totalPrice.toFixed(2)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {/* Sale Total */}
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="flex justify-between font-medium text-sm sm:text-base">
+                              <span>Total:</span>
+                              <span>R$ {sale.total.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="expenses">
+          <Card>
+            <CardHeader>
+              <CardTitle>Despesas do Dia</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">
+                  <p>Carregando despesas...</p>
+                </div>
+              ) : filteredExpenses.length === 0 ? (
+                <div className="text-center py-8">
+                  <p>Nenhuma despesa encontrada para esta data.</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Quantidade</TableHead>
+                      <TableHead>Data/Hora</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredExpenses.map((expense) => (
+                      <TableRow key={expense.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{expense.description}</div>
+                            {expense.reason && (
+                              <div className="text-sm text-gray-500">{expense.reason}</div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {getExpenseTypeLabel(expense.type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          R$ {expense.amount.toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          {expense.quantity || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(expense.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell>
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setSaleToDelete(sale);
-                            }}
+                            onClick={() => setExpenseToDelete(expense)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </div>
-                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 sm:px-6 pb-4 bg-gray-50">
-                    <div className="space-y-4">
-                      {/* Sale Items */}
-                      <div className="space-y-2">
-                        {sale.items?.map((item, index) => (
-                          <div key={index} className="flex flex-col p-3 bg-white rounded-lg">
-                            <div className="flex justify-between items-start">
-                              <div className="flex items-start gap-2 sm:gap-3">
-                                <span className="font-medium text-sm sm:text-base bg-gray-100 px-2 py-1 rounded">
-                                  {item.quantity}x
-                                </span>
-                                <div>
-                                  <span className="font-medium text-sm sm:text-base">{item.product_name}</span>
-                                  <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                                    Valor unitário: R$ {item.unitPrice.toFixed(2)}
-                                  </div>
-                                </div>
-                              </div>
-                              <span className="font-medium text-sm sm:text-base">R$ {item.totalPrice.toFixed(2)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Sale Total */}
-                      <div className="border-t border-gray-200 pt-3">
-                        <div className="flex justify-between font-medium text-sm sm:text-base">
-                          <span>Total:</span>
-                          <span>R$ {sale.total.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          )}
-        </CardContent>
-      </Card>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <DirectSaleModal
         isOpen={isDirectSaleOpen}
@@ -553,11 +675,11 @@ export const Sales = () => {
         onClose={() => setIsExpenseModalOpen(false)}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Sale Confirmation Dialog */}
       <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar exclusão da venda</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir esta venda? Itens de estoque não
               serão repostos.
@@ -570,6 +692,31 @@ export const Sales = () => {
               onClick={() => {
                 if (saleToDelete) {
                   handleDeleteSale(saleToDelete);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Expense Confirmation Dialog */}
+      <AlertDialog open={!!expenseToDelete} onOpenChange={() => setExpenseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão da despesa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                if (expenseToDelete) {
+                  handleDeleteExpense(expenseToDelete);
                 }
               }}
             >

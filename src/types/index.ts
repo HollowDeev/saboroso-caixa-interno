@@ -1,9 +1,10 @@
+
 // Core interfaces
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'admin' | 'cashier' | 'employee';
   owner_id?: string;
 }
 
@@ -12,9 +13,9 @@ export interface Ingredient {
   name: string;
   description?: string;
   unit: string;
-  cost: number;
   current_stock: number;
   min_stock: number;
+  cost: number;
   supplier?: string;
   owner_id: string;
   created_at: string;
@@ -49,8 +50,8 @@ export interface Product {
 export interface ExternalProduct {
   id: string;
   name: string;
-  description?: string;
   brand?: string;
+  description?: string;
   price: number;
   cost: number;
   current_stock: number;
@@ -60,54 +61,51 @@ export interface ExternalProduct {
   updated_at: string;
 }
 
-export type PaymentMethod = 'cash' | 'card' | 'pix';
-
 export interface OrderItem {
-  id: string;
+  id?: string;
   productId: string;
-  product?: Product | ExternalProduct;
   product_name: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  product_type?: string;
+  product_type: 'food' | 'external_product';
 }
 
 export interface NewOrderItem {
   productId: string;
-  product: Product | ExternalProduct;
+  product_name: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
+  product_type: 'food' | 'external_product';
 }
 
 export interface Order {
   id: string;
-  customerName?: string;
   tableNumber?: number;
+  customerName?: string;
+  status: OrderStatus;
   items: OrderItem[];
   subtotal: number;
   tax: number;
   total: number;
-  status: 'open' | 'closed';
-  paymentMethod?: PaymentMethod;
   userId: string;
-  cash_register_id?: string;
+  paymentMethod?: PaymentMethod;
+  cash_register_id: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Sale {
   id: string;
-  items: OrderItem[];
+  items?: OrderItem[];
   subtotal: number;
   tax: number;
   total: number;
   paymentMethod: PaymentMethod;
   customerName?: string;
   userId: string;
-  cash_register_id: string;
   order_id?: string;
+  cash_register_id: string;
   is_direct_sale: boolean;
   createdAt: string;
 }
@@ -125,19 +123,19 @@ export interface ServiceTax {
 export interface CashRegister {
   id: string;
   owner_id: string;
+  opened_at: string;
+  closed_at?: string;
   opening_amount: number;
   closing_amount?: number;
   total_sales: number;
-  total_cost: number;
-  total_orders: number;
   total_expenses: number;
+  total_orders: number;
   is_open: boolean;
-  opened_at: string;
-  closed_at?: string;
   created_at: string;
   updated_at: string;
 }
 
+// Expense interfaces
 export interface Expense {
   id: string;
   cash_register_id: string;
@@ -163,6 +161,9 @@ export interface NewExpense {
 }
 
 export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';
+
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+export type PaymentMethod = 'cash' | 'card' | 'pix';
 
 export interface AppContextType {
   currentUser: User | null;
@@ -206,10 +207,19 @@ export interface AppContextType {
 }
 
 // Unit conversion types - aligned with unitConversion.ts
-export type Unit = 'kg' | 'g' | 'mg' | 'L' | 'ml' | 'unidade';
+export type UnitType = 'weight' | 'volume' | 'length' | 'quantity';
 
 export interface UnitConversion {
-  from: Unit;
-  to: Unit;
+  from: string;
+  to: string;
   factor: number;
 }
+
+export interface UnitCategory {
+  type: UnitType;
+  units: string[];
+  conversions: UnitConversion[];
+}
+
+// Export expense types for re-export
+export type { Expense, NewExpense, ExpenseType };
