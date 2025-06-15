@@ -20,6 +20,7 @@ export type Database = {
           opening_amount: number | null
           owner_id: string
           total_cost: number
+          total_expenses: number
           total_orders: number | null
           total_sales: number | null
           updated_at: string
@@ -34,6 +35,7 @@ export type Database = {
           opening_amount?: number | null
           owner_id: string
           total_cost?: number
+          total_expenses?: number
           total_orders?: number | null
           total_sales?: number | null
           updated_at?: string
@@ -48,6 +50,7 @@ export type Database = {
           opening_amount?: number | null
           owner_id?: string
           total_cost?: number
+          total_expenses?: number
           total_orders?: number | null
           total_sales?: number | null
           updated_at?: string
@@ -128,6 +131,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          cash_register_id: string
+          created_at: string
+          description: string
+          id: string
+          ingredient_ids: Json | null
+          product_id: string | null
+          quantity: number | null
+          reason: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          cash_register_id: string
+          created_at?: string
+          description: string
+          id?: string
+          ingredient_ids?: Json | null
+          product_id?: string | null
+          quantity?: number | null
+          reason?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          cash_register_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          ingredient_ids?: Json | null
+          product_id?: string | null
+          quantity?: number | null
+          reason?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       external_product_entries: {
         Row: {

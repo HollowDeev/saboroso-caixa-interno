@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister } from '@/types';
+import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, Expense } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { formatOrders, formatSales } from '@/utils/dataFormatters';
@@ -17,7 +16,8 @@ export const useDataLoader = () => {
     setOrders: (orders: Order[]) => void,
     setSales: (sales: Sale[]) => void,
     setServiceTaxes: (taxes: ServiceTax[]) => void,
-    setCurrentCashRegister: (register: CashRegister | null) => void
+    setCurrentCashRegister: (register: CashRegister | null) => void,
+    setExpenses: (expenses: Expense[]) => void
   ) => {
     if (!currentUser?.id) {
       console.log('❌ No current user found');
@@ -197,6 +197,27 @@ export const useDataLoader = () => {
       }
       console.log('✅ Service taxes loaded:', serviceTaxesData?.length || 0, 'items');
       setServiceTaxes(serviceTaxesData || []);
+
+      // Load expenses for current cash register
+      if (cashRegisterData) {
+        console.log('💸 Loading expenses for cash register:', cashRegisterData.id);
+        
+        const { data: expensesData, error: expensesError } = await supabase
+          .from('expenses')
+          .select('*')
+          .eq('cash_register_id', cashRegisterData.id)
+          .order('created_at', { ascending: false });
+
+        if (expensesError) {
+          console.error('❌ Error loading expenses:', expensesError);
+          throw expensesError;
+        }
+        console.log('✅ Expenses loaded:', expensesData?.length || 0, 'items');
+        setExpenses(expensesData || []);
+      } else {
+        console.log('ℹ️ No open cash register found - clearing expenses');
+        setExpenses([]);
+      }
 
       console.log('🎉 Data loading completed successfully');
 

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle, Printer } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle, Printer, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -36,10 +36,12 @@ import {
 } from "@/components/ui/accordion";
 import { Sale, OrderItem, PaymentMethod } from "@/types";
 import { ReceiptPrint } from "@/components/ReceiptPrint";
+import { ExpenseModal } from '@/components/ExpenseModal';
 
 export const Sales = () => {
   const {
     sales,
+    expenses,
     currentCashRegister,
     checkCashRegisterAccess,
     isLoading,
@@ -56,6 +58,7 @@ export const Sales = () => {
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [saleToPrint, setSaleToPrint] = useState<Sale | null>(null);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -122,6 +125,9 @@ export const Sales = () => {
   const totalPixSales = filteredSales
     .filter(sale => sale.paymentMethod === 'pix')
     .reduce((sum, sale) => sum + sale.total, 0);
+
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalProfit = totalSales - totalExpenses;
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
@@ -237,6 +243,14 @@ export const Sales = () => {
             <Plus className="h-4 w-4 mr-2" />
             Venda Direta
           </Button>
+          <Button
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="bg-yellow-500 hover:bg-yellow-600 w-full sm:w-auto"
+            disabled={!currentCashRegister}
+          >
+            <TrendingDown className="h-4 w-4 mr-2" />
+            Registro de Despesa
+          </Button>
         </div>
       </div>
 
@@ -326,14 +340,40 @@ export const Sales = () => {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center">
               <BarChart3 className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total</p>
+                <p className="text-sm font-medium text-gray-600">Total Vendas</p>
                 <p className="text-xl sm:text-2xl font-bold">R$ {totalSales.toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center">
+              <TrendingDown className="h-8 w-8 text-red-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Despesas</p>
+                <p className="text-xl sm:text-2xl font-bold">R$ {totalExpenses.toFixed(2)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center">
+              <DollarSign className="h-8 w-8 text-green-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Lucro</p>
+                <p className={`text-xl sm:text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  R$ {totalProfit.toFixed(2)}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -358,20 +398,6 @@ export const Sales = () => {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Cartão</p>
                 <p className="text-xl sm:text-2xl font-bold">R$ {totalCardSales.toFixed(2)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 bg-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">P</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">PIX</p>
-                <p className="text-xl sm:text-2xl font-bold">R$ {totalPixSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
@@ -520,6 +546,11 @@ export const Sales = () => {
         onClose={() => setIsCloseCashRegisterModalOpen(false)}
         onConfirm={handleCloseCashRegister}
         cashRegister={currentCashRegister}
+      />
+
+      <ExpenseModal
+        isOpen={isExpenseModalOpen}
+        onClose={() => setIsExpenseModalOpen(false)}
       />
 
       {/* Delete Confirmation Dialog */}

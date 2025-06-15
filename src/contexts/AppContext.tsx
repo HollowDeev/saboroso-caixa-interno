@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -6,13 +5,14 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
-import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, AppContextType, NewOrderItem, PaymentMethod } from '@/types';
+import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, AppContextType, NewOrderItem, PaymentMethod, Expense, NewExpense } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataLoader } from '@/hooks/useDataLoader';
 import * as orderService from '@/services/orderService';
 import * as productService from '@/services/productService';
 import * as salesService from '@/services/salesService';
 import * as cashRegisterService from '@/services/cashRegisterService';
+import * as expenseService from '@/services/expenseService';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -26,6 +26,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [sales, setSales] = useState<Sale[]>([]);
   const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
   const [currentCashRegister, setCurrentCashRegister] = useState<CashRegister | null>(null);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   
   const { loadData, isLoading } = useDataLoader();
 
@@ -37,7 +38,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders,
     setSales,
     setServiceTaxes,
-    setCurrentCashRegister
+    setCurrentCashRegister,
+    setExpenses
   );
 
   // Função para autenticar funcionário no Supabase
@@ -317,6 +319,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addExpense = async (expense: NewExpense) => {
+    try {
+      await expenseService.addExpense(expense, currentUser!, currentCashRegister!, products, externalProducts);
+      await refreshData();
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      throw error;
+    }
+  };
+
+  const updateExpense = async (id: string, updates: Partial<Expense>) => {
+    try {
+      await expenseService.updateExpense(id, updates);
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      throw error;
+    }
+  };
+
+  const deleteExpense = async (id: string) => {
+    try {
+      await expenseService.deleteExpense(id, currentUser!, currentCashRegister!, () => {
+        setExpenses(prevExpenses => prevExpenses.filter(e => e.id !== id));
+      });
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      throw error;
+    }
+  };
+
   const addServiceTax = async (serviceTax: Omit<ServiceTax, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       await cashRegisterService.addServiceTax(serviceTax);
@@ -416,6 +450,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checkCashRegisterAccess,
     updateStock,
     refreshData,
+    expenses,
+    addExpense,
+    updateExpense,
+    deleteExpense,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
