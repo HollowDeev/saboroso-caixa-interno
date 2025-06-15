@@ -11,6 +11,7 @@ import { IngredientForm } from '@/components/stock/IngredientForm';
 import { ExternalProductForm } from '@/components/stock/ExternalProductForm';
 import { ProductForm } from '@/components/stock/ProductForm';
 import { toast } from 'sonner';
+import { ProductFormData } from '@/types';
 
 export const StockManagement = () => {
   const { 
@@ -55,14 +56,15 @@ export const StockManagement = () => {
     min_stock: 0,
   });
 
-  const [newProduct, setNewProduct] = useState({
+  const [newProduct, setNewProduct] = useState<ProductFormData>({
     name: '',
-    description: null as string | null,
+    description: null,
     price: 0,
     cost: 0,
     category: '',
     preparation_time: 0,
     available: true,
+    ingredients: [],
   });
 
   const resetNewIngredient = () => {
@@ -98,6 +100,7 @@ export const StockManagement = () => {
       category: '',
       preparation_time: 0,
       available: true,
+      ingredients: [],
     });
   };
 
@@ -153,10 +156,20 @@ export const StockManagement = () => {
     }
 
     try {
-      await addProduct({
-        ...newProduct,
+      // Preparar os dados do produto para o backend
+      const productData = {
+        name: newProduct.name,
+        description: newProduct.description,
+        price: newProduct.price,
+        cost: newProduct.cost,
+        category: newProduct.category,
+        preparation_time: newProduct.preparation_time,
+        available: newProduct.available,
         owner_id: currentUser.id,
-      });
+        ingredients: newProduct.ingredients,
+      };
+
+      await addProduct(productData);
       setIsAddProductOpen(false);
       resetNewProduct();
       toast.success('Produto adicionado com sucesso!');
@@ -316,7 +329,7 @@ export const StockManagement = () => {
                   <span className="sm:hidden">Adicionar</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-4xl max-h-[90vh]">
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Produto</DialogTitle>
                 </DialogHeader>

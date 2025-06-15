@@ -113,32 +113,6 @@ export interface Sale {
   createdAt: string;
 }
 
-export interface Expense {
-  id: string;
-  description: string;
-  type: 'product_loss' | 'ingredient_loss' | 'other';
-  amount: number;
-  quantity?: number;
-  reason?: string;
-  product_id?: string;
-  ingredient_ids?: string[];
-  user_id: string;
-  cash_register_id: string;
-  created_at: string;
-}
-
-export interface NewExpense {
-  description: string;
-  type: 'product_loss' | 'ingredient_loss' | 'other';
-  amount: number;
-  quantity?: number;
-  reason?: string;
-  product_id?: string;
-  ingredient_ids?: string[];
-}
-
-export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';
-
 export interface ServiceTax {
   id: string;
   name: string;
@@ -173,7 +147,6 @@ export interface AppContextType {
   externalProducts: ExternalProduct[];
   orders: Order[];
   sales: Sale[];
-  expenses: Expense[];
   serviceTaxes: ServiceTax[];
   currentCashRegister: CashRegister | null;
   isLoading: boolean;
@@ -193,9 +166,6 @@ export interface AppContextType {
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
   updateSale: (id: string, updates: Partial<Sale>) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
-  addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => Promise<void>;
-  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
   addServiceTax: (serviceTax: Omit<ServiceTax, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateServiceTax: (id: string, updates: Partial<ServiceTax>) => Promise<void>;
   deleteServiceTax: (id: string) => Promise<void>;
@@ -213,4 +183,23 @@ export interface UnitConversion {
   from: Unit;
   to: Unit;
   factor: number;
+}
+
+// Product ingredient interface for form
+export interface ProductIngredient {
+  ingredient_id: string;
+  quantity: number;
+  unit: string;
+}
+
+// Form data interface with ingredients
+export interface ProductFormData {
+  name: string;
+  description: string | null;
+  price: number;
+  cost: number;
+  category: string;
+  preparation_time: number;
+  available: boolean;
+  ingredients: ProductIngredient[];
 }
