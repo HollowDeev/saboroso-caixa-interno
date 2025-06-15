@@ -133,7 +133,12 @@ export const Orders = () => {
     }
   };
 
+  // Filter orders by the current cash register instead of the current user
   const filteredOrders = orders.filter(order => {
+    // Only show orders from the current cash register
+    if (!currentCashRegister || order.cash_register_id !== currentCashRegister.id) return false;
+    
+    // Then filter by status
     if (activeTab === 'open') return order.status === 'open';
     if (activeTab === 'closed') return order.status === 'closed';
     return true;
