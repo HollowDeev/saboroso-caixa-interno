@@ -34,8 +34,11 @@ export const useDataLoader = () => {
         : currentUser.id;
 
       console.log('👤 Using owner ID:', ownerId);
-      console.log('🔍 Current auth.uid():', (await supabase.auth.getUser()).data.user?.id);
 
+      // Para funcionários, vamos usar consultas diretas com filtros manuais
+      // já que o auth.uid() não funciona para eles
+      const isEmployee = currentUser.role === 'employee';
+      
       // Load ingredients
       console.log('📦 Loading ingredients...');
       const { data: ingredientsData, error: ingredientsError } = await supabase
@@ -51,20 +54,8 @@ export const useDataLoader = () => {
       console.log('✅ Ingredients loaded:', ingredientsData?.length || 0, 'items');
       setIngredients(ingredientsData || []);
 
-      // Load foods (products) with ingredients - Usando políticas RLS agora
+      // Load foods (products) with ingredients
       console.log('🍕 Loading foods...');
-      console.log('🔍 Testing auth.uid() in RLS context');
-      
-      // Primeiro, vamos testar diretamente se o funcionário está na tabela employees
-      const { data: employeeCheck, error: employeeError } = await supabase
-        .from('employees')
-        .select('id, owner_id')
-        .eq('id', currentUser.id)
-        .single();
-      
-      console.log('👨‍💼 Employee check result:', employeeCheck, 'Error:', employeeError);
-      
-      // Agora vamos testar a consulta de foods sem filtros para ver se as políticas RLS funcionam
       const { data: foodsData, error: foodsError } = await supabase
         .from('foods')
         .select(`
@@ -78,16 +69,15 @@ export const useDataLoader = () => {
             updated_at
           )
         `)
+        .eq('owner_id', ownerId)
         .is('deleted_at', null)
         .order('name');
 
       if (foodsError) {
         console.error('❌ Error loading foods:', foodsError);
-        console.error('Foods error details:', foodsError.message, foodsError.code, foodsError.details);
         throw foodsError;
       }
       console.log('✅ Foods loaded:', foodsData?.length || 0, 'items');
-      console.log('🍕 Foods data sample:', foodsData?.[0]);
       
       setProducts((foodsData || []).map(food => ({
         id: food.id,
@@ -127,7 +117,7 @@ export const useDataLoader = () => {
       console.log('✅ External products loaded:', externalProductsData?.length || 0, 'items');
       setExternalProducts(externalProductsData || []);
 
-      // Load current cash register primeiro para obter o ID
+      // Load current cash register
       console.log('💰 Loading current cash register...');
       const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
         .from('cash_registers')
@@ -144,10 +134,11 @@ export const useDataLoader = () => {
       console.log('✅ Current cash register:', cashRegisterData?.id || 'none');
       setCurrentCashRegister(cashRegisterData || null);
 
-      // Se há caixa aberto, carregar orders e sales usando as políticas RLS
+      // Se há caixa aberto, carregar orders e sales
       if (cashRegisterData) {
         console.log('📋 Loading orders for cash register:', cashRegisterData.id);
-        // Load orders with items - Usando políticas RLS agora
+        
+        // Para orders, precisamos buscar por cash_register_id
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select(`
@@ -167,15 +158,14 @@ export const useDataLoader = () => {
 
         if (ordersError) {
           console.error('❌ Error loading orders:', ordersError);
-          console.error('Orders error details:', ordersError.message, ordersError.code, ordersError.details);
           throw ordersError;
         }
         console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
-        console.log('📋 Orders data sample:', ordersData?.[0]);
         setOrders(formatOrders(ordersData || []));
 
         console.log('💳 Loading sales for cash register:', cashRegisterData.id);
-        // Load sales - Usando políticas RLS agora
+        
+        // Para sales, precisamos buscar por cash_register_id
         const { data: salesData, error: salesError } = await supabase
           .from('sales')
           .select('*')
@@ -184,11 +174,9 @@ export const useDataLoader = () => {
 
         if (salesError) {
           console.error('❌ Error loading sales:', salesError);
-          console.error('Sales error details:', salesError.message, salesError.code, salesError.details);
           throw salesError;
         }
         console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
-        console.log('💳 Sales data sample:', salesData?.[0]);
         setSales(formatSales(salesData || []));
       } else {
         console.log('ℹ️ No open cash register found - clearing orders and sales');

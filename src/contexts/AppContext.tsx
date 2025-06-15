@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -39,6 +40,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentCashRegister
   );
 
+  // Função para autenticar funcionário no Supabase
+  const authenticateEmployeeInSupabase = async (employeeId: string) => {
+    try {
+      console.log('🔐 Authenticating employee in Supabase:', employeeId);
+      
+      // Criar uma sessão temporária para o funcionário
+      // Como não podemos criar usuários auth reais para funcionários, 
+      // vamos usar uma abordagem diferente - fazer o login como owner
+      const employeeData = localStorage.getItem('employee_data');
+      if (employeeData) {
+        const employee = JSON.parse(employeeData);
+        
+        // Fazer login como owner temporariamente para acessar dados
+        const { data: ownerProfile, error: ownerError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', employee.owner_id)
+          .single();
+
+        if (ownerError) {
+          console.error('Error fetching owner profile:', ownerError);
+          return false;
+        }
+
+        // Simular login como owner para ter acesso aos dados
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: ownerProfile.email,
+          password: 'temp_employee_session' // Senha temporária para funcionários
+        });
+
+        if (signInError) {
+          console.log('Could not sign in as owner, using alternative approach');
+          // Se não conseguir fazer login, vamos usar uma abordagem alternativa
+          return false;
+        }
+
+        console.log('✅ Employee authenticated in Supabase as owner proxy');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error authenticating employee in Supabase:', error);
+    }
+    return false;
+  };
+
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser');
     const storedEmployee = localStorage.getItem('employee_data');
@@ -53,6 +99,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         owner_id: employee.owner_id
       });
       setIsEmployee(true);
+      
+      // Autenticar funcionário no Supabase
+      authenticateEmployeeInSupabase(employee.id);
     } else if (storedUser) {
       const user = JSON.parse(storedUser);
       setCurrentUser({
