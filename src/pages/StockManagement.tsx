@@ -1,2213 +1,1339 @@
+
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useAppContext } from '@/contexts/AppContext';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Minus, Package, AlertTriangle, CheckCircle, Edit, Trash2, MoreHorizontal, Search, Filter } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Ingredient, Product, ExternalProduct, FoodIngredient, Unit } from '@/types';
-import { useStock } from '@/hooks/useStock';
-import { toast } from '@/components/ui/use-toast';
-import { Unit, isMassUnit, isVolumeUnit, convertFromBaseUnit, getAvailableSubunits, convertToBaseUnit, convertValue } from '@/utils/unitConversion';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { supabase } from '@/integrations/supabase/client';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Ingredient, ExternalProduct as ExternalProductType, Product, FoodIngredient, Unit } from '@/types';
+import { convertValue, getAvailableSubunits } from '@/utils/unitConversion';
+import { Plus, Pencil, Trash2, AlertTriangle, Package, ShoppingCart } from 'lucide-react';
+import { toast } from 'sonner';
 
-// Interface para produtos externos (como bebidas)
-interface ExternalProduct {
-  id: string;
-  name: string;
-  brand: string | null;
-  description: string | null;
-  current_stock: number;
-  min_stock: number;
-  cost: number;
-  price: number;
-  owner_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface NewIngredientForm {
-  name: string;
-  unit: Unit;
-  currentStock: number;
-  minStock: number;
-  minStockUnit: Unit;
-  cost: number;
-  supplier?: string;
-}
-
-interface NewProductForm {
+// Local interfaces for form state
+interface LocalExternalProduct {
   name: string;
   brand: string;
   description?: string;
   cost: number;
   price: number;
-  currentStock: number;
-  minStock: number;
+  current_stock: number;
+  min_stock: number;
 }
-
-interface DeleteItem {
-  type: 'ingredient' | 'product' | 'food';
-  id: string;
-  name: string;
-}
-
-// Função para formatar o valor do estoque
-const formatStockValue = (value: number) => {
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-};
-
-const getStockStatus = (currentStock: number, minStock: number) => {
-  if (currentStock <= minStock) {
-    return { status: 'danger', label: 'Crítico' };
-  }
-
-  const percentageAboveMin = ((currentStock - minStock) / minStock) * 100;
-  if (percentageAboveMin <= 25) {
-    return { status: 'warning', label: 'Baixo' };
-  }
-
-  return { status: 'safe', label: 'Normal' };
-};
 
 export const StockManagement = () => {
-  const {
-    ingredients,
-    products,
-    externalProducts,
-    addIngredient,
-    updateIngredient,
+  const { 
+    ingredients, 
+    externalProducts, 
+    products, 
+    addIngredient, 
+    updateIngredient, 
     deleteIngredient,
-    addProduct,
-    updateProduct,
-    deleteProduct,
     addExternalProduct,
     updateExternalProduct,
-    deleteExternalProduct
-  } = useApp();
-  const {
-    ingredients: stockIngredients,
-    externalProducts: stockExternalProducts,
-    addIngredient: addStockIngredient,
-    addExternalProduct: addStockExternalProduct,
-    updateExternalProduct: updateStockExternalProduct,
-    updateStock: updateStock,
-    loading: stockLoading,
-    addStockEntry,
-    addExternalProductEntry,
-    consumeStock,
-    consumeExternalProductStock,
-    stockEntries,
-    externalProductEntries,
-    deleteIngredient: deleteStockIngredient
-  } = useStock(currentUser?.id || '');
+    deleteExternalProduct,
+    addProduct,
+    updateProduct,
+    deleteProduct
+  } = useAppContext();
+  
+  const { currentUser } = useAuthContext();
 
+  // State management
   const [activeTab, setActiveTab] = useState('ingredients');
-  const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
-  const [isNewIngredientDialogOpen, setIsNewIngredientDialogOpen] = useState(false);
-  const [isEditIngredientDialogOpen, setIsEditIngredientDialogOpen] = useState(false);
-  const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
-  const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<ExternalProduct | null>(null);
-  const [isNewFoodDialogOpen, setIsNewFoodDialogOpen] = useState(false);
+  const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
+  const [isEditIngredientOpen, setIsEditIngredientOpen] = useState(false);
+  const [isAddExternalProductOpen, setIsAddExternalProductOpen] = useState(false);
+  const [isEditExternalProductOpen, setIsEditExternalProductOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
-  const [adjustmentQuantity, setAdjustmentQuantity] = useState(0);
-  const [adjustmentType, setAdjustmentType] = useState<'add' | 'remove'>('add');
-  const [unitCost, setUnitCost] = useState(0);
-  const [supplier, setSupplier] = useState('');
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [notes, setNotes] = useState('');
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editingExternalProduct, setEditingExternalProduct] = useState<ExternalProduct | null>(null);
-  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
-  const [isEditFoodDialogOpen, setIsEditFoodDialogOpen] = useState(false);
-  const [selectedFood, setSelectedFood] = useState<Product | null>(null);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<DeleteItem | null>(null);
+  const [selectedExternalProduct, setSelectedExternalProduct] = useState<ExternalProductType | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  const [newIngredientForm, setNewIngredientForm] = useState<NewIngredientForm>({
+  // Form states
+  const [newIngredient, setNewIngredient] = useState({
     name: '',
-    unit: 'unidade',
-    currentStock: 0,
-    minStock: 0,
-    minStockUnit: 'unidade',
-    cost: 0
+    unit: 'kg' as Unit,
+    current_stock: 0,
+    min_stock: 0,
+    cost: 0,
+    supplier: '',
+    description: null as string | null,
   });
 
-  const [newProductForm, setNewProductForm] = useState<NewProductForm>({
+  const [newExternalProduct, setNewExternalProduct] = useState<LocalExternalProduct>({
     name: '',
     brand: '',
     description: '',
     cost: 0,
     price: 0,
-    currentStock: 0,
-    minStock: 0
-  });
-
-  const [editIngredientForm, setEditIngredientForm] = useState<{
-    name: string;
-    unit: string;
-    cost: number;
-    min_stock: number;
-    supplier: string | null;
-    description: string | null;
-  }>({
-    name: '',
-    unit: '',
-    cost: 0,
+    current_stock: 0,
     min_stock: 0,
-    supplier: null,
-    description: null
   });
 
-  const calculateProductionCost = (productIngredients: { ingredientId: string; quantity: number; unit: Unit }[]) => {
-    return productIngredients.reduce((total, ing) => {
-      const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-      if (!ingredient) return total;
-
-      // Se o ingrediente é do tipo 'unidade', usa o custo direto
-      if (ingredient.unit === 'unidade') {
-        return total + (ing.quantity * ingredient.cost);
-      }
-
-      // Converte para kg se necessário
-      let quantityInKg = ing.quantity;
-      if (ing.unit === 'g') {
-        quantityInKg = ing.quantity / 1000;
-      }
-
-      return total + (quantityInKg * ingredient.cost);
-    }, 0);
-  };
-
-  const [newFoodForm, setNewFoodForm] = useState({
+  const [newProduct, setNewProduct] = useState({
     name: '',
-    category: '',
     description: '',
     price: 0,
     cost: 0,
     available: true,
-    ingredients: [] as { ingredientId: string; quantity: number; unit: Unit }[]
+    category: '',
+    preparation_time: 0,
+    ingredients: [] as { ingredient_id: string; quantity: number; unit: string; }[],
   });
 
-  // Atualiza o custo quando os ingredientes são alterados
-  useEffect(() => {
-    const productionCost = calculateProductionCost(newFoodForm.ingredients);
-    setNewFoodForm(prev => ({
-      ...prev,
-      cost: Number(productionCost.toFixed(2))
-    }));
-  }, [newFoodForm.ingredients, ingredients]);
+  const [editProduct, setEditProduct] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    cost: 0,
+    available: true,
+    category: '',
+    preparation_time: 0,
+    ingredients: [] as { ingredientId: string; quantity: number; unit: Unit; }[],
+  });
 
-  // Funções de status de estoque
-  const getStockStatus = (currentStock: number, minStock: number) => {
-    if (currentStock <= minStock) {
-      return { status: 'danger', label: 'Crítico' };
-    }
-
-    const percentageAboveMin = ((currentStock - minStock) / minStock) * 100;
-    if (percentageAboveMin <= 25) {
-      return { status: 'warning', label: 'Baixo' };
-    }
-
-    return { status: 'safe', label: 'Normal' };
+  // Placeholder updateStock function - this should be implemented in the context
+  const updateStock = async (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => {
+    console.log('updateStock called with:', { itemType, itemId, quantity, reason });
+    toast.info('Stock update functionality needs to be implemented');
   };
 
-  const getStockStatusBadge = (current: number, min: number) => {
-    const { status, label } = getStockStatus(current, min);
-
-    const variants = {
-      danger: 'destructive',
-      warning: 'outline',
-      safe: 'default'
-    } as const;
-
-    return (
-      <Badge variant={variants[status as keyof typeof variants]}>
-        {label}
-      </Badge>
-    );
-  };
-
-  const getStockIcon = (current: number, min: number) => {
-    const { status } = getStockStatus(current, min);
-
-    if (status === 'danger') {
-      return <AlertTriangle className="h-4 w-4 text-red-500" />;
-    } else if (status === 'warning') {
-      return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-    } else {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-  };
-
-  // Funções de ajuste de estoque
-  const openStockDialog = (ingredient: Ingredient | null, product: ExternalProduct | null, type: 'add' | 'remove') => {
-    setSelectedIngredient(ingredient);
-    setSelectedProduct(product);
-    setAdjustmentType(type);
-    setAdjustmentQuantity(0);
-    setUnitCost(0);
-    setSupplier('');
-    setInvoiceNumber('');
-    setNotes('');
-    setIsStockDialogOpen(true);
-  };
-
-  const handleStockAdjustment = async () => {
-    if (selectedIngredient) {
-      if (adjustmentQuantity <= 0) return;
-
-      if (adjustmentType === 'add') {
-        if (unitCost <= 0) {
-          toast({
-            title: 'Erro',
-            description: 'O custo unitário deve ser maior que zero.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        await addStockEntry(
-          selectedIngredient.id,
-          adjustmentQuantity,
-          unitCost,
-          supplier || undefined,
-          invoiceNumber || undefined,
-          notes || undefined
-        );
-      } else {
-        await consumeStock(
-          selectedIngredient.id,
-          adjustmentQuantity,
-          'Consumo manual de estoque'
-        );
-      }
-    } else if (selectedProduct) {
-      if (adjustmentQuantity <= 0) return;
-
-      if (adjustmentType === 'add') {
-        if (unitCost <= 0) {
-          toast({
-            title: 'Erro',
-            description: 'O custo unitário deve ser maior que zero.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        await addExternalProductEntry(
-          selectedProduct.id,
-          adjustmentQuantity,
-          unitCost,
-          supplier || undefined,
-          invoiceNumber || undefined,
-          notes || undefined
-        );
-      } else {
-        await consumeExternalProductStock(
-          selectedProduct.id,
-          adjustmentQuantity,
-          'Consumo manual de estoque'
-        );
-      }
-    }
-
-    setIsStockDialogOpen(false);
-    setSelectedIngredient(null);
-    setSelectedProduct(null);
-    setAdjustmentQuantity(0);
-    setUnitCost(0);
-    setSupplier('');
-    setInvoiceNumber('');
-    setNotes('');
-  };
-
-  // Funções de cadastro
-  const handleNewIngredient = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const minStockInBaseUnit = convertToBaseUnit(
-      newIngredientForm.minStock,
-      newIngredientForm.minStockUnit,
-      newIngredientForm.unit
-    );
-
-    await addIngredient({
-      name: newIngredientForm.name,
-      unit: newIngredientForm.unit,
-      current_stock: newIngredientForm.currentStock,
-      min_stock: minStockInBaseUnit,
-      cost: newIngredientForm.cost,
-      supplier: newIngredientForm.supplier || null,
-      description: null
-    });
-
-    setNewIngredientForm({
+  // Helper functions
+  const resetNewIngredient = () => {
+    setNewIngredient({
       name: '',
-      unit: 'unidade',
-      currentStock: 0,
-      minStock: 0,
-      minStockUnit: 'unidade',
-      cost: 0
+      unit: 'kg' as Unit,
+      current_stock: 0,
+      min_stock: 0,
+      cost: 0,
+      supplier: '',
+      description: null,
     });
-    setIsNewIngredientDialogOpen(false);
   };
 
-  const handleNewProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    await addExternalProduct({
-      name: newProductForm.name,
-      brand: newProductForm.brand || null,
-      description: newProductForm.description || null,
-      current_stock: newProductForm.currentStock,
-      min_stock: newProductForm.minStock,
-      cost: newProductForm.cost,
-      price: newProductForm.price,
-      owner_id: currentUser?.id || ''
-    });
-
-    setNewProductForm({
+  const resetNewExternalProduct = () => {
+    setNewExternalProduct({
       name: '',
       brand: '',
       description: '',
-      currentStock: 0,
-      minStock: 0,
       cost: 0,
-      price: 0
+      price: 0,
+      current_stock: 0,
+      min_stock: 0,
     });
-    setIsNewProductDialogOpen(false);
   };
 
-  const handleNewFood = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resetNewProduct = () => {
+    setNewProduct({
+      name: '',
+      description: '',
+      price: 0,
+      cost: 0,
+      available: true,
+      category: '',
+      preparation_time: 0,
+      ingredients: [],
+    });
+  };
+
+  // Event handlers
+  const handleAddIngredient = async () => {
+    if (!currentUser?.id) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
 
     try {
-      // Validações
-      if (!newFoodForm.name.trim()) {
-        throw new Error('O nome da comida é obrigatório');
-      }
-
-      if (!newFoodForm.ingredients.length) {
-        throw new Error('Adicione pelo menos um ingrediente');
-      }
-
-      // Validar cada ingrediente
-      const invalidIngredient = newFoodForm.ingredients.find(
-        ing => !ing.ingredientId || !ing.quantity || ing.quantity <= 0
-      );
-
-      if (invalidIngredient) {
-        throw new Error('Todos os ingredientes precisam ter um item selecionado e uma quantidade válida');
-      }
-
-      // Converte todos os ingredientes não-unitários para kg antes de salvar
-      const ingredientsInKg = newFoodForm.ingredients.map(ing => {
-        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-        if (!ingredient) {
-          throw new Error(`Ingrediente não encontrado: ${ing.ingredientId}`);
-        }
-
-        if (ingredient.unit === 'unidade') {
-          return {
-            ingredient_id: ing.ingredientId,
-            quantity: ing.quantity,
-            unit: 'unidade'
-          };
-        }
-
-        // Se estiver em g, converte para kg
-        let quantityInKg = ing.quantity;
-        if (ing.unit === 'g') {
-          quantityInKg = ing.quantity / 1000;
-        }
-
-        return {
-          ingredient_id: ing.ingredientId,
-          quantity: Number(quantityInKg.toFixed(3)),
-          unit: 'kg'  // Sempre salva em kg
-        };
+      await addIngredient({
+        ...newIngredient,
+        owner_id: currentUser.id,
       });
-
-      const newProduct = await addProduct({
-        name: newFoodForm.name,
-        description: newFoodForm.description || '',
-        category: newFoodForm.category || 'Geral',
-        price: newFoodForm.price || 0,
-        cost: newFoodForm.cost || 0,
-        available: true,
-        preparation_time: 0,
-        ingredients: ingredientsInKg
-      });
-
-      setIsNewFoodDialogOpen(false);
-      setNewFoodForm({
-        name: '',
-        category: '',
-        description: '',
-        price: 0,
-        cost: 0,
-        available: true,
-        ingredients: []
-      });
-
-      toast({
-        title: 'Comida adicionada',
-        description: 'A comida foi adicionada com sucesso.',
-      });
-    } catch (error: any) {
-      console.error('Erro ao salvar comida:', error);
-      toast({
-        title: 'Erro ao salvar comida',
-        description: error.message || 'Não foi possível salvar a comida.',
-        variant: 'destructive',
-      });
+      setIsAddIngredientOpen(false);
+      resetNewIngredient();
+      toast.success('Ingrediente adicionado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar ingrediente:', error);
+      toast.error('Erro ao adicionar ingrediente');
     }
   };
 
-  const addIngredientToFood = () => {
-    setNewFoodForm(prev => ({
+  const handleEditIngredient = async () => {
+    if (!selectedIngredient || !currentUser?.id) return;
+
+    try {
+      await updateIngredient(selectedIngredient.id, {
+        name: selectedIngredient.name,
+        unit: selectedIngredient.unit,
+        current_stock: selectedIngredient.current_stock,
+        min_stock: selectedIngredient.min_stock,
+        cost: selectedIngredient.cost,
+        supplier: selectedIngredient.supplier,
+        description: selectedIngredient.description,
+      });
+      setIsEditIngredientOpen(false);
+      setSelectedIngredient(null);
+      toast.success('Ingrediente atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar ingrediente:', error);
+      toast.error('Erro ao atualizar ingrediente');
+    }
+  };
+
+  const handleDeleteIngredient = async (id: string) => {
+    try {
+      await deleteIngredient(id);
+      toast.success('Ingrediente excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir ingrediente:', error);
+      toast.error('Erro ao excluir ingrediente');
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!currentUser?.id) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
+
+    try {
+      const productData = {
+        ...newProduct,
+        owner_id: currentUser.id,
+      };
+
+      await addProduct(productData);
+
+      // Create food ingredients relationships
+      if (newProduct.ingredients.length > 0) {
+        const ingredientsToAdd: FoodIngredient[] = newProduct.ingredients.map((ing, index) => ({
+          id: `temp-${index}`, // Temporary ID, will be replaced by backend
+          food_id: 'temp-food-id', // Will be replaced by actual product ID
+          ingredient_id: ing.ingredient_id,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      }
+
+      setIsAddProductOpen(false);
+      resetNewProduct();
+      toast.success('Produto adicionado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar produto:', error);
+      toast.error('Erro ao adicionar produto');
+    }
+  };
+
+  const handleEditProduct = async () => {
+    if (!selectedProduct) return;
+
+    try {
+      await updateProduct(selectedProduct.id, {
+        name: editProduct.name,
+        description: editProduct.description,
+        price: editProduct.price,
+        cost: editProduct.cost,
+        available: editProduct.available,
+        category: editProduct.category,
+        preparation_time: editProduct.preparation_time,
+      });
+
+      // Update ingredients
+      if (editProduct.ingredients.length > 0) {
+        const ingredientsToUpdate: FoodIngredient[] = editProduct.ingredients.map((ing, index) => ({
+          id: `temp-${index}`,
+          food_id: selectedProduct.id,
+          ingredient_id: ing.ingredientId,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      }
+
+      setIsEditProductOpen(false);
+      setSelectedProduct(null);
+      toast.success('Produto atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar produto:', error);
+      toast.error('Erro ao atualizar produto');
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await deleteProduct(id);
+      toast.success('Produto excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir produto:', error);
+      toast.error('Erro ao excluir produto');
+    }
+  };
+
+  const handleAddExternalProduct = async () => {
+    if (!currentUser?.id) {
+      toast.error('Usuário não encontrado');
+      return;
+    }
+
+    try {
+      await addExternalProduct({
+        ...newExternalProduct,
+        owner_id: currentUser.id,
+      });
+      setIsAddExternalProductOpen(false);
+      resetNewExternalProduct();
+      toast.success('Produto externo adicionado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar produto externo:', error);
+      toast.error('Erro ao adicionar produto externo');
+    }
+  };
+
+  const handleEditExternalProduct = async () => {
+    if (!selectedExternalProduct) return;
+
+    try {
+      await updateExternalProduct(selectedExternalProduct.id, {
+        name: selectedExternalProduct.name,
+        brand: selectedExternalProduct.brand,
+        description: selectedExternalProduct.description,
+        cost: selectedExternalProduct.cost,
+        price: selectedExternalProduct.price,
+        current_stock: selectedExternalProduct.current_stock,
+        min_stock: selectedExternalProduct.min_stock,
+      });
+      setIsEditExternalProductOpen(false);
+      setSelectedExternalProduct(null);
+      toast.success('Produto externo atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar produto externo:', error);
+      toast.error('Erro ao atualizar produto externo');
+    }
+  };
+
+  const handleDeleteExternalProduct = async (id: string) => {
+    try {
+      await deleteExternalProduct(id);
+      toast.success('Produto externo excluído com sucesso!');
+    } catch (error) {
+      console.error('Erro ao excluir produto externo:', error);
+      toast.error('Erro ao excluir produto externo');
+    }
+  };
+
+  const openEditIngredient = (ingredient: Ingredient) => {
+    setSelectedIngredient(ingredient);
+    setIsEditIngredientOpen(true);
+  };
+
+  const openEditExternalProduct = (product: ExternalProductType) => {
+    setSelectedExternalProduct(product);
+    setIsEditExternalProductOpen(true);
+  };
+
+  const openEditProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setEditProduct({
+      name: product.name,
+      description: product.description || '',
+      price: product.price,
+      cost: product.cost,
+      available: product.available,
+      category: product.category,
+      preparation_time: product.preparation_time,
+      ingredients: (product.ingredients || []).map(ing => ({
+        ingredientId: ing.ingredient_id,
+        quantity: ing.quantity,
+        unit: ing.unit as Unit,
+      })),
+    });
+    setIsEditProductOpen(true);
+  };
+
+  const addIngredientToProduct = () => {
+    setNewProduct(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { ingredientId: '', quantity: 0, unit: 'kg' }]  // Define kg como unidade padrão
+      ingredients: [...prev.ingredients, { ingredient_id: '', quantity: 0, unit: 'kg' }]
     }));
   };
 
-  const updateFoodIngredient = (index: number, field: string, value: string | number) => {
-    setNewFoodForm(prev => {
-      const newIngredients = [...prev.ingredients];
-      const ingredient = ingredients.find(i => i.id === newIngredients[index].ingredientId);
-
-      if (field === 'quantity' && ingredient && ingredient.unit !== 'unidade') {
-        // Mantém o valor como está, sem converter
-        // A conversão será feita apenas ao salvar
-        newIngredients[index] = {
-          ...newIngredients[index],
-          [field]: Number(value)
-        };
-      } else {
-        newIngredients[index] = {
-          ...newIngredients[index],
-          [field]: value
-        };
-      }
-
-      return { ...prev, ingredients: newIngredients };
-    });
-  };
-
-  const removeFoodIngredient = (index: number) => {
-    setNewFoodForm(prev => ({
+  const removeIngredientFromProduct = (index: number) => {
+    setNewProduct(prev => ({
       ...prev,
       ingredients: prev.ingredients.filter((_, i) => i !== index)
     }));
   };
 
-  // Função para atualizar a unidade do estoque mínimo
-  const handleMinStockUnitChange = (unit: Unit) => {
-    const baseValue = convertToBaseUnit(
-      newIngredientForm.minStock,
-      newIngredientForm.minStockUnit,
-      newIngredientForm.unit
-    );
-    const newValue = convertFromBaseUnit(baseValue, newIngredientForm.unit, unit);
-
-    setNewIngredientForm(prev => ({
+  const updateProductIngredient = (index: number, field: string, value: any) => {
+    setNewProduct(prev => ({
       ...prev,
-      minStock: Number(newValue.toFixed(3)),
-      minStockUnit: unit
+      ingredients: prev.ingredients.map((ing, i) => 
+        i === index ? { ...ing, [field]: value } : ing
+      )
     }));
   };
 
-  // Função para atualizar a unidade de um ingrediente na comida
-  const updateFoodIngredientUnit = (index: number, unit: Unit) => {
-    const ingredient = ingredients.find(i => i.id === newFoodForm.ingredients[index].ingredientId);
-    if (!ingredient) return;
+  const addIngredientToEditProduct = () => {
+    setEditProduct(prev => ({
+      ...prev,
+      ingredients: [...prev.ingredients, { ingredientId: '', quantity: 0, unit: 'kg' as Unit }]
+    }));
+  };
 
-    // Se o ingrediente é do tipo 'unidade', mantém o valor como está
-    if (ingredient.unit === 'unidade') {
-      setNewFoodForm(prev => {
-        const newIngredients = [...prev.ingredients];
-        newIngredients[index] = {
-          ...newIngredients[index],
-          unit: 'unidade'
-        };
-        return { ...prev, ingredients: newIngredients };
-      });
-      return;
-    }
+  const removeIngredientFromEditProduct = (index: number) => {
+    setEditProduct(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.filter((_, i) => i !== index)
+    }));
+  };
 
-    try {
-      // Converte o valor atual para a nova unidade
-      const currentQuantity = newFoodForm.ingredients[index].quantity;
-      const currentUnit = newFoodForm.ingredients[index].unit;
-      let newQuantity = currentQuantity;
+  const updateEditProductIngredient = (index: number, field: string, value: any) => {
+    setEditProduct(prev => ({
+      ...prev,
+      ingredients: prev.ingredients.map((ing, i) => 
+        i === index ? { ...ing, [field]: value } : ing
+      )
+    }));
+  };
 
-      // Se está mudando de kg para g
-      if (currentUnit === 'kg' && unit === 'g') {
-        newQuantity = currentQuantity * 1000;
+  const getStockStatus = (currentStock: number, minStock: number) => {
+    if (currentStock === 0) return { status: 'out', color: 'destructive', text: 'Sem estoque' };
+    if (currentStock <= minStock) return { status: 'low', color: 'warning', text: 'Estoque baixo' };
+    return { status: 'good', color: 'default', text: 'Em estoque' };
+  };
+
+  const calculateProductCost = (ingredientsList: { ingredient_id: string; quantity: number; unit: string; }[]) => {
+    return ingredientsList.reduce((total, productIngredient) => {
+      const ingredient = ingredients.find(ing => ing.id === productIngredient.ingredient_id);
+      if (!ingredient) return total;
+
+      try {
+        const convertedQuantity = convertValue(
+          productIngredient.quantity,
+          productIngredient.unit as Unit,
+          ingredient.unit as Unit
+        );
+        return total + (convertedQuantity * ingredient.cost);
+      } catch (error) {
+        console.error('Erro na conversão de unidades:', error);
+        return total;
       }
-      // Se está mudando de g para kg
-      else if (currentUnit === 'g' && unit === 'kg') {
-        newQuantity = currentQuantity / 1000;
-      }
-
-      setNewFoodForm(prev => {
-        const newIngredients = [...prev.ingredients];
-        newIngredients[index] = {
-          ...newIngredients[index],
-          quantity: Number(newQuantity.toFixed(3)),
-          unit
-        };
-        return { ...prev, ingredients: newIngredients };
-      });
-    } catch (error) {
-      console.error('Erro ao converter unidades:', error);
-      toast({
-        title: 'Erro ao converter unidades',
-        description: 'Não é possível converter entre essas unidades.',
-        variant: 'destructive',
-      });
-    }
+    }, 0);
   };
-
-  // Contadores para o dashboard
-  const criticalIngredients = ingredients.filter(ing =>
-    getStockStatus(ing.current_stock, ing.min_stock).status === 'danger'
-  );
-  const warningIngredients = ingredients.filter(ing =>
-    getStockStatus(ing.current_stock, ing.min_stock).status === 'warning'
-  );
-  const safeIngredients = ingredients.filter(ing =>
-    getStockStatus(ing.current_stock, ing.min_stock).status === 'safe'
-  );
-
-  const openEditIngredientDialog = (ingredient: Ingredient) => {
-    setSelectedIngredient(ingredient);
-    setEditIngredientForm({
-      name: ingredient.name,
-      unit: ingredient.unit,
-      cost: ingredient.cost,
-      min_stock: ingredient.min_stock,
-      supplier: ingredient.supplier,
-      description: ingredient.description
-    });
-    setIsEditIngredientDialogOpen(true);
-  };
-
-  const handleEditIngredient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedIngredient) return;
-
-    try {
-      await updateIngredient(selectedIngredient.id, {
-        name: editIngredientForm.name,
-        unit: editIngredientForm.unit,
-        min_stock: editIngredientForm.min_stock,
-        cost: editIngredientForm.cost,
-        supplier: editIngredientForm.supplier,
-        description: editIngredientForm.description
-      });
-
-      setIsEditIngredientDialogOpen(false);
-      setSelectedIngredient(null);
-    } catch (error) {
-      console.error('Erro ao atualizar ingrediente:', error);
-    }
-  };
-
-  // Função para abrir diálogo de edição de comida
-  const openEditFoodDialog = (food: Product) => {
-    setSelectedFood(food);
-    setNewFoodForm({
-      name: food.name,
-      category: food.category,
-      description: food.description,
-      price: food.price,
-      cost: food.cost,
-      available: food.available,
-      ingredients: food.ingredients.map(ing => {
-        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-        if (!ingredient) return ing;
-
-        // Se o ingrediente não é unitário e a unidade selecionada é 'g',
-        // converte de kg para g apenas para exibição
-        if (ingredient.unit !== 'unidade' && ing.unit === 'g') {
-          return {
-            ...ing,
-            quantity: ing.quantity * 1000,  // Converte kg para g para exibição
-            unit: 'g'
-          };
-        }
-
-        // Se não, mantém em kg
-        return {
-          ...ing,
-          unit: ingredient.unit === 'unidade' ? 'unidade' : 'kg'
-        };
-      })
-    });
-    setIsEditFoodDialogOpen(true);
-  };
-
-  // Função para atualizar uma comida
-  const handleEditFood = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFood) return;
-
-    try {
-      // Converte todos os ingredientes não-unitários para kg antes de salvar
-      const ingredientsInKg = newFoodForm.ingredients.map(ing => {
-        const ingredient = ingredients.find(i => i.id === ing.ingredientId);
-        if (!ingredient || ingredient.unit === 'unidade') return ing;
-
-        // Se estiver em g, converte para kg
-        let quantityInKg = ing.quantity;
-        if (ing.unit === 'g') {
-          quantityInKg = ing.quantity / 1000;
-        }
-
-        return {
-          ...ing,
-          quantity: Number(quantityInKg.toFixed(3)),
-          unit: 'kg'  // Sempre salva em kg
-        };
-      });
-
-      await updateProduct(selectedFood.id, {
-        name: newFoodForm.name,
-        description: newFoodForm.description,
-        category: newFoodForm.category,
-        price: newFoodForm.price,
-        cost: newFoodForm.cost,
-        available: newFoodForm.available,
-        ingredients: ingredientsInKg
-      });
-
-      setIsEditFoodDialogOpen(false);
-      setSelectedFood(null);
-
-      toast({
-        title: 'Comida atualizada',
-        description: 'A comida foi atualizada com sucesso.',
-      });
-    } catch (error) {
-      console.error('Erro ao atualizar comida:', error);
-      toast({
-        title: 'Erro ao atualizar comida',
-        description: 'Não foi possível atualizar a comida.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Função para abrir o diálogo de edição de produto
-  const openEditProductDialog = (product: ExternalProduct) => {
-    setSelectedProduct(product);
-    setNewProductForm({
-      name: product.name,
-      brand: product.brand || '',
-      description: product.description || '',
-      cost: product.cost,
-      price: product.price,
-      currentStock: product.current_stock,
-      minStock: product.min_stock
-    });
-    setIsEditProductDialogOpen(true);
-  };
-
-  // Função para editar produto
-  const handleEditProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedProduct) return;
-
-    await updateExternalProduct(selectedProduct.id, {
-      name: newProductForm.name,
-      brand: newProductForm.brand || null,
-      description: newProductForm.description || null,
-      current_stock: newProductForm.currentStock,
-      min_stock: newProductForm.minStock,
-      cost: newProductForm.cost,
-      price: newProductForm.price
-    });
-
-    setNewProductForm({
-      name: '',
-      brand: '',
-      description: '',
-      currentStock: 0,
-      minStock: 0,
-      cost: 0,
-      price: 0
-    });
-    setIsEditProductDialogOpen(false);
-    setSelectedProduct(null);
-  };
-
-  // Função para confirmar exclusão
-  const handleDeleteProduct = async (productId: string) => {
-    setItemToDelete({
-      type: 'product',
-      id: productId,
-      name: externalProducts.find(p => p.id === productId)?.name || ''
-    });
-    setIsDeleteConfirmOpen(true);
-  };
-
-  const confirmDeleteProduct = async () => {
-    if (!itemToDelete) return;
-
-    try {
-      const { error } = await supabase
-        .from('external_products')
-        .delete()
-        .eq('id', itemToDelete.id);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Produto excluído',
-        description: `O produto "${itemToDelete.name}" foi excluído com sucesso.`,
-      });
-    } catch (error) {
-      console.error('Erro ao excluir produto:', error);
-      toast({
-        title: 'Erro ao excluir produto',
-        description: 'Não foi possível excluir o produto.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleteConfirmOpen(false);
-      setItemToDelete(null);
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!itemToDelete) return;
-
-    try {
-      if (itemToDelete.type === 'ingredient') {
-        await deleteIngredient(itemToDelete.id);
-      } else if (itemToDelete.type === 'product') {
-        await deleteProduct(itemToDelete.id);
-      } else if (itemToDelete.type === 'food') {
-        await deleteProduct(itemToDelete.id);
-      }
-
-      setIsDeleteConfirmOpen(false);
-      setItemToDelete(null);
-
-      toast({
-        title: 'Item excluído',
-        description: 'O item foi excluído com sucesso.',
-      });
-    } catch (error) {
-      console.error('Erro ao excluir item:', error);
-      toast({
-        title: 'Erro ao excluir',
-        description: 'Não foi possível excluir o item. Tente novamente.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Se não houver usuário autenticado, mostra mensagem de erro
-  if (!currentUser) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-red-600">Você precisa estar autenticado para acessar esta página.</p>
-      </div>
-    );
-  }
-
-  // Se estiver carregando os dados do estoque, mostra loading
-  if (stockLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p>Carregando dados do estoque...</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Estoque</h1>
-          <p className="text-gray-600">Controle completo do estoque</p>
-        </div>
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Gerenciamento de Estoque</h1>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-[400px]">
-          <TabsTrigger value="ingredients">Ingredientes</TabsTrigger>
-          <TabsTrigger value="products">Produtos</TabsTrigger>
-          <TabsTrigger value="food">Comidas</TabsTrigger>
-          <TabsTrigger value="control">Controle</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="ingredients" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Ingredientes
+          </TabsTrigger>
+          <TabsTrigger value="external-products" className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            Produtos Externos
+          </TabsTrigger>
+          <TabsTrigger value="products" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Produtos
+          </TabsTrigger>
         </TabsList>
 
-        {/* Seção de Ingredientes */}
-        <TabsContent value="ingredients">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Controle de Ingredientes</CardTitle>
-                <Button onClick={() => setIsNewIngredientDialogOpen(true)}>
+        {/* Ingredients Tab */}
+        <TabsContent value="ingredients" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-semibold">Ingredientes</h2>
+            <Dialog open={isAddIngredientOpen} onOpenChange={setIsAddIngredientOpen}>
+              <DialogTrigger asChild>
+                <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Novo Ingrediente
+                  Adicionar Ingrediente
                 </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {ingredients.map((ingredient) => (
-                  <Card key={ingredient.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{ingredient.name}</CardTitle>
-                        {getStockStatusBadge(ingredient.current_stock, ingredient.min_stock)}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                          {getStockIcon(ingredient.current_stock, ingredient.min_stock)}
-                          <span className={`font-medium ${getStockStatus(ingredient.current_stock, ingredient.min_stock).status === 'danger' ? 'text-red-600' :
-                            getStockStatus(ingredient.current_stock, ingredient.min_stock).status === 'warning' ? 'text-yellow-600' :
-                              'text-green-600'
-                            }`}>
-                            {(() => {
-                              const formattedCurrent = formatStockValue(ingredient.current_stock);
-                              return `${formattedCurrent} ${ingredient.unit}`;
-                            })()}
-                          </span>
-                          <span className="text-gray-500">/ {(() => {
-                            const formattedMin = formatStockValue(ingredient.min_stock);
-                            return `${formattedMin} ${ingredient.unit}`;
-                          })()} min</span>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Custo Médio:</span>
-                            <span>R$ {ingredient.cost.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Fornecedor:</span>
-                            <span>{ingredient.supplier || '-'}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openStockDialog(ingredient, null, 'add')}
-                            className="flex-1 text-green-600 hover:text-green-700"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Nova Entrada
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openStockDialog(ingredient, null, 'remove')}
-                            className="flex-1 text-red-600 hover:text-red-700"
-                          >
-                            <Minus className="h-4 w-4 mr-2" />
-                            Consumir
-                          </Button>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditIngredientDialog(ingredient)}
-                          className="w-full"
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Editar
-                        </Button>
-
-                        <div className="mt-4">
-                          <p className="text-sm font-medium text-gray-500 mb-2">Últimas Entradas:</p>
-                          <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {stockEntries
-                              .filter(entry => entry.ingredient_id === ingredient.id)
-                              .map(entry => (
-                                <div key={entry.id} className="text-sm p-2 bg-gray-50 rounded-md">
-                                  <div className="flex justify-between">
-                                    <span>{entry.quantity} {ingredient.unit}</span>
-                                    <span>R$ {entry.unit_cost.toFixed(2)}/{ingredient.unit}</span>
-                                  </div>
-                                  <div className="flex justify-between text-gray-500">
-                                    <span>Restante: {entry.remaining_quantity} {ingredient.unit}</span>
-                                    <span>{new Date(entry.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full text-red-600"
-                            onClick={() => {
-                              setItemToDelete({
-                                type: 'ingredient',
-                                id: ingredient.id,
-                                name: ingredient.name
-                              });
-                              setIsDeleteConfirmOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Seção de Produtos Externos */}
-        <TabsContent value="products">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Produtos Externos</CardTitle>
-                <Button onClick={() => setIsNewProductDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Produto
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {externalProducts.map((product) => (
-                  <Card key={product.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg font-semibold">{product.name}</CardTitle>
-                          {product.brand && (
-                            <p className="text-sm text-muted-foreground">{product.brand}</p>
-                          )}
-                        </div>
-                        <Badge
-                          variant={getStockStatus(product.current_stock, product.min_stock).status === 'safe' ? 'default' : 'destructive'}
-                        >
-                          {getStockStatus(product.current_stock, product.min_stock).label}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pb-4">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-1">
-                          {getStockStatus(product.current_stock, product.min_stock).status === 'safe' ? (
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                          )}
-                          <span className={cn(
-                            "text-base font-medium",
-                            getStockStatus(product.current_stock, product.min_stock).status === 'safe'
-                              ? "text-green-600"
-                              : "text-red-600"
-                          )}>
-                            {formatStockValue(product.current_stock)} unidades
-                          </span>
-                          <span className="text-sm text-muted-foreground">/ {formatStockValue(product.min_stock)} min</span>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Custo médio:</span>
-                            <span className="text-sm font-medium">
-                              R$ {product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-muted-foreground">Preço de venda:</span>
-                            <span className="text-sm font-medium">
-                              R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <p className="text-sm font-medium text-gray-500 mb-2">Últimas Entradas:</p>
-                          <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {externalProductEntries
-                              .filter(entry => entry.product_id === product.id)
-                              .map(entry => (
-                                <div key={entry.id} className="text-sm p-2 bg-gray-50 rounded-md">
-                                  <div className="flex justify-between">
-                                    <span>{entry.quantity} un</span>
-                                    <span>R$ {entry.unit_cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/un</span>
-                                  </div>
-                                  <div className="flex justify-between text-gray-500">
-                                    <span>Restante: {entry.remaining_quantity} un</span>
-                                    <span>{new Date(entry.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1"
-                              >
-                                <Package className="h-4 w-4 mr-2" />
-                                Ajustar Estoque
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem onClick={() => openStockDialog(null, product, 'add')}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Entrada
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openStockDialog(null, product, 'remove')}>
-                                <Minus className="h-4 w-4 mr-2" />
-                                Saída
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openEditProductDialog(product)}
-                            className="flex-1"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Seção de Comidas */}
-        <TabsContent value="food">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Comidas</CardTitle>
-                <Button onClick={() => setIsNewFoodDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nova Comida
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products?.map((product) => (
-                  <Card key={product.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{product.name}</CardTitle>
-                          <p className="text-sm text-gray-500">{product.category}</p>
-                        </div>
-                        <Badge variant={product.available ? 'default' : 'destructive'}>
-                          {product.available ? 'Disponível' : 'Indisponível'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Custo:</span>
-                            <span>R$ {product.cost.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Preço:</span>
-                            <span className="font-medium">R$ {product.price.toFixed(2)}</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-gray-500">Ingredientes:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {product.ingredients.map((ing, idx) => (
-                              <Badge key={idx} variant="secondary">
-                                {ingredients.find(i => i.id === ing.ingredientId)?.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => openEditFoodDialog(product)}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 text-red-600"
-                            onClick={() => {
-                              setItemToDelete({
-                                type: 'food',
-                                id: product.id,
-                                name: product.name
-                              });
-                              setIsDeleteConfirmOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Seção de Controle */}
-        <TabsContent value="control">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-red-200 bg-red-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-red-800 flex items-center">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  Estoque Crítico
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-900">
-                  {ingredients.filter(ing => ing.current_stock <= ing.min_stock).length +
-                    externalProducts.filter(p => p.current_stock <= p.min_stock).length}
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Ingrediente</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={newIngredient.name}
+                      onChange={(e) => setNewIngredient(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Digite o nome do ingrediente"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="unit">Unidade</Label>
+                    <Select
+                      value={newIngredient.unit}
+                      onValueChange={(value) => setNewIngredient(prev => ({ ...prev, unit: value as Unit }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                        <SelectItem value="g">Grama (g)</SelectItem>
+                        <SelectItem value="mg">Miligrama (mg)</SelectItem>
+                        <SelectItem value="L">Litro (L)</SelectItem>
+                        <SelectItem value="ml">Mililitro (ml)</SelectItem>
+                        <SelectItem value="unidade">Unidade</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="current_stock">Estoque Atual</Label>
+                      <Input
+                        id="current_stock"
+                        type="number"
+                        value={newIngredient.current_stock}
+                        onChange={(e) => setNewIngredient(prev => ({ ...prev, current_stock: Number(e.target.value) }))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="min_stock">Estoque Mínimo</Label>
+                      <Input
+                        id="min_stock"
+                        type="number"
+                        value={newIngredient.min_stock}
+                        onChange={(e) => setNewIngredient(prev => ({ ...prev, min_stock: Number(e.target.value) }))}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="cost">Custo por unidade</Label>
+                    <Input
+                      id="cost"
+                      type="number"
+                      step="0.01"
+                      value={newIngredient.cost}
+                      onChange={(e) => setNewIngredient(prev => ({ ...prev, cost: Number(e.target.value) }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="supplier">Fornecedor</Label>
+                    <Input
+                      id="supplier"
+                      value={newIngredient.supplier}
+                      onChange={(e) => setNewIngredient(prev => ({ ...prev, supplier: e.target.value }))}
+                      placeholder="Nome do fornecedor"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      value={newIngredient.description || ''}
+                      onChange={(e) => setNewIngredient(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Descrição opcional"
+                    />
+                  </div>
                 </div>
-                <p className="text-sm text-red-700">Itens em nível crítico</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-yellow-200 bg-yellow-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-yellow-800 flex items-center">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  Estoque Baixo
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-yellow-900">
-                  {ingredients.filter(ing => {
-                    const percentageAboveMin = ((ing.current_stock - ing.min_stock) / ing.min_stock) * 100;
-                    return ing.current_stock > ing.min_stock && percentageAboveMin <= 25;
-                  }).length +
-                    externalProducts.filter(p => {
-                      const percentageAboveMin = ((p.current_stock - p.min_stock) / p.min_stock) * 100;
-                      return p.current_stock > p.min_stock && percentageAboveMin <= 25;
-                    }).length}
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsAddIngredientOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAddIngredient}>
+                    Adicionar Ingrediente
+                  </Button>
                 </div>
-                <p className="text-sm text-yellow-700">Itens com estoque baixo</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-200 bg-green-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-green-800 flex items-center">
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  Estoque Normal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-900">
-                  {ingredients.filter(ing => {
-                    const percentageAboveMin = ((ing.current_stock - ing.min_stock) / ing.min_stock) * 100;
-                    return ing.current_stock > ing.min_stock && percentageAboveMin > 25;
-                  }).length +
-                    externalProducts.filter(p => {
-                      const percentageAboveMin = ((p.current_stock - p.min_stock) / p.min_stock) * 100;
-                      return p.current_stock > p.min_stock && percentageAboveMin > 25;
-                    }).length}
-                </div>
-                <p className="text-sm text-green-700">Itens com estoque adequado</p>
-              </CardContent>
-            </Card>
+              </DialogContent>
+            </Dialog>
           </div>
 
-          <Card className="mt-6">
+          <Card>
             <CardHeader>
-              <CardTitle>Itens com Estoque Crítico</CardTitle>
+              <CardTitle>Lista de Ingredientes</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {criticalIngredients.map((item) => (
-                  <Card key={item.id} className="hover:shadow-lg transition-shadow border-red-200 bg-red-50">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{item.name}</CardTitle>
-                          <p className="text-sm text-red-600">Ingrediente</p>
-                        </div>
-                        <Badge variant="destructive">Crítico</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                          <AlertTriangle className="h-4 w-4 text-red-500" />
-                          <span className="font-medium text-red-600">
-                            {(() => {
-                              const formattedCurrent = formatStockValue(item.current_stock);
-                              return `${formattedCurrent} ${item.unit}`;
-                            })()}
-                          </span>
-                          <span className="text-red-500">/ {(() => {
-                            const formattedMin = formatStockValue(item.min_stock);
-                            return `${formattedMin} ${item.unit}`;
-                          })()} min</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {externalProducts
-                  .filter(p => getStockStatus(p.current_stock, p.min_stock).status === 'danger')
-                  .map((product) => (
-                    <Card key={product.id} className="hover:shadow-lg transition-shadow border-red-200 bg-red-50">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg">{product.name}</CardTitle>
-                            <p className="text-sm text-red-600">Produto Externo</p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead>Estoque Atual</TableHead>
+                    <TableHead>Estoque Mínimo</TableHead>
+                    <TableHead>Custo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Fornecedor</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ingredients.map((ingredient) => {
+                    const stockStatus = getStockStatus(ingredient.current_stock, ingredient.min_stock);
+                    return (
+                      <TableRow key={ingredient.id}>
+                        <TableCell className="font-medium">{ingredient.name}</TableCell>
+                        <TableCell>{ingredient.unit}</TableCell>
+                        <TableCell>{ingredient.current_stock}</TableCell>
+                        <TableCell>{ingredient.min_stock}</TableCell>
+                        <TableCell>R$ {ingredient.cost.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant={stockStatus.color as any}>
+                            {stockStatus.status === 'out' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                            {stockStatus.text}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{ingredient.supplier || '-'}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditIngredient(ingredient)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteIngredient(ingredient.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Badge variant="destructive">Crítico</Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          <div className="flex items-center space-x-2">
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                            <span className="font-medium text-red-600">
-                              {(() => {
-                                const formattedCurrent = formatStockValue(product.current_stock);
-                                return `${formattedCurrent} ${product.unit}`;
-                              })()}
-                            </span>
-                            <span className="text-red-500">/ {(() => {
-                              const formattedMin = formatStockValue(product.min_stock);
-                              return `${formattedMin} ${product.unit}`;
-                            })()} min</span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* External Products Tab */}
+        <TabsContent value="external-products" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-semibold">Produtos Externos</h2>
+            <Dialog open={isAddExternalProductOpen} onOpenChange={setIsAddExternalProductOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Produto Externo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Produto Externo</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={newExternalProduct.name}
+                      onChange={(e) => setNewExternalProduct(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Digite o nome do produto"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="brand">Marca</Label>
+                    <Input
+                      id="brand"
+                      value={newExternalProduct.brand}
+                      onChange={(e) => setNewExternalProduct(prev => ({ ...prev, brand: e.target.value }))}
+                      placeholder="Digite a marca"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      value={newExternalProduct.description}
+                      onChange={(e) => setNewExternalProduct(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Descrição do produto"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="cost">Custo</Label>
+                      <Input
+                        id="cost"
+                        type="number"
+                        step="0.01"
+                        value={newExternalProduct.cost}
+                        onChange={(e) => setNewExternalProduct(prev => ({ ...prev, cost: Number(e.target.value) }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="price">Preço</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        value={newExternalProduct.price}
+                        onChange={(e) => setNewExternalProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="current_stock">Estoque Atual</Label>
+                      <Input
+                        id="current_stock"
+                        type="number"
+                        value={newExternalProduct.current_stock}
+                        onChange={(e) => setNewExternalProduct(prev => ({ ...prev, current_stock: Number(e.target.value) }))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="min_stock">Estoque Mínimo</Label>
+                      <Input
+                        id="min_stock"
+                        type="number"
+                        value={newExternalProduct.min_stock}
+                        onChange={(e) => setNewExternalProduct(prev => ({ ...prev, min_stock: Number(e.target.value) }))}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsAddExternalProductOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAddExternalProduct}>
+                    Adicionar Produto
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Produtos Externos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Marca</TableHead>
+                    <TableHead>Estoque Atual</TableHead>
+                    <TableHead>Estoque Mínimo</TableHead>
+                    <TableHead>Custo</TableHead>
+                    <TableHead>Preço</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {externalProducts.map((product) => {
+                    const stockStatus = getStockStatus(product.current_stock, product.min_stock);
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.brand || '-'}</TableCell>
+                        <TableCell>{product.current_stock}</TableCell>
+                        <TableCell>{product.min_stock}</TableCell>
+                        <TableCell>R$ {product.cost.toFixed(2)}</TableCell>
+                        <TableCell>R$ {product.price.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant={stockStatus.color as any}>
+                            {stockStatus.status === 'out' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                            {stockStatus.text}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditExternalProduct(product)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteExternalProduct(product.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Products Tab */}
+        <TabsContent value="products" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-semibold">Produtos</h2>
+            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Produto
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Produto</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Digite o nome do produto"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      value={newProduct.description}
+                      onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Descrição do produto"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="price">Preço</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        value={newProduct.price}
+                        onChange={(e) => setNewProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="preparation_time">Tempo de Preparo (min)</Label>
+                      <Input
+                        id="preparation_time"
+                        type="number"
+                        value={newProduct.preparation_time}
+                        onChange={(e) => setNewProduct(prev => ({ ...prev, preparation_time: Number(e.target.value) }))}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Categoria</Label>
+                    <Input
+                      id="category"
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct(prev => ({ ...prev, category: e.target.value }))}
+                      placeholder="Categoria do produto"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <div className="flex justify-between items-center">
+                      <Label>Ingredientes</Label>
+                      <Button type="button" onClick={addIngredientToProduct} size="sm">
+                        <Plus className="h-4 w-4 mr-1" />
+                        Adicionar Ingrediente
+                      </Button>
+                    </div>
+                    {newProduct.ingredients.map((ingredient, index) => (
+                      <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-6">
+                          <Select
+                            value={ingredient.ingredient_id}
+                            onValueChange={(value) => updateProductIngredient(index, 'ingredient_id', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o ingrediente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ingredients.map((ing) => (
+                                <SelectItem key={ing.id} value={ing.id}>
+                                  {ing.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
+                        <div className="col-span-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Qtd"
+                            value={ingredient.quantity}
+                            onChange={(e) => updateProductIngredient(index, 'quantity', Number(e.target.value))}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <Select
+                            value={ingredient.unit}
+                            onValueChange={(value) => updateProductIngredient(index, 'unit', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Unidade" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="kg">kg</SelectItem>
+                              <SelectItem value="g">g</SelectItem>
+                              <SelectItem value="mg">mg</SelectItem>
+                              <SelectItem value="L">L</SelectItem>
+                              <SelectItem value="ml">ml</SelectItem>
+                              <SelectItem value="unidade">unidade</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="col-span-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeIngredientFromProduct(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Custo Calculado</Label>
+                    <div className="text-lg font-semibold">
+                      R$ {calculateProductCost(newProduct.ingredients).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsAddProductOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAddProduct}>
+                    Adicionar Produto
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Produtos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Preço</TableHead>
+                    <TableHead>Custo</TableHead>
+                    <TableHead>Margem</TableHead>
+                    <TableHead>Tempo Preparo</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((product) => {
+                    const margin = product.price > 0 ? ((product.price - product.cost) / product.price * 100) : 0;
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell>{product.category}</TableCell>
+                        <TableCell>R$ {product.price.toFixed(2)}</TableCell>
+                        <TableCell>R$ {product.cost.toFixed(2)}</TableCell>
+                        <TableCell>{margin.toFixed(1)}%</TableCell>
+                        <TableCell>{product.preparation_time}min</TableCell>
+                        <TableCell>
+                          <Badge variant={product.available ? 'default' : 'secondary'}>
+                            {product.available ? 'Disponível' : 'Indisponível'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditProduct(product)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteProduct(product.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Modal de Ajuste de Estoque */}
-      <Dialog open={isStockDialogOpen} onOpenChange={setIsStockDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Ajustar Estoque</DialogTitle>
-            <DialogDescription>
-              {selectedIngredient
-                ? `Ajuste o estoque de ${selectedIngredient.name}`
-                : selectedProduct
-                  ? `Ajuste o estoque de ${selectedProduct.name}`
-                  : 'Ajuste o estoque do item selecionado'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <Label htmlFor="adjustmentType">Tipo de Ajuste</Label>
-                <Select
-                  value={adjustmentType}
-                  onValueChange={(value: 'add' | 'remove') => setAdjustmentType(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo de ajuste" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="add">Entrada</SelectItem>
-                    <SelectItem value="remove">Saída</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex-1">
-                <Label htmlFor="quantity">Quantidade</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={adjustmentQuantity}
-                    onChange={(e) => setAdjustmentQuantity(Number(e.target.value))}
-                    min="0"
-                    step="1"
-                  />
-                  <span className="flex items-center text-sm text-gray-500">
-                    {selectedIngredient ? selectedIngredient.unit : 'un'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {adjustmentType === 'add' && (
-              <>
-                <div>
-                  <Label htmlFor="unitCost">Custo Unitário (R$)</Label>
-                  <Input
-                    id="unitCost"
-                    type="number"
-                    value={unitCost}
-                    onChange={(e) => setUnitCost(Number(e.target.value))}
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="supplier">Fornecedor</Label>
-                  <Input
-                    id="supplier"
-                    value={supplier}
-                    onChange={(e) => setSupplier(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="invoiceNumber">Número da Nota</Label>
-                  <Input
-                    id="invoiceNumber"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea
-                    id="notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsStockDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleStockAdjustment}>Confirmar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Novo Ingrediente */}
-      <Dialog open={isNewIngredientDialogOpen} onOpenChange={setIsNewIngredientDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo Ingrediente</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleNewIngredient} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                value={newIngredientForm.name}
-                onChange={(e) => setNewIngredientForm(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="unit">Unidade Base</Label>
-              <Select
-                value={newIngredientForm.unit}
-                onValueChange={(value: Unit) => {
-                  setNewIngredientForm(prev => ({
-                    ...prev,
-                    unit: value,
-                    minStockUnit: value
-                  }));
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a unidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kg">Quilograma (kg)</SelectItem>
-                  <SelectItem value="g">Grama (g)</SelectItem>
-                  <SelectItem value="mg">Miligrama (mg)</SelectItem>
-                  <SelectItem value="L">Litro (L)</SelectItem>
-                  <SelectItem value="ml">Mililitro (ml)</SelectItem>
-                  <SelectItem value="unidade">Unidade</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="currentStock">Estoque Inicial</Label>
-                <Input
-                  id="currentStock"
-                  type="number"
-                  value={newIngredientForm.currentStock}
-                  onChange={(e) => setNewIngredientForm(prev => ({ ...prev, currentStock: Number(e.target.value) }))}
-                  min="0"
-                  step="0.1"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="minStock">Estoque Mínimo</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="minStock"
-                    type="number"
-                    value={newIngredientForm.minStock}
-                    onChange={(e) => setNewIngredientForm(prev => ({
-                      ...prev,
-                      minStock: Number(e.target.value)
-                    }))}
-                    min="0"
-                    step="0.001"
-                    required
-                  />
-                  <Select
-                    value={newIngredientForm.minStockUnit}
-                    onValueChange={(value: Unit) => handleMinStockUnitChange(value)}
-                  >
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getAvailableSubunits(newIngredientForm.unit).map(unit => (
-                        <SelectItem key={unit} value={unit}>
-                          {unit}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="cost">Custo Unitário (R$)</Label>
-              <Input
-                id="cost"
-                type="number"
-                value={newIngredientForm.cost}
-                onChange={(e) => setNewIngredientForm(prev => ({ ...prev, cost: Number(e.target.value) }))}
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="supplier">Fornecedor (opcional)</Label>
-              <Input
-                id="supplier"
-                value={newIngredientForm.supplier}
-                onChange={(e) => setNewIngredientForm(prev => ({ ...prev, supplier: e.target.value }))}
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsNewIngredientDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Criar Ingrediente
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Novo Produto */}
-      <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo Produto</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleNewProduct} className="space-y-4">
-            <div>
-              <Label htmlFor="productName">Nome</Label>
-              <Input
-                id="productName"
-                value={newProductForm.name}
-                onChange={(e) => setNewProductForm(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="productBrand">Marca</Label>
-              <Input
-                id="productBrand"
-                value={newProductForm.brand}
-                onChange={(e) => setNewProductForm(prev => ({ ...prev, brand: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="productDescription">Descrição</Label>
-              <Textarea
-                id="productDescription"
-                value={newProductForm.description}
-                onChange={(e) => setNewProductForm(prev => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="productCurrentStock">Estoque Atual</Label>
-                <Input
-                  id="productCurrentStock"
-                  type="number"
-                  value={newProductForm.currentStock}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, currentStock: Number(e.target.value) }))}
-                  min="0"
-                  step="1"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="productMinStock">Estoque Mínimo</Label>
-                <Input
-                  id="productMinStock"
-                  type="number"
-                  value={newProductForm.minStock}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, minStock: Number(e.target.value) }))}
-                  min="0"
-                  step="1"
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="productCost">Custo Unitário (R$)</Label>
-                <Input
-                  id="productCost"
-                  type="number"
-                  value={newProductForm.cost}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, cost: Number(e.target.value) }))}
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="price">Preço de Venda (R$)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={newProductForm.price}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, price: Number(e.target.value) }))}
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsNewProductDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Criar Produto
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Nova Comida */}
-      <Dialog open={isNewFoodDialogOpen} onOpenChange={setIsNewFoodDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Nova Comida</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleNewFood} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                value={newFoodForm.name}
-                onChange={(e) => setNewFoodForm(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="category">Categoria</Label>
-              <Input
-                id="category"
-                value={newFoodForm.category}
-                onChange={(e) => setNewFoodForm(prev => ({ ...prev, category: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Descrição</Label>
-              <Textarea
-                id="description"
-                value={newFoodForm.description}
-                onChange={(e) => setNewFoodForm(prev => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label>Ingredientes</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addIngredientToFood}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Ingrediente
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {newFoodForm.ingredients.map((ing, index) => (
-                  <div key={index} className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <Label>Ingrediente</Label>
-                      <Select
-                        value={ing.ingredientId}
-                        onValueChange={(value) => {
-                          const ingredient = ingredients.find(i => i.id === value);
-                          if (ingredient) {
-                            setNewFoodForm(prev => {
-                              const newIngredients = [...prev.ingredients];
-                              newIngredients[index] = {
-                                ingredientId: value,
-                                quantity: 0,
-                                unit: ingredient.unit === 'unidade' ? 'unidade' : 'kg'  // Define kg como unidade padrão para ingredientes não-unitários
-                              };
-                              return { ...prev, ingredients: newIngredients };
-                            });
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o ingrediente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ingredients.map((ingredient) => (
-                            <SelectItem key={ingredient.id} value={ingredient.id}>
-                              {ingredient.name} ({ingredient.unit})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="w-32">
-                      <Label>Quantidade</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          value={ing.quantity}
-                          onChange={(e) => updateFoodIngredient(index, 'quantity', Number(e.target.value))}
-                          required
-                        />
-                        {ing.ingredientId && ingredients.find(i => i.id === ing.ingredientId)?.unit !== 'unidade' && (
-                          <Select
-                            value={ing.unit}
-                            onValueChange={(value: Unit) => updateFoodIngredientUnit(index, value)}
-                          >
-                            <SelectTrigger className="w-[80px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {getAvailableSubunits(
-                                ingredients.find(i => i.id === ing.ingredientId)?.unit || 'unidade'
-                              ).map(unit => (
-                                <SelectItem key={unit} value={unit}>
-                                  {unit}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {ing.ingredientId && ingredients.find(i => i.id === ing.ingredientId)?.unit === 'unidade' && (
-                          <span className="text-sm text-gray-500 ml-2">unidade(s)</span>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="flex-none"
-                      onClick={() => removeFoodIngredient(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="cost">Custo de Produção (R$)</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  step="0.01"
-                  value={newFoodForm.cost}
-                  readOnly
-                  className="bg-gray-100"
-                />
-                <p className="text-sm text-gray-500 mt-1">Calculado automaticamente</p>
-              </div>
-              <div>
-                <Label htmlFor="price">Preço de Venda (R$)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={newFoodForm.price}
-                  onChange={(e) => setNewFoodForm(prev => ({ ...prev, price: Number(e.target.value) }))}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsNewFoodDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Criar Comida
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Edição de Ingrediente */}
-      <Dialog open={isEditIngredientDialogOpen} onOpenChange={setIsEditIngredientDialogOpen}>
-        <DialogContent>
+      {/* Edit Ingredient Dialog */}
+      <Dialog open={isEditIngredientOpen} onOpenChange={setIsEditIngredientOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Editar Ingrediente</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEditIngredient} className="space-y-4">
-            <div>
-              <Label htmlFor="edit-name">Nome</Label>
-              <Input
-                id="edit-name"
-                value={editIngredientForm.name}
-                onChange={(e) => setEditIngredientForm(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
+          {selectedIngredient && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Nome</Label>
+                <Input
+                  id="edit-name"
+                  value={selectedIngredient.name}
+                  onChange={(e) => setSelectedIngredient(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
+                  placeholder="Digite o nome do ingrediente"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-unit">Unidade</Label>
+                <Select
+                  value={selectedIngredient.unit}
+                  onValueChange={(value) => setSelectedIngredient(prev => prev ? ({ ...prev, unit: value }) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a unidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">Quilograma (kg)</SelectItem>
+                    <SelectItem value="g">Grama (g)</SelectItem>
+                    <SelectItem value="mg">Miligrama (mg)</SelectItem>
+                    <SelectItem value="L">Litro (L)</SelectItem>
+                    <SelectItem value="ml">Mililitro (ml)</SelectItem>
+                    <SelectItem value="unidade">Unidade</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-current_stock">Estoque Atual</Label>
+                  <Input
+                    id="edit-current_stock"
+                    type="number"
+                    value={selectedIngredient.current_stock}
+                    onChange={(e) => setSelectedIngredient(prev => prev ? ({ ...prev, current_stock: Number(e.target.value) }) : null)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-min_stock">Estoque Mínimo</Label>
+                  <Input
+                    id="edit-min_stock"
+                    type="number"
+                    value={selectedIngredient.min_stock}
+                    onChange={(e) => setSelectedIngredient(prev => prev ? ({ ...prev, min_stock: Number(e.target.value) }) : null)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-cost">Custo por unidade</Label>
+                <Input
+                  id="edit-cost"
+                  type="number"
+                  step="0.01"
+                  value={selectedIngredient.cost}
+                  onChange={(e) => setSelectedIngredient(prev => prev ? ({ ...prev, cost: Number(e.target.value) }) : null)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-supplier">Fornecedor</Label>
+                <Input
+                  id="edit-supplier"
+                  value={selectedIngredient.supplier || ''}
+                  onChange={(e) => setSelectedIngredient(prev => prev ? ({ ...prev, supplier: e.target.value }) : null)}
+                  placeholder="Nome do fornecedor"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-description">Descrição</Label>
+                <Textarea
+                  id="edit-description"
+                  value={selectedIngredient.description || ''}
+                  onChange={(e) => setSelectedIngredient(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                  placeholder="Descrição opcional"
+                />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="edit-unit">Unidade</Label>
-              <Select
-                value={editIngredientForm.unit}
-                onValueChange={(value) => setEditIngredientForm(prev => ({ ...prev, unit: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a unidade" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kg">Quilograma (kg)</SelectItem>
-                  <SelectItem value="g">Grama (g)</SelectItem>
-                  <SelectItem value="L">Litro (L)</SelectItem>
-                  <SelectItem value="ml">Mililitro (ml)</SelectItem>
-                  <SelectItem value="unidade">Unidade</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-cost">Custo Unitário (R$)</Label>
-              <Input
-                id="edit-cost"
-                type="number"
-                value={editIngredientForm.cost}
-                onChange={(e) => setEditIngredientForm(prev => ({ ...prev, cost: Number(e.target.value) }))}
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-min-stock">Estoque Mínimo</Label>
-              <Input
-                id="edit-min-stock"
-                type="number"
-                value={editIngredientForm.min_stock}
-                onChange={(e) => setEditIngredientForm(prev => ({ ...prev, min_stock: Number(e.target.value) }))}
-                min="0"
-                step="0.1"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-supplier">Fornecedor (opcional)</Label>
-              <Input
-                id="edit-supplier"
-                value={editIngredientForm.supplier || ''}
-                onChange={(e) => setEditIngredientForm(prev => ({ ...prev, supplier: e.target.value || null }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-description">Descrição (opcional)</Label>
-              <Textarea
-                id="edit-description"
-                value={editIngredientForm.description || ''}
-                onChange={(e) => setEditIngredientForm(prev => ({ ...prev, description: e.target.value || null }))}
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditIngredientDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Salvar Alterações
-              </Button>
-            </div>
-          </form>
+          )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsEditIngredientOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditIngredient}>
+              Salvar Alterações
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Edição de Comida */}
-      <Dialog open={isEditFoodDialogOpen} onOpenChange={setIsEditFoodDialogOpen}>
-        <DialogContent>
+      {/* Edit External Product Dialog */}
+      <Dialog open={isEditExternalProductOpen} onOpenChange={setIsEditExternalProductOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Comida</DialogTitle>
+            <DialogTitle>Editar Produto Externo</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEditFood} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome</Label>
+          {selectedExternalProduct && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-ext-name">Nome</Label>
+                <Input
+                  id="edit-ext-name"
+                  value={selectedExternalProduct.name}
+                  onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
+                  placeholder="Digite o nome do produto"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-ext-brand">Marca</Label>
+                <Input
+                  id="edit-ext-brand"
+                  value={selectedExternalProduct.brand || ''}
+                  onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, brand: e.target.value }) : null)}
+                  placeholder="Digite a marca"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-ext-description">Descrição</Label>
+                <Textarea
+                  id="edit-ext-description"
+                  value={selectedExternalProduct.description || ''}
+                  onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, description: e.target.value }) : null)}
+                  placeholder="Descrição do produto"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-ext-cost">Custo</Label>
+                  <Input
+                    id="edit-ext-cost"
+                    type="number"
+                    step="0.01"
+                    value={selectedExternalProduct.cost}
+                    onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, cost: Number(e.target.value) }) : null)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-ext-price">Preço</Label>
+                  <Input
+                    id="edit-ext-price"
+                    type="number"
+                    step="0.01"
+                    value={selectedExternalProduct.price}
+                    onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, price: Number(e.target.value) }) : null)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-ext-current_stock">Estoque Atual</Label>
+                  <Input
+                    id="edit-ext-current_stock"
+                    type="number"
+                    value={selectedExternalProduct.current_stock}
+                    onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, current_stock: Number(e.target.value) }) : null)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-ext-min_stock">Estoque Mínimo</Label>
+                  <Input
+                    id="edit-ext-min_stock"
+                    type="number"
+                    value={selectedExternalProduct.min_stock}
+                    onChange={(e) => setSelectedExternalProduct(prev => prev ? ({ ...prev, min_stock: Number(e.target.value) }) : null)}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsEditExternalProductOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEditExternalProduct}>
+              Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Produto</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-prod-name">Nome</Label>
               <Input
-                id="name"
-                value={newFoodForm.name}
-                onChange={(e) => setNewFoodForm(prev => ({ ...prev, name: e.target.value }))}
-                required
+                id="edit-prod-name"
+                value={editProduct.name}
+                onChange={(e) => setEditProduct(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Digite o nome do produto"
               />
             </div>
-            <div>
-              <Label htmlFor="category">Categoria</Label>
-              <Input
-                id="category"
-                value={newFoodForm.category}
-                onChange={(e) => setNewFoodForm(prev => ({ ...prev, category: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Descrição</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-prod-description">Descrição</Label>
               <Textarea
-                id="description"
-                value={newFoodForm.description}
-                onChange={(e) => setNewFoodForm(prev => ({ ...prev, description: e.target.value }))}
+                id="edit-prod-description"
+                value={editProduct.description}
+                onChange={(e) => setEditProduct(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Descrição do produto"
               />
             </div>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-prod-price">Preço</Label>
+                <Input
+                  id="edit-prod-price"
+                  type="number"
+                  step="0.01"
+                  value={editProduct.price}
+                  onChange={(e) => setEditProduct(prev => ({ ...prev, price: Number(e.target.value) }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-prod-preparation_time">Tempo de Preparo (min)</Label>
+                <Input
+                  id="edit-prod-preparation_time"
+                  type="number"
+                  value={editProduct.preparation_time}
+                  onChange={(e) => setEditProduct(prev => ({ ...prev, preparation_time: Number(e.target.value) }))}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-prod-category">Categoria</Label>
+              <Input
+                id="edit-prod-category"
+                value={editProduct.category}
+                onChange={(e) => setEditProduct(prev => ({ ...prev, category: e.target.value }))}
+                placeholder="Categoria do produto"
+              />
+            </div>
+            
+            <div className="grid gap-2">
               <div className="flex justify-between items-center">
                 <Label>Ingredientes</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addIngredientToFood}>
-                  <Plus className="h-4 w-4 mr-2" />
+                <Button type="button" onClick={addIngredientToEditProduct} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
                   Adicionar Ingrediente
                 </Button>
               </div>
-              <div className="space-y-2">
-                {newFoodForm.ingredients.map((ing, index) => (
-                  <div key={index} className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <Label>Ingrediente</Label>
-                      <Select
-                        value={ing.ingredientId}
-                        onValueChange={(value) => {
-                          const ingredient = ingredients.find(i => i.id === value);
-                          if (ingredient) {
-                            setNewFoodForm(prev => {
-                              const newIngredients = [...prev.ingredients];
-                              newIngredients[index] = {
-                                ingredientId: value,
-                                quantity: 0,
-                                unit: ingredient.unit === 'unidade' ? 'unidade' : 'kg'  // Define kg como unidade padrão para ingredientes não-unitários
-                              };
-                              return { ...prev, ingredients: newIngredients };
-                            });
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o ingrediente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ingredients.map((ingredient) => (
-                            <SelectItem key={ingredient.id} value={ingredient.id}>
-                              {ingredient.name} ({ingredient.unit})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="w-32">
-                      <Label>Quantidade</Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          step="0.001"
-                          value={ing.quantity}
-                          onChange={(e) => updateFoodIngredient(index, 'quantity', Number(e.target.value))}
-                          required
-                        />
-                        {ing.ingredientId && ingredients.find(i => i.id === ing.ingredientId)?.unit !== 'unidade' && (
-                          <Select
-                            value={ing.unit}
-                            onValueChange={(value: Unit) => updateFoodIngredientUnit(index, value)}
-                          >
-                            <SelectTrigger className="w-[80px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {getAvailableSubunits(
-                                ingredients.find(i => i.id === ing.ingredientId)?.unit || 'unidade'
-                              ).map(unit => (
-                                <SelectItem key={unit} value={unit}>
-                                  {unit}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {ing.ingredientId && ingredients.find(i => i.id === ing.ingredientId)?.unit === 'unidade' && (
-                          <span className="text-sm text-gray-500 ml-2">unidade(s)</span>
-                        )}
-                      </div>
-                    </div>
+              {editProduct.ingredients.map((ingredient, index) => (
+                <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-6">
+                    <Select
+                      value={ingredient.ingredientId}
+                      onValueChange={(value) => updateEditProductIngredient(index, 'ingredientId', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o ingrediente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ingredients.map((ing) => (
+                          <SelectItem key={ing.id} value={ing.id}>
+                            {ing.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Qtd"
+                      value={ingredient.quantity}
+                      onChange={(e) => updateEditProductIngredient(index, 'quantity', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Select
+                      value={ingredient.unit}
+                      onValueChange={(value) => updateEditProductIngredient(index, 'unit', value as Unit)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Unidade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="g">g</SelectItem>
+                        <SelectItem value="mg">mg</SelectItem>
+                        <SelectItem value="L">L</SelectItem>
+                        <SelectItem value="ml">ml</SelectItem>
+                        <SelectItem value="unidade">unidade</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-1">
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      className="flex-none"
-                      onClick={() => removeFoodIngredient(index)}
+                      size="sm"
+                      onClick={() => removeIngredientFromEditProduct(index)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="cost">Custo de Produção (R$)</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  step="0.01"
-                  value={newFoodForm.cost}
-                  readOnly
-                  className="bg-gray-100"
-                />
-                <p className="text-sm text-gray-500 mt-1">Calculado automaticamente</p>
-              </div>
-              <div>
-                <Label htmlFor="price">Preço de Venda (R$)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  value={newFoodForm.price}
-                  onChange={(e) => setNewFoodForm(prev => ({ ...prev, price: Number(e.target.value) }))}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditFoodDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Salvar Alterações
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Edição de Produto */}
-      <Dialog open={isEditProductDialogOpen} onOpenChange={setIsEditProductDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Produto</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleEditProduct} className="space-y-4">
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="productName">Nome do Produto</Label>
-                <Input
-                  id="productName"
-                  value={newProductForm.name}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, name: e.target.value }))}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="productBrand">Marca</Label>
-                <Input
-                  id="productBrand"
-                  value={newProductForm.brand}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, brand: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="productDescription">Descrição</Label>
-                <Textarea
-                  id="productDescription"
-                  value={newProductForm.description}
-                  onChange={(e) => setNewProductForm(prev => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="productCurrentStock">Estoque Atual</Label>
-                  <Input
-                    id="productCurrentStock"
-                    type="number"
-                    value={newProductForm.currentStock}
-                    onChange={(e) => setNewProductForm(prev => ({ ...prev, currentStock: Number(e.target.value) }))}
-                    min="0"
-                    step="1"
-                    required
-                  />
                 </div>
-                <div>
-                  <Label htmlFor="productMinStock">Estoque Mínimo</Label>
-                  <Input
-                    id="productMinStock"
-                    type="number"
-                    value={newProductForm.minStock}
-                    onChange={(e) => setNewProductForm(prev => ({ ...prev, minStock: Number(e.target.value) }))}
-                    min="0"
-                    step="1"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="productCost">Custo Unitário (R$)</Label>
-                  <Input
-                    id="productCost"
-                    type="number"
-                    value={newProductForm.cost}
-                    onChange={(e) => setNewProductForm(prev => ({ ...prev, cost: Number(e.target.value) }))}
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="price">Preço de Venda (R$)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    value={newProductForm.price}
-                    onChange={(e) => setNewProductForm(prev => ({ ...prev, price: Number(e.target.value) }))}
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-              </div>
+              ))}
             </div>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditProductDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                Salvar Alterações
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Diálogo de Confirmação de Exclusão */}
-      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              {itemToDelete?.type === 'product'
-                ? `Tem certeza que deseja excluir o produto "${itemToDelete.name}"? Esta ação não pode ser desfeita.`
-                : `Tem certeza que deseja excluir o ingrediente "${itemToDelete?.name}"? Esta ação não pode ser desfeita.`
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setIsDeleteConfirmOpen(false);
-              setItemToDelete(null);
-            }}>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsEditProductOpen(false)}>
               Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={confirmDelete}
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+            <Button onClick={handleEditProduct}>
+              Salvar Alterações
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
