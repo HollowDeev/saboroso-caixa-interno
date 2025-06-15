@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Expense, NewExpense, User, CashRegister, Product, ExternalProduct } from '@/types';
+import { User, CashRegister, Product, ExternalProduct } from '@/types';
+import { Expense, NewExpense } from '@/types/expense';
 
 export const addExpense = async (
   expense: NewExpense,

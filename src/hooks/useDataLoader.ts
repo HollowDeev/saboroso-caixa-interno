@@ -1,5 +1,7 @@
+
 import { useState } from 'react';
-import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, Expense } from '@/types';
+import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister } from '@/types';
+import { Expense } from '@/types/expense';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { formatOrders, formatSales } from '@/utils/dataFormatters';

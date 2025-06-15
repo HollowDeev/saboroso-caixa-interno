@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useState,
@@ -5,7 +6,8 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
-import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, AppContextType, NewOrderItem, PaymentMethod, Expense, NewExpense } from '@/types';
+import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, AppContextType, NewOrderItem, PaymentMethod } from '@/types';
+import { Expense, NewExpense } from '@/types/expense';
 import { supabase } from '@/integrations/supabase/client';
 import { useDataLoader } from '@/hooks/useDataLoader';
 import * as orderService from '@/services/orderService';
