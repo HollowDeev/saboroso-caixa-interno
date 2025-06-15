@@ -1,5 +1,4 @@
 
-
 // Core interfaces
 export interface User {
   id: string;
@@ -217,4 +216,3 @@ export interface UnitConversion {
   to: Unit;
   factor: number;
 }
-
