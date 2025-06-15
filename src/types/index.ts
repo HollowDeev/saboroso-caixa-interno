@@ -1,4 +1,3 @@
-
 // Core interfaces
 export interface User {
   id: string;
@@ -173,14 +172,14 @@ export interface AppContextType {
   externalProducts: ExternalProduct[];
   orders: Order[];
   sales: Sale[];
+  expenses: Expense[];
   serviceTaxes: ServiceTax[];
   currentCashRegister: CashRegister | null;
-  expenses: Expense[];
   isLoading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
-  closeOrder: (orderId: string, paymentMethod: PaymentMethod, customerName?: string) => Promise<void>;
+  closeOrder: (orderId: string, paymentMethod: PaymentMethod) => Promise<void>;
   addIngredient: (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateIngredient: (id: string, updates: Partial<Ingredient>) => Promise<void>;
   deleteIngredient: (id: string) => Promise<void>;
@@ -193,6 +192,9 @@ export interface AppContextType {
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
   updateSale: (id: string, updates: Partial<Sale>) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
+  addExpense: (expense: NewExpense) => Promise<void>;
+  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   addServiceTax: (serviceTax: Omit<ServiceTax, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateServiceTax: (id: string, updates: Partial<ServiceTax>) => Promise<void>;
   deleteServiceTax: (id: string) => Promise<void>;
@@ -201,9 +203,6 @@ export interface AppContextType {
   checkCashRegisterAccess: () => boolean;
   refreshData: () => Promise<void>;
   updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
-  addExpense: (expense: NewExpense) => Promise<void>;
-  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
 }
 
 // Unit conversion types - aligned with unitConversion.ts
