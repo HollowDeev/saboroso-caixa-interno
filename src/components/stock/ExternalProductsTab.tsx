@@ -31,8 +31,8 @@ export const ExternalProductsTab: React.FC<ExternalProductsTabProps> = ({
 
   const [newProduct, setNewProduct] = useState({
     name: '',
-    brand: '',
-    description: '',
+    brand: null as string | null,
+    description: null as string | null,
     cost: 0,
     price: 0,
     current_stock: 0,
@@ -42,8 +42,8 @@ export const ExternalProductsTab: React.FC<ExternalProductsTabProps> = ({
   const resetNewProduct = () => {
     setNewProduct({
       name: '',
-      brand: '',
-      description: '',
+      brand: null,
+      description: null,
       cost: 0,
       price: 0,
       current_stock: 0,

@@ -8,8 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 interface ExternalProductFormProps {
   product: {
     name: string;
-    brand: string;
-    description: string;
+    brand: string | null;
+    description: string | null;
     cost: number;
     price: number;
     current_stock: number;
@@ -43,8 +43,8 @@ export const ExternalProductForm: React.FC<ExternalProductFormProps> = ({
         <Label htmlFor="brand">Marca</Label>
         <Input
           id="brand"
-          value={product.brand}
-          onChange={(e) => onChange('brand', e.target.value)}
+          value={product.brand || ''}
+          onChange={(e) => onChange('brand', e.target.value || null)}
           placeholder="Digite a marca"
         />
       </div>
@@ -52,8 +52,8 @@ export const ExternalProductForm: React.FC<ExternalProductFormProps> = ({
         <Label htmlFor="description">Descrição</Label>
         <Textarea
           id="description"
-          value={product.description}
-          onChange={(e) => onChange('description', e.target.value)}
+          value={product.description || ''}
+          onChange={(e) => onChange('description', e.target.value || null)}
           placeholder="Descrição do produto"
         />
       </div>

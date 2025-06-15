@@ -5,16 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Unit } from '@/types';
 
 interface IngredientFormProps {
   ingredient: {
     name: string;
-    unit: Unit;
+    unit: string;
     current_stock: number;
     min_stock: number;
     cost: number;
-    supplier: string;
+    supplier: string | null;
     description: string | null;
   };
   onChange: (field: string, value: any) => void;
@@ -45,7 +44,7 @@ export const IngredientForm: React.FC<IngredientFormProps> = ({
         <Label htmlFor="unit">Unidade</Label>
         <Select
           value={ingredient.unit}
-          onValueChange={(value) => onChange('unit', value as Unit)}
+          onValueChange={(value) => onChange('unit', value)}
         >
           <SelectTrigger>
             <SelectValue placeholder="Selecione a unidade" />
@@ -97,8 +96,8 @@ export const IngredientForm: React.FC<IngredientFormProps> = ({
         <Label htmlFor="supplier">Fornecedor</Label>
         <Input
           id="supplier"
-          value={ingredient.supplier}
-          onChange={(e) => onChange('supplier', e.target.value)}
+          value={ingredient.supplier || ''}
+          onChange={(e) => onChange('supplier', e.target.value || null)}
           placeholder="Nome do fornecedor"
         />
       </div>
@@ -107,7 +106,7 @@ export const IngredientForm: React.FC<IngredientFormProps> = ({
         <Textarea
           id="description"
           value={ingredient.description || ''}
-          onChange={(e) => onChange('description', e.target.value)}
+          onChange={(e) => onChange('description', e.target.value || null)}
           placeholder="Descrição opcional"
         />
       </div>

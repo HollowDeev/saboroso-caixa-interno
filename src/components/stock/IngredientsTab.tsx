@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
-import { Ingredient, Unit } from '@/types';
+import { Ingredient } from '@/types';
 import { IngredientForm } from './IngredientForm';
 import { toast } from 'sonner';
 
@@ -31,22 +31,22 @@ export const IngredientsTab: React.FC<IngredientsTabProps> = ({
 
   const [newIngredient, setNewIngredient] = useState({
     name: '',
-    unit: 'kg' as Unit,
+    unit: 'kg',
     current_stock: 0,
     min_stock: 0,
     cost: 0,
-    supplier: '',
+    supplier: null as string | null,
     description: null as string | null,
   });
 
   const resetNewIngredient = () => {
     setNewIngredient({
       name: '',
-      unit: 'kg' as Unit,
+      unit: 'kg',
       current_stock: 0,
       min_stock: 0,
       cost: 0,
-      supplier: '',
+      supplier: null,
       description: null,
     });
   };
