@@ -1,7 +1,6 @@
 
 import { useState } from 'react';
-import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister } from '@/types';
-import { Expense } from '@/types/expense';
+import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, Expense } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { formatOrders, formatSales } from '@/utils/dataFormatters';
@@ -215,7 +214,23 @@ export const useDataLoader = () => {
           throw expensesError;
         }
         console.log('✅ Expenses loaded:', expensesData?.length || 0, 'items');
-        setExpenses(expensesData || []);
+        
+        // Map the data to match our Expense interface
+        const mappedExpenses: Expense[] = (expensesData || []).map(expense => ({
+          id: expense.id,
+          cash_register_id: expense.cash_register_id,
+          user_id: expense.user_id,
+          type: expense.type as 'product_loss' | 'ingredient_loss' | 'other',
+          product_id: expense.product_id,
+          ingredient_ids: expense.ingredient_ids ? JSON.parse(JSON.stringify(expense.ingredient_ids)) : undefined,
+          description: expense.description,
+          amount: expense.amount,
+          quantity: expense.quantity,
+          reason: expense.reason,
+          created_at: expense.created_at
+        }));
+        
+        setExpenses(mappedExpenses);
       } else {
         console.log('ℹ️ No open cash register found - clearing expenses');
         setExpenses([]);

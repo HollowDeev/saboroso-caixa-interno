@@ -1,33 +1,25 @@
+
+// Core interfaces
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'cashier' | 'employee';
+  role: string;
+  owner_id?: string;
 }
 
 export interface Ingredient {
   id: string;
   name: string;
+  description?: string;
   unit: string;
   cost: number;
+  current_stock: number;
+  min_stock: number;
+  supplier?: string;
   owner_id: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  cost: number;
-  available: boolean;
-  category: string;
-  preparation_time: number;
-  owner_id: string;
-  created_at: string;
-  updated_at: string;
-  ingredients?: FoodIngredient[];
 }
 
 export interface FoodIngredient {
@@ -40,52 +32,71 @@ export interface FoodIngredient {
   updated_at: string;
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  cost: number;
+  available: boolean;
+  category: string;
+  preparation_time: number;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+  ingredients?: FoodIngredient[];
+}
+
 export interface ExternalProduct {
   id: string;
   name: string;
-  description: string;
-  cost: number;
+  description?: string;
+  brand?: string;
   price: number;
+  cost: number;
   current_stock: number;
+  min_stock: number;
   owner_id: string;
   created_at: string;
   updated_at: string;
 }
 
+export type PaymentMethod = 'cash' | 'card' | 'pix';
+
 export interface OrderItem {
-  id?: string;
-  product_id: string;
+  id: string;
+  productId: string;
+  product?: Product | ExternalProduct;
   product_name: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  product_type: 'food' | 'external_product';
+  product_type?: string;
 }
 
 export interface NewOrderItem {
-  product_id: string;
-  product_name: string;
+  productId: string;
+  product: Product | ExternalProduct;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  product_type: 'food' | 'external_product';
 }
 
 export interface Order {
   id: string;
   customerName?: string;
+  tableNumber?: number;
   items: OrderItem[];
   subtotal: number;
   tax: number;
   total: number;
-  paymentMethod: PaymentMethod;
+  status: 'open' | 'closed';
+  paymentMethod?: PaymentMethod;
   userId: string;
-  cash_register_id: string;
+  cash_register_id?: string;
   createdAt: string;
   updatedAt: string;
 }
-
-export type PaymentMethod = 'cash' | 'card' | 'pix';
 
 export interface Sale {
   id: string;
@@ -105,7 +116,9 @@ export interface Sale {
 export interface ServiceTax {
   id: string;
   name: string;
+  description?: string;
   percentage: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -114,16 +127,45 @@ export interface CashRegister {
   id: string;
   owner_id: string;
   opening_amount: number;
-  closing_amount: number;
+  closing_amount?: number;
+  total_sales: number;
+  total_cost: number;
+  total_expenses: number;
+  total_orders: number;
   is_open: boolean;
   opened_at: string;
-  closed_at: string;
-  total_sales: number;
-  total_orders: number;
+  closed_at?: string;
   created_at: string;
   updated_at: string;
-  total_expenses: number;
 }
+
+// Expense types
+export interface Expense {
+  id: string;
+  cash_register_id: string;
+  user_id: string;
+  type: 'product_loss' | 'ingredient_loss' | 'other';
+  product_id?: string;
+  ingredient_ids?: string[];
+  description: string;
+  amount: number;
+  quantity?: number;
+  reason?: string;
+  created_at: string;
+}
+
+export interface NewExpense {
+  type: 'product_loss' | 'ingredient_loss' | 'other';
+  product_id?: string;
+  ingredient_ids?: string[];
+  description: string;
+  amount: number;
+  quantity?: number;
+  reason?: string;
+  cash_register_id?: string;
+}
+
+export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';
 
 export interface AppContextType {
   currentUser: User | null;
@@ -135,11 +177,12 @@ export interface AppContextType {
   sales: Sale[];
   serviceTaxes: ServiceTax[];
   currentCashRegister: CashRegister | null;
+  expenses: Expense[];
   isLoading: boolean;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
-  closeOrder: (orderId: string, paymentMethod: PaymentMethod) => Promise<void>;
+  closeOrder: (orderId: string, paymentMethod: PaymentMethod, customerName?: string) => Promise<void>;
   addIngredient: (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateIngredient: (id: string, updates: Partial<Ingredient>) => Promise<void>;
   deleteIngredient: (id: string) => Promise<void>;
@@ -152,19 +195,24 @@ export interface AppContextType {
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
   updateSale: (id: string, updates: Partial<Sale>) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
+  addExpense: (expense: NewExpense) => Promise<void>;
+  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   addServiceTax: (serviceTax: Omit<ServiceTax, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateServiceTax: (id: string, updates: Partial<ServiceTax>) => Promise<void>;
   deleteServiceTax: (id: string) => Promise<void>;
   openCashRegister: (amount: number) => Promise<void>;
   closeCashRegister: (amount: number) => Promise<void>;
   checkCashRegisterAccess: () => boolean;
+  refreshData: () => Promise<void>;
   updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
-  refreshData: () => void;
-  expenses: Expense[];
-  addExpense: (expense: NewExpense) => Promise<void>;
-  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
 }
 
-// Import expense types from expense.ts
-export { Expense, NewExpense, ExpenseType } from './expense';
+// Unit conversion types - aligned with unitConversion.ts
+export type Unit = 'kg' | 'g' | 'mg' | 'L' | 'ml' | 'unidade';
+
+export interface UnitConversion {
+  from: Unit;
+  to: Unit;
+  factor: number;
+}

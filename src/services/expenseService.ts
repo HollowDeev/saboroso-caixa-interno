@@ -1,6 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { User, CashRegister, Product, ExternalProduct } from '@/types';
-import { Expense, NewExpense } from '@/types/expense';
+import { User, CashRegister, Product, ExternalProduct, Expense, NewExpense } from '@/types';
 
 export const addExpense = async (
   expense: NewExpense,
@@ -38,7 +38,7 @@ export const addExpense = async (
     .from('expenses')
     .insert({
       user_id: userIdForExpense,
-      cash_register_id: expense.cash_register_id || currentCashRegister.id,
+      cash_register_id: currentCashRegister.id,
       type: expense.type,
       product_id: expense.product_id,
       ingredient_ids: expense.ingredient_ids,
