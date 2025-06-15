@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -104,19 +103,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // Get the cash register IDs for the owner
-      const { data: cashRegisters, error: cashRegisterError } = await supabase
+      // Load current cash register primeiro para obter o ID
+      const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
         .from('cash_registers')
-        .select('id')
-        .eq('owner_id', ownerId);
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('is_open', true)
+        .single();
 
-      if (cashRegisterError) throw cashRegisterError;
+      if (currentCashRegisterError && currentCashRegisterError.code !== 'PGRST116') {
+        throw currentCashRegisterError;
+      }
 
-      const cashRegisterIds = cashRegisters?.map(cr => cr.id) || [];
-      console.log('Cash register IDs for owner:', cashRegisterIds);
+      console.log('Current cash register:', cashRegisterData);
+      setCurrentCashRegister(cashRegisterData || null);
 
-      // Load orders with items - CORRIGIDO: buscar por cash_register_id
-      if (cashRegisterIds.length > 0) {
+      // Se há caixa aberto, carregar orders e sales
+      if (cashRegisterData) {
+        // Load orders with items
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select(`
@@ -131,30 +135,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               product_type
             )
           `)
-          .in('cash_register_id', cashRegisterIds)
+          .eq('cash_register_id', cashRegisterData.id)
           .order('created_at', { ascending: false });
 
         if (ordersError) throw ordersError;
         console.log('Orders loaded:', ordersData);
         setOrders(formatOrders(ordersData || []));
-      } else {
-        console.log('No cash registers found for owner');
-        setOrders([]);
-      }
 
-      // Load sales - CORRIGIDO: buscar por cash_register_id
-      if (cashRegisterIds.length > 0) {
+        // Load sales
         const { data: salesData, error: salesError } = await supabase
           .from('sales')
           .select('*')
-          .in('cash_register_id', cashRegisterIds)
+          .eq('cash_register_id', cashRegisterData.id)
           .order('created_at', { ascending: false });
 
         if (salesError) throw salesError;
         console.log('Sales loaded:', salesData);
         setSales(formatSales(salesData || []));
       } else {
-        console.log('No cash registers found for sales');
+        console.log('No open cash register found');
+        setOrders([]);
         setSales([]);
       }
 
@@ -166,20 +166,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (serviceTaxesError) throw serviceTaxesError;
       setServiceTaxes(serviceTaxesData || []);
-
-      // Load current cash register
-      const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
-        .from('cash_registers')
-        .select('*')
-        .eq('owner_id', ownerId)
-        .eq('is_open', true)
-        .single();
-
-      if (currentCashRegisterError && currentCashRegisterError.code !== 'PGRST116') {
-        throw currentCashRegisterError;
-      }
-
-      setCurrentCashRegister(cashRegisterData || null);
 
       console.log('Data loading completed successfully');
 
