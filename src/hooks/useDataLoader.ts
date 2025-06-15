@@ -50,7 +50,7 @@ export const useDataLoader = () => {
       console.log('✅ Ingredients loaded:', ingredientsData?.length || 0, 'items');
       setIngredients(ingredientsData || []);
 
-      // Load foods (products) with ingredients
+      // Load foods (products) with ingredients - Agora usando auth.uid() nas políticas RLS
       console.log('🍕 Loading foods...');
       const { data: foodsData, error: foodsError } = await supabase
         .from('foods')
@@ -65,12 +65,12 @@ export const useDataLoader = () => {
             updated_at
           )
         `)
-        .eq('owner_id', ownerId)
         .is('deleted_at', null)
         .order('name');
 
       if (foodsError) {
         console.error('❌ Error loading foods:', foodsError);
+        console.error('Foods error details:', foodsError.message, foodsError.code);
         throw foodsError;
       }
       console.log('✅ Foods loaded:', foodsData?.length || 0, 'items');
@@ -129,10 +129,10 @@ export const useDataLoader = () => {
       console.log('✅ Current cash register:', cashRegisterData?.id || 'none');
       setCurrentCashRegister(cashRegisterData || null);
 
-      // Se há caixa aberto, carregar orders e sales
+      // Se há caixa aberto, carregar orders e sales usando as novas políticas RLS
       if (cashRegisterData) {
         console.log('📋 Loading orders for cash register:', cashRegisterData.id);
-        // Load orders with items
+        // Load orders with items - Agora usando auth.uid() nas políticas RLS
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select(`
@@ -152,13 +152,14 @@ export const useDataLoader = () => {
 
         if (ordersError) {
           console.error('❌ Error loading orders:', ordersError);
+          console.error('Orders error details:', ordersError.message, ordersError.code);
           throw ordersError;
         }
         console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
         setOrders(formatOrders(ordersData || []));
 
         console.log('💳 Loading sales for cash register:', cashRegisterData.id);
-        // Load sales
+        // Load sales - Agora usando auth.uid() nas políticas RLS
         const { data: salesData, error: salesError } = await supabase
           .from('sales')
           .select('*')
@@ -167,6 +168,7 @@ export const useDataLoader = () => {
 
         if (salesError) {
           console.error('❌ Error loading sales:', salesError);
+          console.error('Sales error details:', salesError.message, salesError.code);
           throw salesError;
         }
         console.log('✅ Sales loaded:', salesData?.length || 0, 'items');

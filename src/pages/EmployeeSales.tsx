@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ShoppingCart, DollarSign, TrendingUp, Calendar } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { DirectSaleModal } from '@/components/DirectSaleModal';
 
 export const EmployeeSales = () => {
-  const { sales, orders } = useApp();
+  const { sales, orders } = useAppContext();
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
 
   const closedOrders = orders.filter(order => order.status === 'closed');
@@ -39,6 +39,13 @@ export const EmployeeSales = () => {
 
   return (
     <div className="space-y-6">
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-100 p-2 text-xs">
+          Debug Employee Sales: Orders: {orders?.length}, Sales: {sales?.length}, Closed Orders: {closedOrders?.length}
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vendas</h1>
