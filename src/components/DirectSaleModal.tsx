@@ -5,11 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Search } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { OrderItem, Product, ExternalProduct } from '@/types';
 import { toast } from '@/components/ui/use-toast';
-import { Badge } from '@/components/ui/badge';
 
 interface DirectSaleModalProps {
   isOpen: boolean;
@@ -35,7 +34,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     } else {
       const isExternalProduct = 'current_stock' in product;
       const newItem: OrderItem = {
-        id: `temp-${Date.now()}`, // ID temporário
+        id: `temp-${Date.now()}`,
         productId: product.id,
         product_name: product.name,
         product: product,
@@ -87,7 +86,6 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
     try {
       const total = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
-      // Verificar estoque antes de criar a venda
       const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
 
       const stockCheck = await processOrderItemsStockConsumption(
@@ -107,7 +105,6 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         'Venda Direta'
       );
 
-      // Se há erros críticos de estoque, mostrar aviso mas permitir continuar
       if (!stockCheck.success && stockCheck.errors.some(error => error.includes('Estoque insuficiente'))) {
         const proceed = window.confirm(
           `Atenção: Alguns itens têm estoque insuficiente:\n\n${stockCheck.errors.join('\n')}\n\nDeseja continuar mesmo assim?`
@@ -118,10 +115,9 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         }
       }
 
-      // Criar a venda direta (isso já processará o consumo de estoque)
       await addSale({
         total,
-        subtotal: total, // Garantindo que o subtotal seja igual ao total
+        subtotal: total,
         tax: 0,
         paymentMethod,
         userId: currentUser!.id,
@@ -129,7 +125,7 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         is_direct_sale: true,
         cash_register_id: currentCashRegister.id,
         items: selectedItems.map(item => ({
-          id: '', // ID será gerado pelo banco
+          id: '',
           productId: item.productId,
           product_name: item.product_name,
           quantity: item.quantity,
@@ -139,16 +135,15 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
         }))
       });
 
-      // Mostrar mensagem de sucesso
       toast({
         title: "Sucesso",
         description: "Venda direta registrada com sucesso!",
       });
 
-      // Limpar e fechar
       setSelectedItems([]);
       setCustomerName('');
       setPaymentMethod('cash');
+      setSearchTerm('');
       onClose();
     } catch (error: any) {
       console.error('Erro ao criar venda direta:', error);
@@ -166,12 +161,14 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
 
   const total = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Filtrar e ordenar produtos alfabeticamente
+  const filteredFoodProducts = products
+    .filter(p => p.available && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const handleProductSelect = (product: Product) => {
-    addItem(product);
-    setSearchTerm('');
-  };
+  const filteredExternalProducts = externalProducts
+    .filter(p => p.current_stock > 0 && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleQuantityChange = (index: number, quantity: number) => {
     const updatedItems = [...selectedItems];
@@ -216,48 +213,76 @@ export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
             </div>
 
             <div>
-              <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
-              <div className="grid grid-cols-1 gap-2 max-h-[calc(100vh-400px)] overflow-y-auto">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
-                  {products.filter(p => p.available).map((product) => (
-                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => addItem(product)}
-                        className="bg-green-500 hover:bg-green-600"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+              <Label htmlFor="productSearch">Pesquisar Produtos</Label>
+              <div className="relative mt-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="productSearch"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Digite o nome do produto..."
+                  className="pl-10"
+                />
+              </div>
+            </div>
 
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
-                  {externalProducts.filter(p => p.current_stock > 0).map((product) => (
-                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                        {product.brand && (
-                          <p className="text-xs text-gray-500">{product.brand}</p>
-                        )}
+            <div>
+              <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
+              <div className="grid grid-cols-1 gap-2 max-h-[calc(100vh-500px)] overflow-y-auto">
+                {filteredFoodProducts.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas ({filteredFoodProducts.length})</h4>
+                    {filteredFoodProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                          {product.description && (
+                            <p className="text-xs text-gray-500">{product.description}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => addItem(product)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => addItem(product)}
-                        className="bg-green-500 hover:bg-green-600"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredExternalProducts.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos ({filteredExternalProducts.length})</h4>
+                    {filteredExternalProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            {product.brand && <span>{product.brand}</span>}
+                            <span>Estoque: {product.current_stock}</span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => addItem(product)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    {searchTerm ? 'Nenhum produto encontrado para a pesquisa.' : 'Nenhum produto disponível.'}
+                  </div>
+                )}
               </div>
             </div>
           </div>

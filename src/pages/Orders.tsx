@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Order, OrderItem, Product, NewOrderItem, ExternalProduct } from '@/types';
@@ -29,6 +30,7 @@ export const Orders = () => {
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [isNoCashModalOpen, setIsNoCashModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('open');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const isOwner = checkCashRegisterAccess();
 
@@ -117,6 +119,7 @@ export const Orders = () => {
       setSelectedProducts([]);
       setCustomerName('');
       setTableNumber(undefined);
+      setSearchTerm('');
       setIsNewOrderOpen(false);
 
       toast({
@@ -140,20 +143,25 @@ export const Orders = () => {
     externalProductsCount: externalProducts?.length || 0
   });
 
-  // Filter orders by the current cash register instead of the current user
   const filteredOrders = orders.filter(order => {
-    // Only show orders from the current cash register
     if (!currentCashRegister || order.cash_register_id !== currentCashRegister.id) return false;
     
-    // Then filter by status
     if (activeTab === 'open') return order.status === 'open';
     if (activeTab === 'closed') return order.status === 'closed';
     return true;
   });
 
+  // Filtrar e ordenar produtos alfabeticamente
+  const filteredFoodProducts = products
+    .filter(p => p.available && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const filteredExternalProducts = externalProducts
+    .filter(p => p.current_stock > 0 && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   return (
     <div className="space-y-6">
-      {/* Debug info */}
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-gray-100 p-2 text-xs">
           Debug: User: {currentUser?.id}, CashRegister: {currentCashRegister?.id}, 
@@ -207,48 +215,76 @@ export const Orders = () => {
                 </div>
 
                 <div>
+                  <Label htmlFor="productSearch">Pesquisar Produtos</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="productSearch"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Digite o nome do produto..."
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div>
                   <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
                   <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
-                      {products.filter(p => p.available).map((product) => (
-                        <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                    {filteredFoodProducts.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas ({filteredFoodProducts.length})</h4>
+                        {filteredFoodProducts.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                            <div>
+                              <p className="font-medium">{product.name}</p>
+                              <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                              {product.description && (
+                                <p className="text-xs text-gray-500">{product.description}</p>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => addProductToOrder(product)}
+                              className="bg-green-500 hover:bg-green-600"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => addProductToOrder(product)}
-                            className="bg-green-500 hover:bg-green-600"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
 
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
-                      {externalProducts.filter(p => p.current_stock > 0).map((product) => (
-                        <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                            {product.brand && (
-                              <p className="text-xs text-gray-500">{product.brand}</p>
-                            )}
+                    {filteredExternalProducts.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos ({filteredExternalProducts.length})</h4>
+                        {filteredExternalProducts.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2">
+                            <div>
+                              <p className="font-medium">{product.name}</p>
+                              <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                {product.brand && <span>{product.brand}</span>}
+                                <span>Estoque: {product.current_stock}</span>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => addProductToOrder(product)}
+                              className="bg-green-500 hover:bg-green-600"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => addProductToOrder(product)}
-                            className="bg-green-500 hover:bg-green-600"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        {searchTerm ? 'Nenhum produto encontrado para a pesquisa.' : 'Nenhum produto disponível.'}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, OrderItem, Product, ExternalProduct } from '@/types';
-import { Switch } from '@/components/ui/switch';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -22,6 +20,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [customerName, setCustomerName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   React.useEffect(() => {
     if (isOpen && order) {
@@ -41,7 +40,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
       ));
     } else {
       const newItem: OrderItem = {
-        id: `temp-${Date.now()}`, // ID temporário
+        id: `temp-${Date.now()}`,
         productId: product.id,
         product_name: product.name,
         product: {
@@ -79,9 +78,8 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
     if (!order) return;
 
     try {
-      // Preparar dados atualizados da comanda
       const updatedOrderData = {
-        status: 'closed' as const, // Mudado de 'paid' para 'closed'
+        status: 'closed' as const,
         paymentMethod,
         customerName: customerName || order.customerName,
         subtotal: total,
@@ -90,19 +88,26 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
         items: selectedProducts
       };
 
-      // Atualizar a comanda (isso já processará o consumo de estoque)
       await updateOrder(order.id, updatedOrderData);
 
-      // Fechar modal e limpar estados
       onClose();
       setSelectedProducts([]);
       setCustomerName('');
       setPaymentMethod('cash');
+      setSearchTerm('');
     } catch (error) {
       console.error('Erro ao finalizar venda:', error);
-      // Aqui você pode adicionar uma notificação de erro para o usuário
     }
   };
+
+  // Filtrar e ordenar produtos alfabeticamente
+  const filteredFoodProducts = products
+    .filter(p => p.available && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const filteredExternalProducts = externalProducts
+    .filter(p => p.current_stock > 0 && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -137,14 +142,102 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
               </Select>
             </div>
 
+            <div>
+              <Label htmlFor="productSearch">Adicionar Produtos</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="productSearch"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Pesquisar produtos para adicionar..."
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {searchTerm && (
+              <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
+                {filteredFoodProducts.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
+                    {filteredFoodProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                        <div>
+                          <p className="font-medium text-sm">{product.name}</p>
+                          <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => addProductToOrder(product)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredExternalProducts.length > 0 && (
+                  <div className={filteredFoodProducts.length > 0 ? "mt-3" : ""}>
+                    <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
+                    {filteredExternalProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                        <div>
+                          <p className="font-medium text-sm">{product.name}</p>
+                          <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
+                          {product.brand && (
+                            <p className="text-xs text-gray-500">{product.brand}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={() => addProductToOrder(product)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
+                  <div className="text-center py-4 text-gray-500 text-sm">
+                    Nenhum produto encontrado
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <h3 className="font-semibold mb-3">Itens da Comanda</h3>
                 <div className="space-y-2 max-h-32 overflow-y-auto">
                   {selectedProducts.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                      <span>{item.quantity}x {item.product_name || item.product?.name}</span>
-                      <span>R$ {item.totalPrice.toFixed(2)}</span>
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{item.product_name || item.product?.name}</p>
+                        <p className="text-xs text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateProductQuantity(item.productId, item.quantity - 1)}
+                        >
+                          -
+                        </Button>
+                        <span className="w-6 text-center text-sm">{item.quantity}</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => updateProductQuantity(item.productId, item.quantity + 1)}
+                        >
+                          +
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
