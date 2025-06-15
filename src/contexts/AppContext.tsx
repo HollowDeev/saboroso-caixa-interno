@@ -103,102 +103,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('External products loaded:', externalProductsData);
       setExternalProducts(externalProductsData || []);
 
-      // Load orders with items - CORRIGIDO: buscar diretamente por owner_id nos cash_registers
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            product_name,
-            quantity,
-            unit_price,
-            total_price,
-            product_type
-          )
-        `)
-        .in('cash_register_id', 
-          // Subquery para buscar IDs dos caixas do owner
-          supabase.from('cash_registers').select('id').eq('owner_id', ownerId).then(({ data }) => 
-            data?.map(cr => cr.id) || []
-          )
-        )
-        .order('created_at', { ascending: false });
+      // First, get the cash register IDs for the owner
+      const { data: cashRegisters, error: cashRegisterError } = await supabase
+        .from('cash_registers')
+        .select('id')
+        .eq('owner_id', ownerId);
 
-      if (ordersError) {
-        console.error('Error loading orders:', ordersError);
-        // Tentar query alternativa mais simples
-        const { data: cashRegisters } = await supabase
-          .from('cash_registers')
-          .select('id')
-          .eq('owner_id', ownerId);
+      if (cashRegisterError) throw cashRegisterError;
 
-        if (cashRegisters && cashRegisters.length > 0) {
-          const cashRegisterIds = cashRegisters.map(cr => cr.id);
-          
-          const { data: ordersDataAlt, error: ordersErrorAlt } = await supabase
-            .from('orders')
-            .select(`
-              *,
-              order_items (
-                id,
-                product_id,
-                product_name,
-                quantity,
-                unit_price,
-                total_price,
-                product_type
-              )
-            `)
-            .in('cash_register_id', cashRegisterIds)
-            .order('created_at', { ascending: false });
+      const cashRegisterIds = cashRegisters?.map(cr => cr.id) || [];
+      console.log('Cash register IDs:', cashRegisterIds);
 
-          if (ordersErrorAlt) throw ordersErrorAlt;
-          setOrders(formatOrders(ordersDataAlt || []));
-        } else {
-          setOrders([]);
-        }
-      } else {
+      // Load orders with items
+      if (cashRegisterIds.length > 0) {
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              product_id,
+              product_name,
+              quantity,
+              unit_price,
+              total_price,
+              product_type
+            )
+          `)
+          .in('cash_register_id', cashRegisterIds)
+          .order('created_at', { ascending: false });
+
+        if (ordersError) throw ordersError;
+        console.log('Orders loaded:', ordersData);
         setOrders(formatOrders(ordersData || []));
+      } else {
+        console.log('No cash registers found for owner');
+        setOrders([]);
       }
 
-      // Load sales - CORRIGIDO: buscar por owner_id nos cash_registers
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('*')
-        .in('cash_register_id', 
-          // Subquery para buscar IDs dos caixas do owner
-          supabase.from('cash_registers').select('id').eq('owner_id', ownerId).then(({ data }) => 
-            data?.map(cr => cr.id) || []
-          )
-        )
-        .order('created_at', { ascending: false });
+      // Load sales
+      if (cashRegisterIds.length > 0) {
+        const { data: salesData, error: salesError } = await supabase
+          .from('sales')
+          .select('*')
+          .in('cash_register_id', cashRegisterIds)
+          .order('created_at', { ascending: false });
 
-      if (salesError) {
-        console.error('Error loading sales:', salesError);
-        // Tentar query alternativa
-        const { data: cashRegisters } = await supabase
-          .from('cash_registers')
-          .select('id')
-          .eq('owner_id', ownerId);
-
-        if (cashRegisters && cashRegisters.length > 0) {
-          const cashRegisterIds = cashRegisters.map(cr => cr.id);
-          
-          const { data: salesDataAlt, error: salesErrorAlt } = await supabase
-            .from('sales')
-            .select('*')
-            .in('cash_register_id', cashRegisterIds)
-            .order('created_at', { ascending: false });
-
-          if (salesErrorAlt) throw salesErrorAlt;
-          setSales(formatSales(salesDataAlt || []));
-        } else {
-          setSales([]);
-        }
-      } else {
+        if (salesError) throw salesError;
+        console.log('Sales loaded:', salesData);
         setSales(formatSales(salesData || []));
+      } else {
+        console.log('No cash registers found for sales');
+        setSales([]);
       }
 
       // Load service taxes
@@ -211,15 +167,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setServiceTaxes(serviceTaxesData || []);
 
       // Load current cash register - usar ownerId
-      const { data: cashRegisterData, error: cashRegisterError } = await supabase
+      const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
         .from('cash_registers')
         .select('*')
         .eq('owner_id', ownerId)
         .eq('is_open', true)
         .single();
 
-      if (cashRegisterError && cashRegisterError.code !== 'PGRST116') {
-        throw cashRegisterError;
+      if (currentCashRegisterError && currentCashRegisterError.code !== 'PGRST116') {
+        throw currentCashRegisterError;
       }
 
       setCurrentCashRegister(cashRegisterData || null);
