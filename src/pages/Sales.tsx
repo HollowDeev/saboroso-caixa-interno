@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -253,19 +252,19 @@ export const Sales = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {saleToPrint && <ReceiptPrint sale={saleToPrint} />}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Vendas</h1>
-          <p className="text-gray-600">Gerencie e acompanhe suas vendas</p>
+      <div className="flex flex-col space-y-4 md:flex-row md:justify-between md:items-start md:space-y-0">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 truncate">Vendas</h1>
+          <p className="text-sm md:text-base text-gray-600">Gerencie e acompanhe suas vendas</p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2 md:flex-shrink-0">
           {isOwner && !currentCashRegister && (
             <Button
               onClick={() => setIsOpenCashRegisterModalOpen(true)}
-              className="bg-green-500 hover:bg-green-600 w-full sm:w-auto"
+              className="bg-green-500 hover:bg-green-600 w-full md:w-auto text-sm md:text-base min-h-[48px]"
             >
               Abrir Caixa
             </Button>
@@ -274,14 +273,14 @@ export const Sales = () => {
             <Button
               onClick={() => setIsCloseCashRegisterModalOpen(true)}
               variant="destructive"
-              className="w-full sm:w-auto"
+              className="w-full md:w-auto text-sm md:text-base min-h-[48px]"
             >
               Fechar Caixa
             </Button>
           )}
           <Button
             onClick={() => setIsDirectSaleOpen(true)}
-            className="bg-green-500 hover:bg-green-600 w-full sm:w-auto"
+            className="bg-green-500 hover:bg-green-600 w-full md:w-auto text-sm md:text-base min-h-[48px]"
             disabled={!currentCashRegister}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -289,11 +288,11 @@ export const Sales = () => {
           </Button>
           <Button
             onClick={() => setIsExpenseModalOpen(true)}
-            className="bg-yellow-500 hover:bg-yellow-600 w-full sm:w-auto"
+            className="bg-yellow-500 hover:bg-yellow-600 w-full md:w-auto text-sm md:text-base min-h-[48px]"
             disabled={!currentCashRegister}
           >
             <TrendingDown className="h-4 w-4 mr-2" />
-            Registro de Despesa
+            <span className="hidden sm:inline">Registro de</span> Despesa
           </Button>
         </div>
       </div>
@@ -301,38 +300,38 @@ export const Sales = () => {
       {/* Cash Register Status */}
       {currentCashRegister && (
         <Card className="border-green-200 bg-green-50">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center text-green-800">
-              <CheckCircle className="h-5 w-5 mr-2" />
+          <CardHeader className="pb-2 px-4 md:px-6">
+            <CardTitle className="flex items-center text-green-800 text-base md:text-lg">
+              <CheckCircle className="h-4 w-4 md:h-5 md:w-5 mr-2 flex-shrink-0" />
               Caixa Aberto
             </CardTitle>
-            <p className="text-sm text-green-600">
+            <p className="text-xs md:text-sm text-green-600">
               Aberto em: {new Date(currentCashRegister.opened_at).toLocaleString()}
             </p>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <CardContent className="px-4 md:px-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               <div className="p-3 bg-white rounded-lg">
-                <p className="text-sm text-green-600">Valor de Abertura</p>
-                <p className="text-lg font-semibold text-green-800">
+                <p className="text-xs md:text-sm text-green-600">Valor de Abertura</p>
+                <p className="text-base md:text-lg font-semibold text-green-800">
                   R$ {currentCashRegister.opening_amount.toFixed(2)}
                 </p>
               </div>
               <div className="p-3 bg-white rounded-lg">
-                <p className="text-sm text-green-600">Total em Vendas</p>
-                <p className="text-lg font-semibold text-green-800">
+                <p className="text-xs md:text-sm text-green-600">Total em Vendas</p>
+                <p className="text-base md:text-lg font-semibold text-green-800">
                   R$ {currentCashRegister.total_sales.toFixed(2)}
                 </p>
               </div>
               <div className="p-3 bg-white rounded-lg">
-                <p className="text-sm text-green-600">Total em Caixa</p>
-                <p className="text-lg font-semibold text-green-800">
+                <p className="text-xs md:text-sm text-green-600">Total em Caixa</p>
+                <p className="text-base md:text-lg font-semibold text-green-800">
                   R$ {(currentCashRegister.opening_amount + currentCashRegister.total_sales).toFixed(2)}
                 </p>
               </div>
               <div className="p-3 bg-white rounded-lg">
-                <p className="text-sm text-green-600">Número de Pedidos</p>
-                <p className="text-lg font-semibold text-green-800">
+                <p className="text-xs md:text-sm text-green-600">Número de Pedidos</p>
+                <p className="text-base md:text-lg font-semibold text-green-800">
                   {currentCashRegister.total_orders}
                 </p>
               </div>
@@ -343,24 +342,26 @@ export const Sales = () => {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
+        <CardHeader className="px-4 md:px-6">
+          <CardTitle className="text-base md:text-lg">Filtros</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+        <CardContent className="px-4 md:px-6">
+          <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4 md:items-end">
             <div className="flex-1">
-              <Label htmlFor="date-filter">Data</Label>
+              <Label htmlFor="date-filter" className="text-sm md:text-base">Data</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal min-h-[48px] md:min-h-[40px]",
                       !dateFilter && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateFilter ? format(dateFilter, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione uma data'}
+                    <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">
+                      {dateFilter ? format(dateFilter, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecione uma data'}
+                    </span>
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -375,7 +376,7 @@ export const Sales = () => {
               </Popover>
             </div>
 
-            <Button onClick={exportSales} variant="outline">
+            <Button onClick={exportSales} variant="outline" className="w-full md:w-auto min-h-[48px] md:min-h-[40px]">
               <Download className="h-4 w-4 mr-2" />
               Exportar CSV
             </Button>
@@ -384,38 +385,38 @@ export const Sales = () => {
       </Card>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <Card>
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <BarChart3 className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Vendas</p>
-                <p className="text-xl sm:text-2xl font-bold">R$ {totalSales.toFixed(2)}</p>
+              <BarChart3 className="h-6 w-6 md:h-8 md:w-8 text-blue-600 flex-shrink-0" />
+              <div className="ml-3 md:ml-4 min-w-0 flex-1">
+                <p className="text-xs md:text-sm font-medium text-gray-600">Total Vendas</p>
+                <p className="text-lg md:text-xl lg:text-2xl font-bold truncate">R$ {totalSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <TrendingDown className="h-8 w-8 text-red-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Despesas</p>
-                <p className="text-xl sm:text-2xl font-bold">R$ {totalExpenses.toFixed(2)}</p>
+              <TrendingDown className="h-6 w-6 md:h-8 md:w-8 text-red-600 flex-shrink-0" />
+              <div className="ml-3 md:ml-4 min-w-0 flex-1">
+                <p className="text-xs md:text-sm font-medium text-gray-600">Total Despesas</p>
+                <p className="text-lg md:text-xl lg:text-2xl font-bold truncate">R$ {totalExpenses.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Lucro</p>
-                <p className={`text-xl sm:text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-green-600 flex-shrink-0" />
+              <div className="ml-3 md:ml-4 min-w-0 flex-1">
+                <p className="text-xs md:text-sm font-medium text-gray-600">Lucro</p>
+                <p className={`text-lg md:text-xl lg:text-2xl font-bold truncate ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   R$ {totalProfit.toFixed(2)}
                 </p>
               </div>
@@ -424,24 +425,24 @@ export const Sales = () => {
         </Card>
 
         <Card>
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Dinheiro</p>
-                <p className="text-xl sm:text-2xl font-bold">R$ {totalCashSales.toFixed(2)}</p>
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-green-600 flex-shrink-0" />
+              <div className="ml-3 md:ml-4 min-w-0 flex-1">
+                <p className="text-xs md:text-sm font-medium text-gray-600">Dinheiro</p>
+                <p className="text-lg md:text-xl lg:text-2xl font-bold truncate">R$ {totalCashSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4 sm:p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <CreditCard className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Cartão</p>
-                <p className="text-xl sm:text-2xl font-bold">R$ {totalCardSales.toFixed(2)}</p>
+              <CreditCard className="h-6 w-6 md:h-8 md:w-8 text-blue-600 flex-shrink-0" />
+              <div className="ml-3 md:ml-4 min-w-0 flex-1">
+                <p className="text-xs md:text-sm font-medium text-gray-600">Cartão</p>
+                <p className="text-lg md:text-xl lg:text-2xl font-bold truncate">R$ {totalCardSales.toFixed(2)}</p>
               </div>
             </div>
           </CardContent>
@@ -450,44 +451,52 @@ export const Sales = () => {
 
       {/* Tabs for Sales and Expenses */}
       <Tabs defaultValue="sales" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="sales">Vendas do Dia ({filteredSales.length})</TabsTrigger>
-          <TabsTrigger value="expenses">Despesas do Dia ({filteredExpenses.length})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 h-12 md:h-10">
+          <TabsTrigger value="sales" className="text-sm md:text-base">
+            <span className="hidden sm:inline">Vendas do Dia</span>
+            <span className="sm:hidden">Vendas</span>
+            <span className="ml-1">({filteredSales.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="expenses" className="text-sm md:text-base">
+            <span className="hidden sm:inline">Despesas do Dia</span>
+            <span className="sm:hidden">Despesas</span>
+            <span className="ml-1">({filteredExpenses.length})</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales">
           <Card>
-            <CardHeader>
-              <CardTitle>Vendas do Dia</CardTitle>
+            <CardHeader className="px-4 md:px-6">
+              <CardTitle className="text-base md:text-lg">Vendas do Dia</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 md:px-6">
               {isLoading ? (
                 <div className="text-center py-8">
-                  <p>Carregando vendas...</p>
+                  <p className="text-sm md:text-base">Carregando vendas...</p>
                 </div>
               ) : filteredSales.length === 0 ? (
                 <div className="text-center py-8">
-                  <p>Nenhuma venda encontrada para esta data.</p>
+                  <p className="text-sm md:text-base">Nenhuma venda encontrada para esta data.</p>
                 </div>
               ) : (
-                <Accordion type="single" collapsible className="space-y-4">
+                <Accordion type="single" collapsible className="space-y-3 md:space-y-4">
                   {filteredSales.map((sale) => (
                     <AccordionItem key={sale.id} value={sale.id} className="border rounded-lg overflow-hidden">
-                      <AccordionTrigger className="px-4 sm:px-6 py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
-                        <div className="flex flex-1 items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div>
-                              <h3 className="font-semibold text-left text-sm sm:text-base">
+                      <AccordionTrigger className="px-3 py-4 md:px-4 md:py-4 hover:no-underline [&[data-state=open]>div>div:last-child>svg]:rotate-180">
+                        <div className="flex flex-1 items-center justify-between min-w-0">
+                          <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-semibold text-left text-sm md:text-base truncate">
                                 {sale.customerName || 'Cliente não identificado'}
                               </h3>
-                              <p className="text-xs sm:text-sm text-gray-500 text-left">
+                              <p className="text-xs md:text-sm text-gray-500 text-left">
                                 {format(new Date(sale.createdAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 sm:gap-4">
+                          <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                             <Badge className={cn(
-                              'hidden sm:inline-flex',
+                              'hidden sm:inline-flex text-xs',
                               sale.paymentMethod === 'cash' && 'bg-green-100 text-green-800',
                               sale.paymentMethod === 'card' && 'bg-blue-100 text-blue-800',
                               sale.paymentMethod === 'pix' && 'bg-purple-100 text-purple-800'
@@ -495,8 +504,8 @@ export const Sales = () => {
                               {sale.paymentMethod === 'cash' ? 'Dinheiro' :
                                 sale.paymentMethod === 'card' ? 'Cartão' : 'PIX'}
                             </Badge>
-                            <span className="font-bold text-sm sm:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
-                            <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm md:text-base whitespace-nowrap">R$ {sale.total.toFixed(2)}</span>
+                            <div className="flex items-center gap-1">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -505,8 +514,9 @@ export const Sales = () => {
                                   e.stopPropagation();
                                   setEditingSale(sale);
                                 }}
+                                className="p-2 min-h-[40px] min-w-[40px]"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3 w-3 md:h-4 md:w-4" />
                               </Button>
                               <Button
                                 variant="outline"
@@ -516,8 +526,9 @@ export const Sales = () => {
                                   e.stopPropagation();
                                   setSaleToPrint(sale);
                                 }}
+                                className="p-2 min-h-[40px] min-w-[40px]"
                               >
-                                <Printer className="h-4 w-4" />
+                                <Printer className="h-3 w-3 md:h-4 md:w-4" />
                               </Button>
                               <Button
                                 variant="destructive"
@@ -527,40 +538,41 @@ export const Sales = () => {
                                   e.stopPropagation();
                                   setSaleToDelete(sale);
                                 }}
+                                className="p-2 min-h-[40px] min-w-[40px]"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
                               </Button>
                             </div>
                             <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
                           </div>
                         </div>
                       </AccordionTrigger>
-                      <AccordionContent className="px-4 sm:px-6 pb-4 bg-gray-50">
-                        <div className="space-y-4">
+                      <AccordionContent className="px-3 pb-4 md:px-4 md:pb-4 bg-gray-50">
+                        <div className="space-y-3 md:space-y-4">
                           {/* Sale Items */}
                           <div className="space-y-2">
                             {sale.items?.map((item, index) => (
                               <div key={index} className="flex flex-col p-3 bg-white rounded-lg">
                                 <div className="flex justify-between items-start">
-                                  <div className="flex items-start gap-2 sm:gap-3">
-                                    <span className="font-medium text-sm sm:text-base bg-gray-100 px-2 py-1 rounded">
+                                  <div className="flex items-start gap-2 md:gap-3 min-w-0 flex-1">
+                                    <span className="font-medium text-xs md:text-sm bg-gray-100 px-2 py-1 rounded flex-shrink-0">
                                       {item.quantity}x
                                     </span>
-                                    <div>
-                                      <span className="font-medium text-sm sm:text-base">{item.product_name}</span>
-                                      <div className="text-xs sm:text-sm text-gray-500 mt-1">
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-medium text-sm md:text-base block truncate">{item.product_name}</span>
+                                      <div className="text-xs md:text-sm text-gray-500 mt-1">
                                         Valor unitário: R$ {item.unitPrice.toFixed(2)}
                                       </div>
                                     </div>
                                   </div>
-                                  <span className="font-medium text-sm sm:text-base">R$ {item.totalPrice.toFixed(2)}</span>
+                                  <span className="font-medium text-sm md:text-base flex-shrink-0">R$ {item.totalPrice.toFixed(2)}</span>
                                 </div>
                               </div>
                             ))}
                           </div>
                           {/* Sale Total */}
                           <div className="border-t border-gray-200 pt-3">
-                            <div className="flex justify-between font-medium text-sm sm:text-base">
+                            <div className="flex justify-between font-medium text-sm md:text-base">
                               <span>Total:</span>
                               <span>R$ {sale.total.toFixed(2)}</span>
                             </div>
@@ -577,68 +589,71 @@ export const Sales = () => {
 
         <TabsContent value="expenses">
           <Card>
-            <CardHeader>
-              <CardTitle>Despesas do Dia</CardTitle>
+            <CardHeader className="px-4 md:px-6">
+              <CardTitle className="text-base md:text-lg">Despesas do Dia</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 md:px-6">
               {isLoading ? (
                 <div className="text-center py-8">
-                  <p>Carregando despesas...</p>
+                  <p className="text-sm md:text-base">Carregando despesas...</p>
                 </div>
               ) : filteredExpenses.length === 0 ? (
                 <div className="text-center py-8">
-                  <p>Nenhuma despesa encontrada para esta data.</p>
+                  <p className="text-sm md:text-base">Nenhuma despesa encontrada para esta data.</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Quantidade</TableHead>
-                      <TableHead>Data/Hora</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredExpenses.map((expense) => (
-                      <TableRow key={expense.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{expense.description}</div>
-                            {expense.reason && (
-                              <div className="text-sm text-gray-500">{expense.reason}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {getExpenseTypeLabel(expense.type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          R$ {expense.amount.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          {expense.quantity || '-'}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(expense.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setExpenseToDelete(expense)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs md:text-sm">Descrição</TableHead>
+                        <TableHead className="text-xs md:text-sm">Tipo</TableHead>
+                        <TableHead className="text-xs md:text-sm">Valor</TableHead>
+                        <TableHead className="text-xs md:text-sm hidden sm:table-cell">Quantidade</TableHead>
+                        <TableHead className="text-xs md:text-sm hidden md:table-cell">Data/Hora</TableHead>
+                        <TableHead className="text-xs md:text-sm">Ações</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredExpenses.map((expense) => (
+                        <TableRow key={expense.id}>
+                          <TableCell className="text-xs md:text-sm">
+                            <div>
+                              <div className="font-medium truncate max-w-[120px] md:max-w-none">{expense.description}</div>
+                              {expense.reason && (
+                                <div className="text-xs text-gray-500 truncate max-w-[120px] md:max-w-none">{expense.reason}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs md:text-sm">
+                            <Badge variant="outline" className="text-xs">
+                              {getExpenseTypeLabel(expense.type)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium text-xs md:text-sm">
+                            R$ {expense.amount.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-xs md:text-sm hidden sm:table-cell">
+                            {expense.quantity || '-'}
+                          </TableCell>
+                          <TableCell className="text-xs md:text-sm hidden md:table-cell">
+                            {format(new Date(expense.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setExpenseToDelete(expense)}
+                              className="p-2 min-h-[40px] min-w-[40px]"
+                            >
+                              <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -677,18 +692,18 @@ export const Sales = () => {
 
       {/* Delete Sale Confirmation Dialog */}
       <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="mx-4 max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão da venda</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base md:text-lg">Confirmar exclusão da venda</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm md:text-base">
               Tem certeza que deseja excluir esta venda? Itens de estoque não
               serão repostos.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+            <AlertDialogCancel className="w-full sm:w-auto min-h-[44px]">Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto min-h-[44px]"
               onClick={() => {
                 if (saleToDelete) {
                   handleDeleteSale(saleToDelete);
@@ -703,17 +718,17 @@ export const Sales = () => {
 
       {/* Delete Expense Confirmation Dialog */}
       <AlertDialog open={!!expenseToDelete} onOpenChange={() => setExpenseToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="mx-4 max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão da despesa</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-base md:text-lg">Confirmar exclusão da despesa</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm md:text-base">
               Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+            <AlertDialogCancel className="w-full sm:w-auto min-h-[44px]">Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto min-h-[44px]"
               onClick={() => {
                 if (expenseToDelete) {
                   handleDeleteExpense(expenseToDelete);
