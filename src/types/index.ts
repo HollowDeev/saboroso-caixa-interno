@@ -130,8 +130,8 @@ export interface CashRegister {
   closing_amount?: number;
   total_sales: number;
   total_cost: number;
-  total_expenses: number;
   total_orders: number;
+  total_expenses: number;
   is_open: boolean;
   opened_at: string;
   closed_at?: string;
@@ -139,7 +139,6 @@ export interface CashRegister {
   updated_at: string;
 }
 
-// Expense types
 export interface Expense {
   id: string;
   cash_register_id: string;
@@ -162,7 +161,6 @@ export interface NewExpense {
   amount: number;
   quantity?: number;
   reason?: string;
-  cash_register_id?: string;
 }
 
 export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';
@@ -195,9 +193,6 @@ export interface AppContextType {
   addSale: (sale: Omit<Sale, 'id' | 'createdAt'>) => Promise<void>;
   updateSale: (id: string, updates: Partial<Sale>) => Promise<void>;
   deleteSale: (id: string) => Promise<void>;
-  addExpense: (expense: NewExpense) => Promise<void>;
-  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
   addServiceTax: (serviceTax: Omit<ServiceTax, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateServiceTax: (id: string, updates: Partial<ServiceTax>) => Promise<void>;
   deleteServiceTax: (id: string) => Promise<void>;
@@ -206,6 +201,9 @@ export interface AppContextType {
   checkCashRegisterAccess: () => boolean;
   refreshData: () => Promise<void>;
   updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
+  addExpense: (expense: NewExpense) => Promise<void>;
+  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
 }
 
 // Unit conversion types - aligned with unitConversion.ts
