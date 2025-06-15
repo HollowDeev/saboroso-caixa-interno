@@ -8,8 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 interface ExternalProductFormProps {
   product: {
     name: string;
-    brand: string | null;
-    description: string | null;
+    brand?: string | null;
+    description?: string | null;
     cost: number;
     price: number;
     current_stock: number;

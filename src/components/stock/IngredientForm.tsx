@@ -13,8 +13,8 @@ interface IngredientFormProps {
     current_stock: number;
     min_stock: number;
     cost: number;
-    supplier: string | null;
-    description: string | null;
+    supplier?: string | null;
+    description?: string | null;
   };
   onChange: (field: string, value: any) => void;
   onSubmit: () => void;
