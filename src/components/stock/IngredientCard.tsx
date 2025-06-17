@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,81 +66,81 @@ export const IngredientCard: React.FC<IngredientCardProps> = ({
     <>
       <Card className="w-full max-w-sm mx-auto hover:shadow-lg transition-shadow">
         <CardHeader className="pb-4">
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-lg font-semibold truncate">{ingredient.name}</CardTitle>
-            <Badge variant={stockStatus.color as any} className="ml-2 flex-shrink-0">
-              {stockStatus.status === 'out' && <AlertTriangle className="h-3 w-3 mr-1" />}
+          <div className="flex justify-between items-start gap-3">
+            <CardTitle className="text-lg font-semibold break-words">{ingredient.name}</CardTitle>
+            <Badge variant={stockStatus.color as any} className="ml-2 flex-shrink-0 whitespace-nowrap">
+              {stockStatus.status === 'out' && <AlertTriangle className="h-3 w-3 mr-2" />}
               {stockStatus.text}
             </Badge>
           </div>
           {ingredient.description && (
-            <p className="text-sm text-gray-600 mt-1">{ingredient.description}</p>
+            <p className="text-sm text-gray-600 mt-2 break-words">{ingredient.description}</p>
           )}
         </CardHeader>
-        
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
+
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-700">Estoque:</span>
-              <p className="text-lg font-bold">{ingredient.current_stock} {ingredient.unit}</p>
+              <p className="text-lg font-bold text-blue-600">{ingredient.current_stock} {ingredient.unit}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Mínimo:</span>
-              <p className="text-lg">{ingredient.min_stock} {ingredient.unit}</p>
+              <p className="text-lg text-gray-700">{ingredient.min_stock} {ingredient.unit}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Custo:</span>
-              <p className="text-lg">R$ {ingredient.cost.toFixed(2)}</p>
+              <p className="text-lg text-green-600">R$ {ingredient.cost.toFixed(2)}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Fornecedor:</span>
-              <p className="text-sm truncate">{ingredient.supplier || '-'}</p>
+              <p className="text-sm break-words">{ingredient.supplier || '-'}</p>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3">
               {onAddStock && (
                 <Button
-                  size="sm"
+                  size="default"
                   variant="outline"
                   onClick={() => onAddStock(ingredient.id, 1)}
-                  className="flex-1"
+                  className="flex-1 py-5 text-base font-medium"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-5 w-5 mr-2" />
                   Adicionar
                 </Button>
               )}
               {onRemoveStock && ingredient.current_stock > 0 && (
                 <Button
-                  size="sm"
+                  size="default"
                   variant="outline"
                   onClick={() => onRemoveStock(ingredient.id, 1)}
-                  className="flex-1"
+                  className="flex-1 py-5 text-base font-medium"
                 >
-                  <Minus className="h-4 w-4 mr-1" />
+                  <Minus className="h-5 w-5 mr-2" />
                   Remover
                 </Button>
               )}
             </div>
-            
-            <div className="flex gap-2">
+
+            <div className="flex gap-3">
               <Button
-                size="sm"
+                size="default"
                 variant="outline"
                 onClick={() => setIsEditOpen(true)}
-                className="flex-1"
+                className="flex-1 py-5 text-base font-medium"
               >
-                <Pencil className="h-4 w-4 mr-1" />
+                <Pencil className="h-5 w-5 mr-2" />
                 Editar
               </Button>
               <Button
-                size="sm"
+                size="default"
                 variant="outline"
                 onClick={handleDelete}
-                className="flex-1"
+                className="flex-1 py-5 text-base font-medium"
               >
-                <Trash2 className="h-4 w-4 mr-1" />
+                <Trash2 className="h-5 w-5 mr-2" />
                 Excluir
               </Button>
             </div>

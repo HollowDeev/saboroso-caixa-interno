@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,49 +44,49 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <>
       <Card className="w-full max-w-sm mx-auto hover:shadow-lg transition-shadow">
         <CardHeader className="pb-4">
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-lg font-semibold truncate">{product.name}</CardTitle>
-            <Badge variant={product.available ? 'default' : 'secondary'} className="ml-2 flex-shrink-0">
+          <div className="flex justify-between items-start gap-3">
+            <CardTitle className="text-lg font-semibold break-words">{product.name}</CardTitle>
+            <Badge variant={product.available ? 'default' : 'secondary'} className="ml-2 flex-shrink-0 whitespace-nowrap">
               {product.available ? 'Disponível' : 'Indisponível'}
             </Badge>
           </div>
           {product.description && (
-            <p className="text-sm text-gray-600 mt-1">{product.description}</p>
+            <p className="text-sm text-gray-600 mt-2 break-words">{product.description}</p>
           )}
         </CardHeader>
-        
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
+
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-700">Preço:</span>
-              <p className="text-lg font-bold">R$ {product.price.toFixed(2)}</p>
+              <p className="text-lg font-bold text-green-600">R$ {product.price.toFixed(2)}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Custo:</span>
-              <p className="text-lg">R$ {product.cost.toFixed(2)}</p>
+              <p className="text-lg text-gray-700">R$ {product.cost.toFixed(2)}</p>
             </div>
             <div>
               <span className="font-medium text-gray-700">Categoria:</span>
-              <p className="text-sm truncate">{product.category}</p>
+              <p className="text-sm break-words">{product.category}</p>
             </div>
             <div className="flex items-center">
-              <Clock className="h-4 w-4 mr-1 text-gray-500" />
+              <Clock className="h-4 w-4 mr-2 text-blue-500" />
               <span className="text-sm">{product.preparation_time}min</span>
             </div>
           </div>
 
           {product.ingredients && product.ingredients.length > 0 && (
             <div>
-              <span className="font-medium text-gray-700 text-sm">Ingredientes:</span>
-              <div className="flex flex-wrap gap-1 mt-1">
+              <span className="font-medium text-gray-700 text-sm block mb-2">Ingredientes:</span>
+              <div className="flex flex-wrap gap-2">
                 {product.ingredients.slice(0, 3).map((ing, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    <UtensilsCrossed className="h-3 w-3 mr-1" />
+                  <Badge key={index} variant="outline" className="text-xs py-1 px-2">
+                    <UtensilsCrossed className="h-3 w-3 mr-2" />
                     {ing.quantity} {ing.unit}
                   </Badge>
                 ))}
                 {product.ingredients.length > 3 && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge variant="outline" className="text-xs py-1 px-2">
                     +{product.ingredients.length - 3} mais
                   </Badge>
                 )}
@@ -95,33 +94,33 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <Button
-              size="sm"
+              size="default"
               variant={product.available ? "outline" : "default"}
               onClick={handleToggleAvailability}
-              className="w-full"
+              className="w-full py-5 text-base font-medium"
             >
               {product.available ? 'Desabilitar' : 'Habilitar'}
             </Button>
-            
-            <div className="flex gap-2">
+
+            <div className="flex gap-3">
               <Button
-                size="sm"
+                size="default"
                 variant="outline"
                 onClick={() => setIsEditOpen(true)}
-                className="flex-1"
+                className="flex-1 py-5 text-base font-medium"
               >
-                <Pencil className="h-4 w-4 mr-1" />
+                <Pencil className="h-5 w-5 mr-2" />
                 Editar
               </Button>
               <Button
-                size="sm"
+                size="default"
                 variant="outline"
                 onClick={handleDelete}
-                className="flex-1"
+                className="flex-1 py-5 text-base font-medium"
               >
-                <Trash2 className="h-4 w-4 mr-1" />
+                <Trash2 className="h-5 w-5 mr-2" />
                 Excluir
               </Button>
             </div>
