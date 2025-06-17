@@ -16,13 +16,69 @@ import { formatCurrency } from '@/utils/dataFormatters';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const SaleCard = ({ sale, isOpen, onToggle }: { sale: Sale, isOpen: boolean, onToggle: () => void }) => {
+  return (
+    <div className="bg-gray-50 rounded-lg shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left p-4" onClick={onToggle}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm">
+            {sale.created_at && isValid(new Date(sale.created_at))
+              ? format(new Date(sale.created_at), "HH:mm")
+              : "Horário não disponível"} -
+            {sale.customerName || 'Venda Direta'}
+          </span>
+          <Badge variant={
+            sale.payment_method === 'cash' ? 'default' :
+              sale.payment_method === 'card' ? 'secondary' :
+                'outline'
+          }>
+            {sale.payment_method === 'cash' ? 'Dinheiro' :
+              sale.payment_method === 'card' ? 'Cartão' :
+                'Pix'}
+          </Badge>
+        </div>
+        <span className="font-semibold">{formatCurrency(sale.total)}</span>
+      </div>
+
+      {isOpen && (
+        <div className="px-4 pb-4">
+          <div className="space-y-2">
+            {sale.items?.map((item, index) => (
+              <div key={index} className="flex justify-between text-sm">
+                <span>{item.quantity}x {item.product_name}</span>
+                <span>{formatCurrency(item.total_price || item.totalPrice)}</span>
+              </div>
+            ))}
+            <div className="pt-2 border-t mt-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal:</span>
+                <span>{formatCurrency(sale.subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Taxa de Serviço:</span>
+                <span>{formatCurrency(sale.tax)}</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>Total:</span>
+                <span>{formatCurrency(sale.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CashRegisters = () => {
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
-  const [loading, setLoading] = useState(true);
   const [salesByRegister, setSalesByRegister] = useState<Record<string, Sale[]>>({});
   const [expensesByRegister, setExpensesByRegister] = useState<Record<string, Expense[]>>({});
   const [openSales, setOpenSales] = useState<string[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadCashRegisters = async () => {
@@ -72,17 +128,23 @@ export const CashRegisters = () => {
   }, []);
 
   const toggleSale = (saleId: string) => {
-    if (openSales.includes(saleId)) {
-      setOpenSales(openSales.filter((id) => id !== saleId));
-    } else {
-      setOpenSales([...openSales, saleId]);
-    }
+    setOpenSales(openSales.includes(saleId)
+      ? openSales.filter(id => id !== saleId)
+      : [...openSales, saleId]
+    );
+  };
+
+  const filteredSales = (sales: Sale[] | undefined) => {
+    if (!sales) return [];
+    return selectedPaymentMethod === "all"
+      ? sales
+      : sales.filter(sale => sale.payment_method === selectedPaymentMethod);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
       </div>
     );
   }
@@ -108,21 +170,24 @@ export const CashRegisters = () => {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {/* Cards com dados do caixa */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <Card>
-                    <CardHeader className="p-4">
-                      <CardTitle className="text-sm font-medium">Valor de Abertura</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Valor de Abertura</CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-0 px-4 pb-4">
-                      <div className="text-2xl font-bold">{formatCurrency(register.opening_amount)}</div>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(register.opening_amount)}
+                      </div>
                     </CardContent>
                   </Card>
 
                   <Card>
-                    <CardHeader className="p-4">
-                      <CardTitle className="text-sm font-medium">Valor de Fechamento</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Valor de Fechamento</CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-0 px-4 pb-4">
+                    <CardContent>
                       <div className="text-2xl font-bold">
                         {register.closing_amount ? formatCurrency(register.closing_amount) : '-'}
                       </div>
@@ -130,15 +195,86 @@ export const CashRegisters = () => {
                   </Card>
 
                   <Card>
-                    <CardHeader className="p-4">
-                      <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Total de Vendas</CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-0 px-4 pb-4">
-                      <div className="text-2xl font-bold">{formatCurrency(register.total_sales)}</div>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(salesByRegister[register.id]?.reduce((acc, sale) => acc + sale.total, 0) || 0)}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Lucro</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-blue-600">
+                        {formatCurrency(
+                          (salesByRegister[register.id]?.reduce((acc, sale) => acc + sale.total, 0) || 0) -
+                          (expensesByRegister[register.id]?.reduce((acc, expense) => acc + expense.amount, 0) || 0)
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
 
+                {/* Cards de métodos de pagamento */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Vendas em Dinheiro</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(
+                          salesByRegister[register.id]?.filter(sale => sale.payment_method === 'cash')
+                            .reduce((acc, sale) => acc + sale.total, 0) || 0
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {salesByRegister[register.id]?.filter(sale => sale.payment_method === 'cash').length || 0} vendas
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Vendas em Cartão</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(
+                          salesByRegister[register.id]?.filter(sale => sale.payment_method === 'card')
+                            .reduce((acc, sale) => acc + sale.total, 0) || 0
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {salesByRegister[register.id]?.filter(sale => sale.payment_method === 'card').length || 0} vendas
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-gray-500">Vendas em Pix</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatCurrency(
+                          salesByRegister[register.id]?.filter(sale => sale.payment_method === 'pix')
+                            .reduce((acc, sale) => acc + sale.total, 0) || 0
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {salesByRegister[register.id]?.filter(sale => sale.payment_method === 'pix').length || 0} vendas
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Tabs de vendas e despesas */}
                 <div className="mt-6">
                   <Tabs defaultValue="sales" className="w-full">
                     <TabsList className="grid w-full grid-cols-2 px-4 md:px-0">
@@ -147,23 +283,61 @@ export const CashRegisters = () => {
                     </TabsList>
 
                     <TabsContent value="sales" className="px-4 md:px-0">
-                      <h3 className="text-lg font-semibold mb-4">Vendas do Caixa</h3>
+                      <div className="flex justify-end mb-4">
+                        <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Método de Pagamento" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="cash">Dinheiro</SelectItem>
+                            <SelectItem value="card">Cartão</SelectItem>
+                            <SelectItem value="pix">Pix</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="space-y-3">
-                        {salesByRegister[register.id]?.map((sale) => (
-                          <div key={sale.id} className="bg-gray-50 rounded-lg shadow-sm">
-                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left p-4" onClick={() => toggleSale(sale.id)}>
-                              <span className="text-sm">
-                                {sale.created_at && isValid(new Date(sale.created_at))
-                                  ? format(new Date(sale.created_at), "HH:mm")
-                                  : "Horário não disponível"} -
-                                {sale.customerName || 'Venda Direta'}
-                              </span>
-                              <span className="font-semibold">{formatCurrency(sale.total)}</span>
+                        {filteredSales(salesByRegister[register.id])?.map((sale) => (
+                          <div
+                            key={sale.id}
+                            className="bg-gray-50 rounded-lg shadow-sm"
+                            onClick={() => toggleSale(sale.id)}
+                          >
+                            <div className="p-4">
+                              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                                <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                  <span className="text-sm whitespace-nowrap">
+                                    {sale.created_at && isValid(new Date(sale.created_at))
+                                      ? format(new Date(sale.created_at), "HH:mm")
+                                      : "Horário não disponível"}
+                                  </span>
+                                  {sale.customer_name && (
+                                    <span className="text-sm text-gray-600">
+                                      {sale.customer_name}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 ml-auto">
+                                  <Badge variant={
+                                    sale.payment_method === 'cash' ? 'default' :
+                                      sale.payment_method === 'card' ? 'secondary' :
+                                        'outline'
+                                  }>
+                                    {sale.payment_method === 'cash' ? 'Dinheiro' :
+                                      sale.payment_method === 'card' ? 'Cartão' :
+                                        'Pix'}
+                                  </Badge>
+                                  <span className="font-semibold whitespace-nowrap">
+                                    {formatCurrency(sale.total)}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
 
                             {openSales.includes(sale.id) && (
-                              <div className="px-4 pb-4">
-                                <div className="space-y-2">
+                              <div className="px-4 pb-4 border-t">
+                                <div className="space-y-2 pt-2">
                                   {sale.items?.map((item, index) => (
                                     <div key={index} className="flex justify-between text-sm">
                                       <span>{item.quantity}x {item.product_name}</span>
@@ -193,38 +367,33 @@ export const CashRegisters = () => {
                     </TabsContent>
 
                     <TabsContent value="expenses" className="px-4 md:px-0">
-                      <h3 className="text-lg font-semibold mb-4">Despesas do Caixa</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="space-y-3">
                         {expensesByRegister[register.id]?.map((expense) => (
-                          <Card key={expense.id} className="overflow-hidden border-x-0 md:border-x">
-                            <CardHeader className="p-4">
-                              <div className="flex justify-between items-start">
-                                <div className="text-xl font-bold text-red-600">
-                                  {formatCurrency(expense.amount)}
+                          <div key={expense.id} className="bg-gray-50 rounded-lg shadow-sm p-4">
+                            <div className="flex justify-between items-start">
+                              <div className="text-xl font-bold text-red-600">
+                                {formatCurrency(expense.amount)}
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                {format(new Date(expense.created_at), "HH:mm")}
+                              </span>
+                            </div>
+                            <div className="mt-2 space-y-2">
+                              <p className="text-sm">{expense.description}</p>
+                              {expense.quantity && (
+                                <p className="text-sm text-gray-600">Quantidade: {expense.quantity}</p>
+                              )}
+                              {expense.reason && (
+                                <div className="bg-gray-100 p-2 rounded-md">
+                                  <p className="text-sm font-medium">Motivo:</p>
+                                  <p className="text-sm text-gray-700">{expense.reason}</p>
                                 </div>
-                                <span className="text-sm text-gray-500">
-                                  {format(new Date(expense.created_at), "HH:mm")}
-                                </span>
-                              </div>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0">
-                              <div className="space-y-3">
-                                <p className="text-sm line-clamp-2">{expense.description}</p>
-                                {expense.quantity && (
-                                  <p className="text-sm text-gray-600">Quantidade: {expense.quantity}</p>
-                                )}
-                                {expense.reason && (
-                                  <div className="bg-gray-100 p-2 rounded-md">
-                                    <p className="text-sm font-medium">Motivo:</p>
-                                    <p className="text-sm text-gray-700">{expense.reason}</p>
-                                  </div>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
+                              )}
+                            </div>
+                          </div>
                         ))}
                         {(!expensesByRegister[register.id] || expensesByRegister[register.id].length === 0) && (
-                          <div className="col-span-full text-center py-8 text-gray-500">
+                          <div className="text-center py-8 text-gray-500">
                             Nenhuma despesa registrada
                           </div>
                         )}
