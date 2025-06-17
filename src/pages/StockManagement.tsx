@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, ShoppingCart, Plus, UtensilsCrossed } from 'lucide-react';
+import { Package, ShoppingCart, Plus, UtensilsCrossed, Search } from 'lucide-react';
 import { IngredientCard } from '@/components/stock/IngredientCard';
 import { ExternalProductCard } from '@/components/stock/ExternalProductCard';
 import { ProductCard } from '@/components/stock/ProductCard';
@@ -12,15 +12,16 @@ import { ExternalProductForm } from '@/components/stock/ExternalProductForm';
 import { ProductForm } from '@/components/stock/ProductForm';
 import { toast } from 'sonner';
 import { ProductFormData } from '@/types';
+import { Input } from '@/components/ui/input';
 
 export const StockManagement = () => {
-  const { 
+  const {
     currentUser,
-    ingredients, 
-    externalProducts, 
-    products, 
-    addIngredient, 
-    updateIngredient, 
+    ingredients,
+    externalProducts,
+    products,
+    addIngredient,
+    updateIngredient,
     deleteIngredient,
     addExternalProduct,
     updateExternalProduct,
@@ -35,6 +36,7 @@ export const StockManagement = () => {
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
   const [isAddExternalProductOpen, setIsAddExternalProductOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [newIngredient, setNewIngredient] = useState({
     name: '',
@@ -203,6 +205,36 @@ export const StockManagement = () => {
     }
   };
 
+  const filteredIngredients = useMemo(() => {
+    if (!searchTerm) return ingredients;
+    const term = searchTerm.toLowerCase();
+    return ingredients.filter(ingredient =>
+      ingredient.name.toLowerCase().includes(term) ||
+      (ingredient.description?.toLowerCase().includes(term)) ||
+      (ingredient.supplier?.toLowerCase().includes(term))
+    );
+  }, [ingredients, searchTerm]);
+
+  const filteredExternalProducts = useMemo(() => {
+    if (!searchTerm) return externalProducts;
+    const term = searchTerm.toLowerCase();
+    return externalProducts.filter(product =>
+      product.name.toLowerCase().includes(term) ||
+      (product.description?.toLowerCase().includes(term)) ||
+      (product.brand?.toLowerCase().includes(term))
+    );
+  }, [externalProducts, searchTerm]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return products;
+    const term = searchTerm.toLowerCase();
+    return products.filter(product =>
+      product.name.toLowerCase().includes(term) ||
+      (product.description?.toLowerCase().includes(term)) ||
+      (product.category?.toLowerCase().includes(term))
+    );
+  }, [products, searchTerm]);
+
   return (
     <div className="container mx-auto p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -210,23 +242,36 @@ export const StockManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
-          <TabsTrigger value="ingredients" className="flex items-center gap-2 text-xs sm:text-sm">
-            <Package className="h-4 w-4" />
-            <span className="hidden sm:inline">Ingredientes</span>
-            <span className="sm:hidden">Ingred.</span>
-          </TabsTrigger>
-          <TabsTrigger value="external-products" className="flex items-center gap-2 text-xs sm:text-sm">
-            <ShoppingCart className="h-4 w-4" />
-            <span className="hidden sm:inline">Produtos Externos</span>
-            <span className="sm:hidden">Externos</span>
-          </TabsTrigger>
-          <TabsTrigger value="products" className="flex items-center gap-2 text-xs sm:text-sm">
-            <UtensilsCrossed className="h-4 w-4" />
-            <span className="hidden sm:inline">Produtos</span>
-            <span className="sm:hidden">Comidas</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <TabsList className="grid w-full sm:w-auto grid-cols-3">
+            <TabsTrigger value="ingredients" className="flex items-center gap-2 text-xs sm:text-sm">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Ingredientes</span>
+              <span className="sm:hidden">Ingred.</span>
+            </TabsTrigger>
+            <TabsTrigger value="external-products" className="flex items-center gap-2 text-xs sm:text-sm">
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline">Produtos Externos</span>
+              <span className="sm:hidden">Externos</span>
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center gap-2 text-xs sm:text-sm">
+              <UtensilsCrossed className="h-4 w-4" />
+              <span className="hidden sm:inline">Produtos</span>
+              <span className="sm:hidden">Comidas</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Pesquisar..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 h-10"
+            />
+          </div>
+        </div>
 
         <TabsContent value="ingredients" className="space-y-4">
           <div className="flex justify-between items-center">
@@ -255,7 +300,7 @@ export const StockManagement = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {ingredients.map((ingredient) => (
+            {filteredIngredients.map((ingredient) => (
               <IngredientCard
                 key={ingredient.id}
                 ingredient={ingredient}
@@ -267,10 +312,10 @@ export const StockManagement = () => {
             ))}
           </div>
 
-          {ingredients.length === 0 && (
+          {filteredIngredients.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum ingrediente cadastrado</p>
+              <p>{searchTerm ? 'Nenhum ingrediente encontrado' : 'Nenhum ingrediente cadastrado'}</p>
             </div>
           )}
         </TabsContent>
@@ -302,7 +347,7 @@ export const StockManagement = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {externalProducts.map((product) => (
+            {filteredExternalProducts.map((product) => (
               <ExternalProductCard
                 key={product.id}
                 product={product}
@@ -314,10 +359,10 @@ export const StockManagement = () => {
             ))}
           </div>
 
-          {externalProducts.length === 0 && (
+          {filteredExternalProducts.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum produto externo cadastrado</p>
+              <p>{searchTerm ? 'Nenhum produto externo encontrado' : 'Nenhum produto externo cadastrado'}</p>
             </div>
           )}
         </TabsContent>
@@ -349,7 +394,7 @@ export const StockManagement = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -359,10 +404,10 @@ export const StockManagement = () => {
             ))}
           </div>
 
-          {products.length === 0 && (
+          {filteredProducts.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <UtensilsCrossed className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum produto cadastrado</p>
+              <p>{searchTerm ? 'Nenhum produto encontrado' : 'Nenhum produto cadastrado'}</p>
             </div>
           )}
         </TabsContent>
