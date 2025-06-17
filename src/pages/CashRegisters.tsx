@@ -22,6 +22,7 @@ export const CashRegisters = () => {
   const [loading, setLoading] = useState(true);
   const [salesByRegister, setSalesByRegister] = useState<Record<string, Sale[]>>({});
   const [expensesByRegister, setExpensesByRegister] = useState<Record<string, Expense[]>>({});
+  const [openSales, setOpenSales] = useState<string[]>([]);
 
   useEffect(() => {
     const loadCashRegisters = async () => {
@@ -70,6 +71,14 @@ export const CashRegisters = () => {
     loadCashRegisters();
   }, []);
 
+  const toggleSale = (saleId: string) => {
+    if (openSales.includes(saleId)) {
+      setOpenSales(openSales.filter((id) => id !== saleId));
+    } else {
+      setOpenSales([...openSales, saleId]);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -79,15 +88,15 @@ export const CashRegisters = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-0 md:p-4 lg:p-6 space-y-4 md:space-y-6">
+      <div className="flex justify-between items-center px-4 md:px-0">
         <h1 className="text-2xl font-bold">Caixas</h1>
       </div>
 
       <div className="grid gap-4">
         <Accordion type="single" collapsible className="w-full">
           {cashRegisters.map((register) => (
-            <AccordionItem key={register.id} value={register.id} className="bg-white rounded-lg border mb-4">
+            <AccordionItem key={register.id} value={register.id} className="bg-white border-x-0 md:border-x md:rounded-lg mb-4 first:border-t-0 md:first:border-t last:border-b-0 md:last:border-b">
               <AccordionTrigger className="px-4 py-3 hover:no-underline">
                 <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left">
                   <div className="text-sm md:text-base font-medium">
@@ -132,61 +141,62 @@ export const CashRegisters = () => {
 
                 <div className="mt-6">
                   <Tabs defaultValue="sales" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-2 px-4 md:px-0">
                       <TabsTrigger value="sales">Vendas</TabsTrigger>
                       <TabsTrigger value="expenses">Despesas</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="sales">
+                    <TabsContent value="sales" className="px-4 md:px-0">
                       <h3 className="text-lg font-semibold mb-4">Vendas do Caixa</h3>
-                      <Accordion type="single" collapsible className="w-full">
+                      <div className="space-y-3">
                         {salesByRegister[register.id]?.map((sale) => (
-                          <AccordionItem key={sale.id} value={sale.id} className="border-b">
-                            <AccordionTrigger className="py-2 hover:no-underline">
-                              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left">
-                                <span className="text-sm">
-                                  {sale.created_at && isValid(new Date(sale.created_at))
-                                    ? format(new Date(sale.created_at), "HH:mm")
-                                    : "Horário não disponível"} -
-                                  {sale.customerName || 'Venda Direta'}
-                                </span>
-                                <span className="font-semibold">{formatCurrency(sale.total)}</span>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="pb-4">
-                              <div className="space-y-2">
-                                {sale.items?.map((item, index) => (
-                                  <div key={index} className="flex justify-between text-sm">
-                                    <span>{item.quantity}x {item.product_name}</span>
-                                    <span>{formatCurrency(item.total_price || item.totalPrice)}</span>
-                                  </div>
-                                ))}
-                                <div className="pt-2 border-t mt-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span>Subtotal:</span>
-                                    <span>{formatCurrency(sale.subtotal)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span>Taxa de Serviço:</span>
-                                    <span>{formatCurrency(sale.tax)}</span>
-                                  </div>
-                                  <div className="flex justify-between font-semibold">
-                                    <span>Total:</span>
-                                    <span>{formatCurrency(sale.total)}</span>
+                          <div key={sale.id} className="bg-gray-50 rounded-lg shadow-sm">
+                            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left p-4" onClick={() => toggleSale(sale.id)}>
+                              <span className="text-sm">
+                                {sale.created_at && isValid(new Date(sale.created_at))
+                                  ? format(new Date(sale.created_at), "HH:mm")
+                                  : "Horário não disponível"} -
+                                {sale.customerName || 'Venda Direta'}
+                              </span>
+                              <span className="font-semibold">{formatCurrency(sale.total)}</span>
+                            </div>
+
+                            {openSales.includes(sale.id) && (
+                              <div className="px-4 pb-4">
+                                <div className="space-y-2">
+                                  {sale.items?.map((item, index) => (
+                                    <div key={index} className="flex justify-between text-sm">
+                                      <span>{item.quantity}x {item.product_name}</span>
+                                      <span>{formatCurrency(item.total_price || item.totalPrice)}</span>
+                                    </div>
+                                  ))}
+                                  <div className="pt-2 border-t mt-2">
+                                    <div className="flex justify-between text-sm">
+                                      <span>Subtotal:</span>
+                                      <span>{formatCurrency(sale.subtotal)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                      <span>Taxa de Serviço:</span>
+                                      <span>{formatCurrency(sale.tax)}</span>
+                                    </div>
+                                    <div className="flex justify-between font-semibold">
+                                      <span>Total:</span>
+                                      <span>{formatCurrency(sale.total)}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
-                            </AccordionContent>
-                          </AccordionItem>
+                            )}
+                          </div>
                         ))}
-                      </Accordion>
+                      </div>
                     </TabsContent>
 
-                    <TabsContent value="expenses">
+                    <TabsContent value="expenses" className="px-4 md:px-0">
                       <h3 className="text-lg font-semibold mb-4">Despesas do Caixa</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {expensesByRegister[register.id]?.map((expense) => (
-                          <Card key={expense.id} className="overflow-hidden">
+                          <Card key={expense.id} className="overflow-hidden border-x-0 md:border-x">
                             <CardHeader className="p-4">
                               <div className="flex justify-between items-start">
                                 <div className="text-xl font-bold text-red-600">
