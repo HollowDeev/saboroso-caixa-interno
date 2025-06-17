@@ -13,6 +13,7 @@ import { Sales } from "./pages/Sales";
 import { Users } from "./pages/Users";
 import { Settings } from "./pages/Settings";
 import { ProfitCalculator } from "./pages/ProfitCalculator";
+import { CashRegisters } from "./pages/CashRegisters";
 import { Login } from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { useState, useEffect } from "react";
@@ -183,6 +184,7 @@ const App = () => {
                       <Route path="/users" element={<Users />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/calculator" element={<ProfitCalculator />} />
+                      <Route path="/cash-registers" element={<CashRegisters />} />
                     </>
                   )}
                   

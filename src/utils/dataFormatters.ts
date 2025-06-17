@@ -1,6 +1,13 @@
 
 import { Order, Sale, PaymentMethod } from '@/types';
 
+export const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+};
+
 export const formatOrders = (ordersData: any[]): Order[] => {
   return ordersData.map(order => ({
     id: order.id,

@@ -9,7 +9,8 @@ import {
   Users, 
   Settings, 
   Calculator,
-  X
+  X,
+  DollarSign
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +23,7 @@ export const Sidebar = ({ onClose, isEmployee }: SidebarProps) => {
   const menuItems = [
     { icon: ShoppingCart, label: 'Comandas', path: '/orders' },
     { icon: BarChart3, label: 'Vendas', path: '/sales' },
+    { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
     // Admin only items
     ...(!isEmployee ? [
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
