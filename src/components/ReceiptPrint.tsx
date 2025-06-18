@@ -3,103 +3,106 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ReceiptPrintProps {
-    sale: Sale;
+  sale: Sale;
 }
 
+const getPaymentMethodLabel = (method: string) => {
+  switch (method) {
+    case 'cash': return 'Dinheiro';
+    case 'card': return 'Cartão';
+    case 'pix': return 'PIX';
+    default: return method;
+  }
+};
+
 export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
-    return (
-        <div className="receipt-print" style={{ width: '58mm', padding: '10px', fontFamily: 'monospace' }}>
-            <style>
-                {`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            .receipt-print, .receipt-print * {
-              visibility: visible;
-            }
-            .receipt-print {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 58mm !important;
-            }
-            @page {
-              size: 58mm auto;
-              margin: 0;
-            }
+  if (!sale) return null;
+
+  const items = Array.isArray(sale.items) ? sale.items : [];
+  const payments = Array.isArray(sale.payments) ? sale.payments : [];
+  const total = typeof sale.total === 'number' ? sale.total : 0;
+  const createdAt = sale.createdAt || new Date().toISOString();
+  const customerName = sale.customer_name || 'Não informado';
+
+  // Função para criar linha centralizada
+  const centerLine = (text: string) => {
+    const padding = Math.max(0, Math.floor((32 - text.length) / 2));
+    return ' '.repeat(padding) + text;
+  };
+
+  // Função para criar linha com valor à direita
+  const rightAlign = (text: string, value: string) => {
+    const padding = Math.max(0, 32 - text.length - value.length);
+    return text + ' '.repeat(padding) + value;
+  };
+
+  // Função para criar linha divisória
+  const divider = '-'.repeat(32);
+
+  return (
+    <pre style={{
+      margin: 0,
+      padding: '0 5mm',
+      fontSize: '10px',
+      fontFamily: 'monospace',
+      whiteSpace: 'pre-wrap',
+      width: '58mm',
+      background: 'white'
+    }}>
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
           }
-
-          .receipt-print {
-            text-align: center;
-            font-size: 10px;
-            line-height: 1.2;
+          pre {
+            visibility: visible;
+            position: absolute;
+            left: 0;
+            top: 0;
           }
-
-          .receipt-header {
-            margin-bottom: 10px;
+          @page {
+            margin: 0;
+            size: 58mm auto;
           }
+        }
+      `}</style>
+      {centerLine('VARANDA')}
+      {'\n'}
+      {centerLine(format(new Date(createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }))}
+      {'\n'}
+      {divider}
+      {'\n'}
+      Cliente: {customerName}
+      {'\n'}
+      {divider}
+      {'\n'}
+      {items.map((item) => {
+        const quantity = typeof item.quantity === 'number' ? item.quantity : 0;
+        const unitPrice = typeof item.unit_price === 'number' ? item.unit_price : 0;
+        const totalPrice = typeof item.total_price === 'number' ? item.total_price : 0;
+        const productName = item.product_name || 'Produto não identificado';
 
-          .receipt-divider {
-            border-top: 1px dashed #000;
-            margin: 5px 0;
-          }
-
-          .receipt-item {
-            text-align: left;
-            margin: 2px 0;
-          }
-
-          .receipt-total {
-            text-align: right;
-            margin-top: 5px;
-            font-weight: bold;
-          }
-
-          .receipt-footer {
-            margin-top: 10px;
-            font-size: 9px;
-          }
-        `}
-            </style>
-
-            <div className="receipt-header">
-                <h1 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 5px 0' }}>VARANDA</h1>
-                <div>{format(new Date(sale.createdAt), "dd/MM/yyyy, HH:mm", { locale: ptBR })}</div>
-            </div>
-
-            <div className="receipt-divider" />
-
-            <div style={{ textAlign: 'left', marginBottom: '5px' }}>
-                Cliente: {sale.customerName || 'Não informado'}
-            </div>
-
-            <div className="receipt-divider" />
-
-            <div style={{ marginBottom: '10px' }}>
-                {sale.items.map((item, index) => (
-                    <div key={index} className="receipt-item">
-                        <div>{item.product_name}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>{item.quantity}x R$ {item.unitPrice.toFixed(2)}</span>
-                            <span>R$ {item.totalPrice.toFixed(2)}</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="receipt-divider" />
-
-            <div className="receipt-total">
-                <div>TOTAL: R$ {sale.total.toFixed(2)}</div>
-                <div style={{ fontSize: '9px' }}>Pagamento: {sale.paymentMethod}</div>
-            </div>
-
-            <div className="receipt-divider" />
-
-            <div className="receipt-footer">
-                Obrigado pela preferência!
-            </div>
-        </div>
-    );
+        return `${productName}\n${quantity}x R$ ${unitPrice.toFixed(2)} = R$ ${totalPrice.toFixed(2)}\n`;
+      }).join('\n')}
+      {divider}
+      {'\n'}
+      {rightAlign('TOTAL:', `R$ ${total.toFixed(2)}`)}
+      {'\n'}
+      {divider}
+      {'\n'}
+      PAGAMENTOS:
+      {'\n'}
+      {payments.map((payment) => {
+        const amount = typeof payment.amount === 'number' ? payment.amount : 0;
+        const method = payment.method || 'Não especificado';
+        return rightAlign(getPaymentMethodLabel(method) + ':', `R$ ${amount.toFixed(2)}`);
+      }).join('\n')}
+      {'\n'}
+      {divider}
+      {'\n'}
+      {centerLine('Obrigado pela preferencia!')}
+      {'\n'}
+      {centerLine('Volte sempre!')}
+    </pre>
+  );
 }; 

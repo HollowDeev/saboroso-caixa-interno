@@ -678,7 +678,7 @@ export const Sales = () => {
       </AlertDialog>
 
       {saleToPrint && (
-        <div className="hidden">
+        <div id="print-content">
           <ReceiptPrint sale={saleToPrint} />
         </div>
       )}
