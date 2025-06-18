@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,20 +6,63 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Search } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { OrderItem, Product, ExternalProduct } from '@/types';
+import { OrderItem, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface DirectSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface Payment {
+  method: PaymentMethod;
+  amount: number;
+}
+
 export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClose }) => {
   const { products, externalProducts, currentUser, addSale, currentCashRegister } = useApp();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
+  const [payments, setPayments] = useState<Payment[]>([{ method: 'cash', amount: 0 }]);
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const total = useMemo(() => selectedItems.reduce((sum, item) => sum + item.totalPrice, 0), [selectedItems]);
+  const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + payment.amount, 0), [payments]);
+  const remainingAmount = useMemo(() => total - totalPaid, [total, totalPaid]);
+
+  const addPayment = () => {
+    setPayments([...payments, { method: 'cash', amount: 0 }]);
+  };
+
+  const removePayment = (index: number) => {
+    setPayments(payments.filter((_, i) => i !== index));
+  };
+
+  const updatePayment = (index: number, field: keyof Payment, value: any) => {
+    const updatedPayments = [...payments];
+    updatedPayments[index] = { ...updatedPayments[index], [field]: value };
+    setPayments(updatedPayments);
+  };
+
+  const getPaymentMethodLabel = (method: PaymentMethod) => {
+    switch (method) {
+      case 'cash': return 'Dinheiro';
+      case 'card': return 'Cartão';
+      case 'pix': return 'PIX';
+      default: return method;
+    }
+  };
+
+  const getPaymentMethodColor = (method: PaymentMethod) => {
+    switch (method) {
+      case 'cash': return 'bg-green-500';
+      case 'card': return 'bg-blue-500';
+      case 'pix': return 'bg-purple-500';
+      default: return 'bg-gray-500';
+    }
+  };
 
   const addItem = (product: Product | ExternalProduct) => {
     const existingItem = selectedItems.find(item => item.productId === product.id);
@@ -82,9 +125,25 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
       return;
     }
 
-    try {
-      const total = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    if (remainingAmount > 0) {
+      toast({
+        title: "Erro",
+        description: "O valor total dos pagamentos não cobre o valor da venda.",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    if (remainingAmount < 0) {
+      toast({
+        title: "Erro",
+        description: "O valor total dos pagamentos excede o valor da venda.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
       const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
 
       const stockCheck = await processOrderItemsStockConsumption(
@@ -118,7 +177,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         total,
         subtotal: total,
         tax: 0,
-        paymentMethod,
+        payments,
         userId: currentUser!.id,
         customerName: customerName || undefined,
         is_direct_sale: true,
@@ -141,7 +200,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
 
       setSelectedItems([]);
       setCustomerName('');
-      setPaymentMethod('cash');
+      setPayments([{ method: 'cash', amount: 0 }]);
       setSearchTerm('');
       onClose();
     } catch (error: any) {
@@ -157,8 +216,6 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   const handleRemoveItem = (index: number) => {
     removeItem(selectedItems[index].productId);
   };
-
-  const total = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0);
 
   // Filtrar e ordenar produtos alfabeticamente
   const filteredFoodProducts = products
@@ -196,20 +253,6 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                   placeholder="Digite o nome do cliente"
                   className="mt-1"
                 />
-              </div>
-
-              <div>
-                <Label>Forma de Pagamento</Label>
-                <Select value={paymentMethod} onValueChange={(value: 'cash' | 'card' | 'pix') => setPaymentMethod(value)}>
-                  <SelectTrigger className="w-full mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Dinheiro</SelectItem>
-                    <SelectItem value="card">Cartão</SelectItem>
-                    <SelectItem value="pix">PIX</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -288,7 +331,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
             </div>
           </div>
 
-          {/* Right Column - Selected Items */}
+          {/* Right Column - Selected Items and Payment */}
           <div className="space-y-6">
             <div>
               <h3 className="font-semibold mb-3">Itens Selecionados</h3>
@@ -336,28 +379,84 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
               </div>
             </div>
 
-            <div className="border-t pt-4 space-y-4">
-              <div className="flex justify-between font-bold text-lg">
-                <span>Total:</span>
-                <span>R$ {total.toFixed(2)}</span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Pagamentos</h3>
+                <Button onClick={addPayment} variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Pagamento
+                </Button>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  className="w-full sm:flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={createDirectSale}
-                  className="w-full sm:flex-1 bg-green-500 hover:bg-green-600"
-                  disabled={selectedItems.length === 0}
-                >
-                  Finalizar Venda
-                </Button>
+              <div className="space-y-4">
+                {payments.map((payment, index) => (
+                  <div key={index} className="flex items-center gap-4">
+                    <Select
+                      value={payment.method}
+                      onValueChange={(value: PaymentMethod) => updatePayment(index, 'method', value)}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Dinheiro</SelectItem>
+                        <SelectItem value="card">Cartão</SelectItem>
+                        <SelectItem value="pix">PIX</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      value={payment.amount}
+                      onChange={(e) => updatePayment(index, 'amount', Number(e.target.value))}
+                      placeholder="Valor"
+                      className="w-[150px]"
+                    />
+                    {index > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removePayment(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
+
+              <div className="flex flex-wrap gap-2">
+                {payments.map((payment, index) => (
+                  payment.amount > 0 && (
+                    <Badge key={index} variant="secondary" className={cn("text-white", getPaymentMethodColor(payment.method))}>
+                      {getPaymentMethodLabel(payment.method)} (R$ {payment.amount.toFixed(2)})
+                    </Badge>
+                  )
+                ))}
+              </div>
+
+              <div className="space-y-2 pt-4 border-t">
+                <div className="flex justify-between text-sm">
+                  <span>Total da Venda:</span>
+                  <span>R$ {total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Total Pago:</span>
+                  <span>R$ {totalPaid.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Valor Restante:</span>
+                  <span className={cn(remainingAmount > 0 ? "text-red-500" : remainingAmount < 0 ? "text-orange-500" : "text-green-500")}>
+                    R$ {remainingAmount.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-4 pt-4">
+              <Button variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button onClick={createDirectSale} disabled={remainingAmount !== 0}>
+                Finalizar Venda
+              </Button>
             </div>
           </div>
         </div>
