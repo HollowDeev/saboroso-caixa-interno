@@ -30,6 +30,7 @@ export const Orders = () => {
   const [isNoCashModalOpen, setIsNoCashModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('open');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -102,6 +103,7 @@ export const Orders = () => {
     }
 
     try {
+      setIsCreatingOrder(true);
       const { subtotal, tax, total } = calculateTotal();
 
       const newOrder: Omit<Order, 'id' | 'created_at' | 'updated_at'> = {
@@ -134,6 +136,8 @@ export const Orders = () => {
         description: error.message || "Ocorreu um erro ao criar a comanda. Tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setIsCreatingOrder(false);
     }
   };
 
@@ -354,8 +358,16 @@ export const Orders = () => {
                     <Button
                       className="w-full bg-orange-500 hover:bg-orange-600"
                       onClick={createOrder}
+                      disabled={isCreatingOrder}
                     >
-                      Criar Comanda
+                      {isCreatingOrder ? (
+                        <>
+                          <span className="animate-spin mr-2">◌</span>
+                          Criando...
+                        </>
+                      ) : (
+                        'Criar Comanda'
+                      )}
                     </Button>
                   </div>
                 )}

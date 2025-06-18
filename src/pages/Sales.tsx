@@ -97,6 +97,7 @@ export const Sales = () => {
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [saleToPrint, setSaleToPrint] = useState<Sale | null>(null);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isDeletingSale, setIsDeletingSale] = useState(false);
 
   const isOwner = checkCashRegisterAccess();
 
@@ -255,18 +256,22 @@ export const Sales = () => {
 
   const handleDeleteSale = async (sale: Sale) => {
     try {
+      setIsDeletingSale(true);
       await deleteSale(sale.id);
       toast({
         title: "Venda excluída",
         description: "Venda excluída com sucesso!"
       });
-    } catch (error) {
+      setSaleToDelete(null);
+    } catch (error: any) {
       const apiError = error as ApiError;
       toast({
         title: "Erro ao excluir venda",
         description: apiError.message || "Não foi possível excluir a venda.",
         variant: "destructive"
       });
+    } finally {
+      setIsDeletingSale(false);
     }
   };
 
@@ -596,8 +601,18 @@ export const Sales = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSaleToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => saleToDelete && handleDeleteSale(saleToDelete)}>
-              Excluir
+            <AlertDialogAction 
+              onClick={() => saleToDelete && handleDeleteSale(saleToDelete)}
+              disabled={isDeletingSale}
+            >
+              {isDeletingSale ? (
+                <>
+                  <span className="animate-spin mr-2">◌</span>
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

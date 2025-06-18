@@ -27,6 +27,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   const [payments, setPayments] = useState<Payment[]>([{ method: 'cash', amount: 0 }]);
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreatingSale, setIsCreatingSale] = useState(false);
 
   const total = useMemo(() => selectedItems.reduce((sum, item) => sum + item.totalPrice, 0), [selectedItems]);
   const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + payment.amount, 0), [payments]);
@@ -121,6 +122,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
     }
 
     try {
+      setIsCreatingSale(true);
       const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
 
       const stockCheck = await processOrderItemsStockConsumption(
@@ -191,6 +193,8 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         description: error.message || "Ocorreu um erro ao registrar a venda. Tente novamente.",
         variant: "destructive"
       });
+    } finally {
+      setIsCreatingSale(false);
     }
   };
 
@@ -435,8 +439,15 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
 
             <div className="flex justify-end gap-4 pt-4">
               <Button variant="outline" onClick={onClose}>Cancelar</Button>
-              <Button onClick={createDirectSale} disabled={remainingAmount !== 0}>
-                Finalizar Venda
+              <Button onClick={createDirectSale} disabled={remainingAmount !== 0 || isCreatingSale}>
+                {isCreatingSale ? (
+                  <>
+                    <span className="animate-spin mr-2">◌</span>
+                    Finalizando...
+                  </>
+                ) : (
+                  'Finalizar Venda'
+                )}
               </Button>
             </div>
           </div>

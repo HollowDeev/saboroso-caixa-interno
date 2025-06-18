@@ -27,6 +27,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const [payments, setPayments] = useState<Array<{ method: PaymentMethod; amount: string }>>([
     { method: 'cash', amount: order.total.toFixed(2) }
   ]);
+  const [isClosingOrder, setIsClosingOrder] = useState(false);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
@@ -180,6 +181,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         return;
       }
 
+      setIsClosingOrder(true);
+
       // Converter os valores de string para número
       const processedPayments = payments.map(payment => ({
         method: payment.method,
@@ -199,6 +202,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         description: error.message || "Não foi possível fechar a comanda.",
         variant: "destructive"
       });
+    } finally {
+      setIsClosingOrder(false);
     }
   };
 
@@ -420,9 +425,16 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       <Button
                         onClick={handleCloseOrder}
                         className="flex-1"
-                        disabled={remainingAmount > 0}
+                        disabled={remainingAmount > 0 || isClosingOrder}
                       >
-                        Finalizar
+                        {isClosingOrder ? (
+                          <>
+                            <span className="animate-spin mr-2">◌</span>
+                            Finalizando...
+                          </>
+                        ) : (
+                          'Finalizar'
+                        )}
                       </Button>
                     </div>
                   </div>
