@@ -3,7 +3,13 @@ import { useApp } from '@/contexts/AppContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, ShoppingCart, Plus, UtensilsCrossed, Search } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Package, ShoppingCart, Plus, UtensilsCrossed, Search, FileDown, Copy, ChevronDown } from 'lucide-react';
 import { IngredientCard } from '@/components/stock/IngredientCard';
 import { ExternalProductCard } from '@/components/stock/ExternalProductCard';
 import { ProductCard } from '@/components/stock/ProductCard';
@@ -13,6 +19,8 @@ import { ProductForm } from '@/components/stock/ProductForm';
 import { toast } from 'sonner';
 import { ProductFormData } from '@/types';
 import { Input } from '@/components/ui/input';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export const StockManagement = () => {
   const {
@@ -235,10 +243,162 @@ export const StockManagement = () => {
     );
   }, [products, searchTerm]);
 
+  const exportStockCSV = () => {
+    const allItems = [
+      ...ingredients.map(item => ({
+        tipo: 'Ingrediente',
+        nome: item.name,
+        estoque: item.current_stock,
+        unidade: item.unit,
+        custo: item.cost,
+        estoque_minimo: item.min_stock,
+        fornecedor: item.supplier || ''
+      })),
+      ...externalProducts.map(item => ({
+        tipo: 'Produto Externo',
+        nome: item.name,
+        estoque: item.current_stock,
+        unidade: 'unidade',
+        custo: item.cost,
+        estoque_minimo: item.min_stock,
+        fornecedor: item.brand || ''
+      }))
+    ];
+
+    const csvContent = [
+      'Tipo,Nome,Estoque,Unidade,Custo,Estoque Mínimo,Fornecedor',
+      ...allItems.map(item =>
+        `${item.tipo},${item.nome},${item.estoque},${item.unidade},${item.custo},${item.estoque_minimo},${item.fornecedor}`
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `estoque_${format(new Date(), 'dd-MM-yyyy')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const copyStockData = () => {
+    const allItems = [
+      ...externalProducts.map(item =>
+        `> ${item.name}${item.brand ? ` (${item.brand})` : ''} - Valor Pago: R$ ${item.cost.toFixed(2)} - ${item.current_stock} unidades`
+      ),
+      ...ingredients.map(item =>
+        `> ${item.name} - Valor Pago: R$ ${item.cost.toFixed(2)} - ${item.current_stock} ${item.unit}`
+      )
+    ].sort().join('\n');
+
+    const text = `*ESTOQUE ATUAL*\n\n${allItems}`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Dados copiados para a área de transferência!');
+    }).catch(() => {
+      toast.error('Não foi possível copiar os dados.');
+    });
+  };
+
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Gerenciamento de Estoque</h1>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Gerenciamento de Estoque</h1>
+        <div className="flex flex-wrap gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <FileDown className="h-4 w-4" />
+                Exportar
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={exportStockCSV}>
+                <FileDown className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyStockData}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Dados
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {activeTab === 'ingredients' && (
+            <Dialog open={isAddIngredientOpen} onOpenChange={setIsAddIngredientOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="min-h-[44px]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Adicionar Ingrediente</span>
+                  <span className="sm:hidden">Adicionar</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Ingrediente</DialogTitle>
+                </DialogHeader>
+                <IngredientForm
+                  ingredient={newIngredient}
+                  onChange={(field, value) => setNewIngredient(prev => ({ ...prev, [field]: value }))}
+                  onSubmit={handleAddIngredient}
+                  onCancel={() => setIsAddIngredientOpen(false)}
+                  submitLabel="Adicionar Ingrediente"
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {activeTab === 'external_products' && (
+            <Dialog open={isAddExternalProductOpen} onOpenChange={setIsAddExternalProductOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="min-h-[44px]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Adicionar Produto Externo</span>
+                  <span className="sm:hidden">Adicionar</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Produto Externo</DialogTitle>
+                </DialogHeader>
+                <ExternalProductForm
+                  product={newExternalProduct}
+                  onChange={(field, value) => setNewExternalProduct(prev => ({ ...prev, [field]: value }))}
+                  onSubmit={handleAddExternalProduct}
+                  onCancel={() => setIsAddExternalProductOpen(false)}
+                  submitLabel="Adicionar Produto"
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {activeTab === 'products' && (
+            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="min-h-[44px]">
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Adicionar Produto</span>
+                  <span className="sm:hidden">Adicionar</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Produto</DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                  product={newProduct}
+                  onChange={(field, value) => setNewProduct(prev => ({ ...prev, [field]: value }))}
+                  onSubmit={handleAddProduct}
+                  onCancel={() => setIsAddProductOpen(false)}
+                  submitLabel="Adicionar Produto"
+                />
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -249,7 +409,7 @@ export const StockManagement = () => {
               <span className="hidden sm:inline">Ingredientes</span>
               <span className="sm:hidden">Ingred.</span>
             </TabsTrigger>
-            <TabsTrigger value="external-products" className="flex items-center gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="external_products" className="flex items-center gap-2 text-xs sm:text-sm">
               <ShoppingCart className="h-4 w-4" />
               <span className="hidden sm:inline">Produtos Externos</span>
               <span className="sm:hidden">Externos</span>
@@ -276,27 +436,6 @@ export const StockManagement = () => {
         <TabsContent value="ingredients" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Ingredientes</h2>
-            <Dialog open={isAddIngredientOpen} onOpenChange={setIsAddIngredientOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="min-h-[44px]">
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Adicionar Ingrediente</span>
-                  <span className="sm:hidden">Adicionar</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Adicionar Novo Ingrediente</DialogTitle>
-                </DialogHeader>
-                <IngredientForm
-                  ingredient={newIngredient}
-                  onChange={(field, value) => setNewIngredient(prev => ({ ...prev, [field]: value }))}
-                  onSubmit={handleAddIngredient}
-                  onCancel={() => setIsAddIngredientOpen(false)}
-                  submitLabel="Adicionar Ingrediente"
-                />
-              </DialogContent>
-            </Dialog>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -320,30 +459,9 @@ export const StockManagement = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="external-products" className="space-y-4">
+        <TabsContent value="external_products" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Produtos Externos</h2>
-            <Dialog open={isAddExternalProductOpen} onOpenChange={setIsAddExternalProductOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="min-h-[44px]">
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Adicionar Produto Externo</span>
-                  <span className="sm:hidden">Adicionar</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Adicionar Novo Produto Externo</DialogTitle>
-                </DialogHeader>
-                <ExternalProductForm
-                  product={newExternalProduct}
-                  onChange={(field, value) => setNewExternalProduct(prev => ({ ...prev, [field]: value }))}
-                  onSubmit={handleAddExternalProduct}
-                  onCancel={() => setIsAddExternalProductOpen(false)}
-                  submitLabel="Adicionar Produto"
-                />
-              </DialogContent>
-            </Dialog>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -370,27 +488,6 @@ export const StockManagement = () => {
         <TabsContent value="products" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Produtos (Comidas)</h2>
-            <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="min-h-[44px]">
-                  <Plus className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">Adicionar Produto</span>
-                  <span className="sm:hidden">Adicionar</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeader>
-                  <DialogTitle>Adicionar Novo Produto</DialogTitle>
-                </DialogHeader>
-                <ProductForm
-                  product={newProduct}
-                  onChange={(field, value) => setNewProduct(prev => ({ ...prev, [field]: value }))}
-                  onSubmit={handleAddProduct}
-                  onCancel={() => setIsAddProductOpen(false)}
-                  submitLabel="Adicionar Produto"
-                />
-              </DialogContent>
-            </Dialog>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
