@@ -70,7 +70,11 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
     if (existingItem) {
       setSelectedItems(prev => prev.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
+          ? {
+              ...item,
+              quantity: item.quantity + 1,
+              totalPrice: (item.quantity + 1) * item.unitPrice
+            }
           : item
       ));
     } else {
@@ -107,37 +111,10 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   };
 
   const createDirectSale = async () => {
-    if (selectedItems.length === 0) {
+    if (!currentUser || !currentCashRegister) {
       toast({
         title: "Erro",
-        description: "Adicione pelo menos um produto à venda.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!currentCashRegister) {
-      toast({
-        title: "Erro",
-        description: "Não há caixa aberto para registrar a venda.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (remainingAmount > 0) {
-      toast({
-        title: "Erro",
-        description: "O valor total dos pagamentos não cobre o valor da venda.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (remainingAmount < 0) {
-      toast({
-        title: "Erro",
-        description: "O valor total dos pagamentos excede o valor da venda.",
+        description: "Usuário não autenticado ou caixa não está aberto",
         variant: "destructive"
       });
       return;
@@ -159,7 +136,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
             product_type: item.product_type
           }
         })),
-        currentUser!.id,
+        currentUser.id,
         'Venda Direta'
       );
 
@@ -173,24 +150,28 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         }
       }
 
+      // Formatar os itens para o formato esperado pelo serviço
+      const formattedItems = selectedItems.map(item => ({
+        id: '',
+        product_id: item.productId,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.totalPrice,
+        product_type: item.product_type
+      }));
+
       await addSale({
         total,
         subtotal: total,
         tax: 0,
         payments,
-        userId: currentUser!.id,
-        customerName: customerName || undefined,
+        user_id: currentUser.id,
+        customer_name: customerName || undefined,
         is_direct_sale: true,
         cash_register_id: currentCashRegister.id,
-        items: selectedItems.map(item => ({
-          id: '',
-          productId: item.productId,
-          product_name: item.product_name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.totalPrice,
-          product_type: item.product_type
-        }))
+        items: formattedItems,
+        order_id: ''
       });
 
       toast({

@@ -286,12 +286,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addSale = async (sale: Omit<Sale, 'id' | 'createdAt'>) => {
+  const addSale = async (saleData: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
-      await salesService.addSale(sale, currentUser!, currentCashRegister!);
-      await refreshData();
+      const result = await salesService.addSale(saleData, currentUser!, currentCashRegister!);
+      
+      // Formatar os dados da venda antes de adicionar ao estado
+      const newSale: Sale = {
+        id: result.id,
+        items: saleData.items.map(item => ({
+          id: item.id || '',
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unit_price),
+          total_price: Number(item.total_price),
+          product_type: item.product_type
+        })),
+        total: Number(saleData.total),
+        subtotal: Number(saleData.subtotal),
+        tax: Number(saleData.tax),
+        payments: saleData.payments.map(p => ({
+          method: p.method,
+          amount: Number(p.amount)
+        })),
+        user_id: saleData.user_id,
+        cash_register_id: saleData.cash_register_id,
+        order_id: saleData.order_id || '',
+        is_direct_sale: saleData.is_direct_sale,
+        customer_name: saleData.customer_name,
+        createdAt: new Date().toISOString()
+      };
+
+      setSales(prev => [newSale, ...prev]);
+
+      return result;
     } catch (error) {
-      console.error('Error adding sale:', error);
+      console.error('Erro ao adicionar venda:', error);
       throw error;
     }
   };

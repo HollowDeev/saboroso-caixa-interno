@@ -1,5 +1,19 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Sale, User, CashRegister } from '@/types';
+import { Sale, User, CashRegister, PaymentMethod } from '@/types';
+
+interface SaleItem {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  product_type: string;
+}
+
+interface Payment {
+  method: PaymentMethod;
+  amount: number;
+}
 
 export const addSale = async (
   sale: Omit<Sale, 'id' | 'createdAt'>,
@@ -10,32 +24,37 @@ export const addSale = async (
   if (!currentCashRegister) throw new Error('Não há caixa aberto');
 
   const ownerId = currentUser.role === 'employee'
-    ? (currentUser as any).owner_id || currentUser.id
+    ? currentUser.owner_id || currentUser.id
     : currentUser.id;
 
   // CORRIGIDO: usar ownerId para user_id quando for funcionário  
   const userIdForSale = currentUser.role === 'employee' ? ownerId : currentUser.id;
 
   // Converter os itens para o formato esperado pelo Supabase
-  const formattedItems = sale.items.map(item => ({
-    product_id: item.productId,
+  const formattedItems: SaleItem[] = sale.items.map(item => ({
+    product_id: item.product_id,
     product_name: item.product_name,
-    quantity: item.quantity,
-    unit_price: item.unitPrice,
-    total_price: item.totalPrice,
+    quantity: Number(item.quantity),
+    unit_price: Number(item.unit_price),
+    total_price: Number(item.total_price),
     product_type: item.product_type
+  }));
+
+  const formattedPayments: Payment[] = sale.payments.map(p => ({
+    method: p.method,
+    amount: Number(p.amount)
   }));
 
   const { data, error } = await supabase
     .from('sales')
     .insert({
       user_id: userIdForSale,
-      customer_name: sale.customerName,
+      customer_name: sale.customer_name,
       items: formattedItems,
-      subtotal: sale.total,
-      tax: 0,
-      total: sale.total,
-      payments: sale.payments,
+      subtotal: Number(sale.subtotal),
+      tax: Number(sale.tax),
+      total: Number(sale.total),
+      payments: formattedPayments,
       cash_register_id: sale.cash_register_id,
       order_id: sale.order_id,
       is_direct_sale: sale.is_direct_sale
@@ -49,13 +68,15 @@ export const addSale = async (
   const { error: updateError } = await supabase
     .from('cash_registers')
     .update({
-      total_sales: currentCashRegister.total_sales + sale.total,
+      total_sales: currentCashRegister.total_sales + Number(sale.total),
       total_orders: currentCashRegister.total_orders + 1,
       updated_at: new Date().toISOString()
     })
     .eq('id', currentCashRegister.id);
 
   if (updateError) throw updateError;
+
+  return data;
 };
 
 export const updateSale = async (id: string, updates: Partial<Sale>) => {

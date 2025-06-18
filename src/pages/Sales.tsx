@@ -66,15 +66,7 @@ type SaleItem = {
 };
 
 type SaleFromDB = Database['public']['Tables']['sales']['Row'] & {
-  items: Array<{
-    id: string;
-    product_id: string;
-    product_name: string;
-    quantity: number;
-    unit_price: number;
-    total_price: number;
-    product_type: string;
-  }> | null;
+  items: SaleItem[] | null;
   payments: Array<{ method: PaymentMethod; amount: number }> | null;
 };
 
@@ -99,7 +91,6 @@ export const Sales = () => {
 
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [cashRegisterSales, setCashRegisterSales] = useState<Sale[]>([]);
   const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
@@ -150,54 +141,6 @@ export const Sales = () => {
     totalSales - totalExpenses,
     [totalSales, totalExpenses]
   );
-
-  useEffect(() => {
-    const loadCashRegisterSales = async () => {
-      if (!currentCashRegister) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('sales')
-          .select('*')
-          .eq('cash_register_id', currentCashRegister.id)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const salesWithMappedData = (data as SaleFromDB[]).map(sale => ({
-          id: sale.id,
-          items: Array.isArray(sale.items) ? sale.items.map(item => ({
-            id: item?.id || '',
-            product_id: item?.product_id || '',
-            product_name: item?.product_name || 'Produto não identificado',
-            quantity: Number(item?.quantity) || 0,
-            unit_price: Number(item?.unit_price) || 0,
-            total_price: Number(item?.total_price) || 0,
-            product_type: item?.product_type || ''
-          })) : [],
-          subtotal: Number(sale.subtotal) || 0,
-          tax: Number(sale.tax) || 0,
-          total: Number(sale.total) || 0,
-          payments: Array.isArray(sale.payments) ? sale.payments.map(payment => ({
-            method: payment?.method || 'cash',
-            amount: Number(payment?.amount) || 0
-          })) : [],
-          customer_name: sale.customer_name || '',
-          user_id: sale.user_id || '',
-          cash_register_id: sale.cash_register_id || '',
-          order_id: sale.order_id || '',
-          is_direct_sale: Boolean(sale.is_direct_sale),
-          createdAt: sale.created_at || new Date().toISOString()
-        }));
-
-        setCashRegisterSales(salesWithMappedData);
-      } catch (error) {
-        console.error('Erro ao carregar vendas do caixa:', error);
-      }
-    };
-
-    loadCashRegisterSales();
-  }, [currentCashRegister]);
 
   useEffect(() => {
     if (saleToPrint) {
@@ -562,25 +505,25 @@ export const Sales = () => {
                       {sale.items?.map((item, index) => (
                         <div key={index} className="flex justify-between items-center text-sm">
                           <div className="flex items-center gap-2">
-                            <span>{item?.quantity || 0}x</span>
-                            <span>{item?.product_name || 'Produto não identificado'}</span>
+                            <span>{item.quantity}x</span>
+                            <span>{item.product_name}</span>
                           </div>
-                          <span>R$ {(item?.total_price || 0).toFixed(2)}</span>
+                          <span>R$ {Number(item.total_price).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
                     <div className="pt-2 border-t">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal:</span>
-                        <span>R$ {sale.subtotal.toFixed(2)}</span>
+                        <span>R$ {Number(sale.subtotal).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Taxa de Serviço:</span>
-                        <span>R$ {sale.tax.toFixed(2)}</span>
+                        <span>R$ {Number(sale.tax).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between font-bold">
                         <span>Total:</span>
-                        <span>R$ {sale.total.toFixed(2)}</span>
+                        <span>R$ {Number(sale.total).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

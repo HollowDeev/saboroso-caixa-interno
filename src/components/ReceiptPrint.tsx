@@ -36,6 +36,21 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
     return text + ' '.repeat(padding) + value;
   };
 
+  // Função para formatar valor monetário
+  const formatCurrency = (value: number) => `R$ ${value.toFixed(2)}`;
+
+  // Função para criar linha de produto
+  const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number) => {
+    const lines = [];
+    // Nome do produto
+    lines.push(name);
+    // Quantidade e valores alinhados à direita
+    const qtyAndPrices = `${quantity}x ${formatCurrency(unitPrice)}`;
+    const total = formatCurrency(totalPrice);
+    lines.push(rightAlign(qtyAndPrices, total));
+    return lines.join('\n');
+  };
+
   // Função para criar linha divisória
   const divider = '-'.repeat(32);
 
@@ -77,27 +92,30 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
       {divider}
       {'\n'}
       {items.map((item) => {
-        const quantity = typeof item.quantity === 'number' ? item.quantity : 0;
-        const unitPrice = typeof item.unit_price === 'number' ? item.unit_price : 0;
-        const totalPrice = typeof item.total_price === 'number' ? item.total_price : 0;
+        const quantity = Number(item.quantity) || 0;
+        const unitPrice = Number(item.unit_price) || 0;
+        const totalPrice = Number(item.total_price) || 0;
         const productName = item.product_name || 'Produto não identificado';
 
-        return `${productName}\n${quantity}x R$ ${unitPrice.toFixed(2)} = R$ ${totalPrice.toFixed(2)}\n`;
+        return formatProductLine(productName, quantity, unitPrice, totalPrice) + '\n';
       }).join('\n')}
       {divider}
       {'\n'}
-      {rightAlign('TOTAL:', `R$ ${total.toFixed(2)}`)}
+      {rightAlign('Subtotal:', formatCurrency(sale.subtotal))}
+      {'\n'}
+      {rightAlign('Taxa:', formatCurrency(sale.tax))}
+      {'\n'}
+      {rightAlign('TOTAL:', formatCurrency(total))}
       {'\n'}
       {divider}
       {'\n'}
-      PAGAMENTOS:
+      {centerLine('PAGAMENTOS')}
       {'\n'}
       {payments.map((payment) => {
-        const amount = typeof payment.amount === 'number' ? payment.amount : 0;
+        const amount = Number(payment.amount) || 0;
         const method = payment.method || 'Não especificado';
-        return rightAlign(getPaymentMethodLabel(method) + ':', `R$ ${amount.toFixed(2)}`);
-      }).join('\n')}
-      {'\n'}
+        return rightAlign(getPaymentMethodLabel(method) + ':', formatCurrency(amount)) + '\n';
+      }).join('')}
       {divider}
       {'\n'}
       {centerLine('Obrigado pela preferencia!')}
