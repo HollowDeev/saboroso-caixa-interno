@@ -593,6 +593,19 @@ export const Sales = () => {
         onClose={() => setIsExpenseModalOpen(false)}
       />
 
+      <OpenCashRegisterModal
+        isOpen={isOpenCashRegisterModalOpen}
+        onClose={() => setIsOpenCashRegisterModalOpen(false)}
+        onConfirm={handleOpenCashRegister}
+      />
+
+      <CloseCashRegisterModal
+        isOpen={isCloseCashRegisterModalOpen}
+        onClose={() => setIsCloseCashRegisterModalOpen(false)}
+        onConfirm={handleCloseCashRegister}
+        cashRegister={currentCashRegister}
+      />
+
       <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
