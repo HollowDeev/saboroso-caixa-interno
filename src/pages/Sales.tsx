@@ -263,7 +263,7 @@ export const Sales = () => {
         description: "Venda excluída com sucesso!"
       });
       setSaleToDelete(null);
-    } catch (error: any) {
+    } catch (error) {
       const apiError = error as ApiError;
       toast({
         title: "Erro ao excluir venda",
@@ -489,6 +489,8 @@ export const Sales = () => {
                               e.stopPropagation();
                               setSaleToDelete(sale);
                             }}
+                            disabled={isDeletingSale}
+                            className={cn(isDeletingSale && "opacity-50 cursor-not-allowed")}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -604,15 +606,9 @@ export const Sales = () => {
             <AlertDialogAction 
               onClick={() => saleToDelete && handleDeleteSale(saleToDelete)}
               disabled={isDeletingSale}
+              className={cn(isDeletingSale && "opacity-50 cursor-not-allowed")}
             >
-              {isDeletingSale ? (
-                <>
-                  <span className="animate-spin mr-2">◌</span>
-                  Excluindo...
-                </>
-              ) : (
-                'Excluir'
-              )}
+              {isDeletingSale ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
