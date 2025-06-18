@@ -352,7 +352,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser || !currentCashRegister) return;
 
     try {
-      await expenseService.addExpense(expense, currentUser.id, currentCashRegister.id);
+      await expenseService.addExpense(expense, currentUser, currentCashRegister, products, externalProducts);
       await refreshData();
     } catch (error) {
       console.error('Error adding expense:', error);
@@ -371,8 +371,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteExpense = async (id: string) => {
+    if (!currentUser || !currentCashRegister) {
+      throw new Error('Usuário não autenticado ou caixa não está aberto');
+    }
+
     try {
-      await expenseService.deleteExpense(id);
+      await expenseService.deleteExpense(
+        id,
+        currentUser,
+        currentCashRegister,
+        () => {
+          setExpenses(prevExpenses => prevExpenses.filter(e => e.id !== id));
+        }
+      );
       await refreshData();
     } catch (error) {
       console.error('Error deleting expense:', error);

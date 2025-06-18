@@ -3,7 +3,7 @@ import { User, CashRegister, Product, ExternalProduct, Expense, NewExpense } fro
 
 export const addExpense = async (
   expense: NewExpense,
-  currentUser: User,
+  currentUser: User & { owner_id?: string },
   currentCashRegister: CashRegister,
   products: Product[],
   externalProducts: ExternalProduct[]
@@ -12,7 +12,7 @@ export const addExpense = async (
   if (!currentCashRegister) throw new Error('Não há caixa aberto');
 
   const ownerId = currentUser.role === 'employee'
-    ? (currentUser as any).owner_id || currentUser.id
+    ? currentUser.owner_id || currentUser.id
     : currentUser.id;
 
   const userIdForExpense = currentUser.role === 'employee' ? ownerId : currentUser.id;
@@ -33,7 +33,7 @@ export const addExpense = async (
     }
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('expenses')
     .insert({
       user_id: userIdForExpense,
@@ -45,9 +45,7 @@ export const addExpense = async (
       amount: calculatedAmount,
       quantity: expense.quantity,
       reason: expense.reason
-    })
-    .select()
-    .single();
+    });
 
   if (error) throw error;
 
@@ -71,8 +69,6 @@ export const addExpense = async (
       `Perda/Consumo: ${expense.reason || expense.description}`
     );
   }
-
-  return data;
 };
 
 export const updateExpense = async (id: string, updates: Partial<Expense>) => {
