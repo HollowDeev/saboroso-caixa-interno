@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,7 @@ interface ExpenseModalProps {
   onClose: () => void;
 }
 
-export const ExpenseModal = ({ isOpen, onClose }: ExpenseModalProps) => {
+export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) => {
   const { products, externalProducts, addExpense, currentCashRegister, currentUser } = useApp();
   const [selectedTab, setSelectedTab] = useState('product_loss');
   const [selectedProduct, setSelectedProduct] = useState('');

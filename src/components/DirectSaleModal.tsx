@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ interface DirectSaleModalProps {
   onClose: () => void;
 }
 
-export const DirectSaleModal = ({ isOpen, onClose }: DirectSaleModalProps) => {
+export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClose }) => {
   const { products, externalProducts, currentUser, addSale, currentCashRegister } = useApp();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');

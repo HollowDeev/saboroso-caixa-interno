@@ -1,4 +1,3 @@
-
 import { Order, Sale, PaymentMethod } from '@/types';
 
 export const formatCurrency = (value: number): string => {
@@ -49,7 +48,7 @@ export const formatSales = (salesData: any[]): Sale[] => {
     subtotal: sale.subtotal,
     tax: sale.tax,
     total: sale.total,
-    paymentMethod: sale.payment_method as PaymentMethod,
+    payments: Array.isArray(sale.payments) ? sale.payments : [],
     customerName: sale.customer_name,
     userId: sale.user_id,
     cash_register_id: sale.cash_register_id,

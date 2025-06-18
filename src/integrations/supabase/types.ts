@@ -637,7 +637,7 @@ export type Database = {
           is_direct_sale: boolean
           items: Json | null
           order_id: string | null
-          payment_method: string
+          payments: Json | null
           subtotal: number
           tax: number
           total: number
@@ -651,7 +651,7 @@ export type Database = {
           is_direct_sale?: boolean
           items?: Json | null
           order_id?: string | null
-          payment_method: string
+          payments?: Json | null
           subtotal?: number
           tax?: number
           total: number
@@ -665,7 +665,7 @@ export type Database = {
           is_direct_sale?: boolean
           items?: Json | null
           order_id?: string | null
-          payment_method?: string
+          payments?: Json | null
           subtotal?: number
           tax?: number
           total?: number

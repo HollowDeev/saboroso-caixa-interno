@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, CashRegister, Product, ExternalProduct, Expense, NewExpense } from '@/types';
 
@@ -77,18 +76,16 @@ export const addExpense = async (
 };
 
 export const updateExpense = async (id: string, updates: Partial<Expense>) => {
-  const dbUpdates: any = {};
-  if (updates.description !== undefined) dbUpdates.description = updates.description;
-  if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
-  if (updates.quantity !== undefined) dbUpdates.quantity = updates.quantity;
-  if (updates.reason !== undefined) dbUpdates.reason = updates.reason;
-
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('expenses')
-    .update(dbUpdates)
-    .eq('id', id);
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
 
   if (error) throw error;
+
+  return data;
 };
 
 export const deleteExpense = async (

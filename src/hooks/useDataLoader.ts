@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, Expense } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,8 +39,24 @@ export const useDataLoader = () => {
       // já que o auth.uid() não funciona para eles
       const isEmployee = currentUser.role === 'employee';
       
+      // Load cash register
+      console.log('💰 Loading cash register...');
+      const { data: cashRegisterData, error: cashRegisterError } = await supabase
+        .from('cash_registers')
+        .select('*')
+        .eq('owner_id', ownerId)
+        .eq('is_open', true)
+        .single();
+
+      if (cashRegisterError && cashRegisterError.code !== 'PGRST116') {
+        console.error('❌ Error loading cash register:', cashRegisterError);
+        throw cashRegisterError;
+      }
+      console.log('✅ Cash register loaded:', cashRegisterData?.id || 'No open cash register');
+      setCurrentCashRegister(cashRegisterData || null);
+
       // Load ingredients
-      console.log('📦 Loading ingredients...');
+      console.log('🥕 Loading ingredients...');
       const { data: ingredientsData, error: ingredientsError } = await supabase
         .from('ingredients')
         .select('*')
@@ -104,7 +119,7 @@ export const useDataLoader = () => {
       })));
 
       // Load external products
-      console.log('📱 Loading external products...');
+      console.log('📦 Loading external products...');
       const { data: externalProductsData, error: externalProductsError } = await supabase
         .from('external_products')
         .select('*')
@@ -118,72 +133,35 @@ export const useDataLoader = () => {
       console.log('✅ External products loaded:', externalProductsData?.length || 0, 'items');
       setExternalProducts(externalProductsData || []);
 
-      // Load current cash register
-      console.log('💰 Loading current cash register...');
-      const { data: cashRegisterData, error: currentCashRegisterError } = await supabase
-        .from('cash_registers')
+      // Load orders
+      console.log('📝 Loading orders...');
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
         .select('*')
-        .eq('owner_id', ownerId)
-        .eq('is_open', true)
-        .single();
+        .eq('cash_register_id', cashRegisterData?.id)
+        .order('created_at', { ascending: false });
 
-      if (currentCashRegisterError && currentCashRegisterError.code !== 'PGRST116') {
-        console.error('❌ Error loading cash register:', currentCashRegisterError);
-        throw currentCashRegisterError;
+      if (ordersError) {
+        console.error('❌ Error loading orders:', ordersError);
+        throw ordersError;
       }
+      console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
+      setOrders(formatOrders(ordersData || []));
 
-      console.log('✅ Current cash register:', cashRegisterData?.id || 'none');
-      setCurrentCashRegister(cashRegisterData || null);
+      // Load sales
+      console.log('💵 Loading sales...');
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select('*')
+        .eq('cash_register_id', cashRegisterData?.id)
+        .order('created_at', { ascending: false });
 
-      // Se há caixa aberto, carregar orders e sales
-      if (cashRegisterData) {
-        console.log('📋 Loading orders for cash register:', cashRegisterData.id);
-        
-        // Para orders, precisamos buscar por cash_register_id
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            order_items (
-              id,
-              product_id,
-              product_name,
-              quantity,
-              unit_price,
-              total_price,
-              product_type
-            )
-          `)
-          .eq('cash_register_id', cashRegisterData.id)
-          .order('created_at', { ascending: false });
-
-        if (ordersError) {
-          console.error('❌ Error loading orders:', ordersError);
-          throw ordersError;
-        }
-        console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
-        setOrders(formatOrders(ordersData || []));
-
-        console.log('💳 Loading sales for cash register:', cashRegisterData.id);
-        
-        // Para sales, precisamos buscar por cash_register_id
-        const { data: salesData, error: salesError } = await supabase
-          .from('sales')
-          .select('*')
-          .eq('cash_register_id', cashRegisterData.id)
-          .order('created_at', { ascending: false });
-
-        if (salesError) {
-          console.error('❌ Error loading sales:', salesError);
-          throw salesError;
-        }
-        console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
-        setSales(formatSales(salesData || []));
-      } else {
-        console.log('ℹ️ No open cash register found - clearing orders and sales');
-        setOrders([]);
-        setSales([]);
+      if (salesError) {
+        console.error('❌ Error loading sales:', salesError);
+        throw salesError;
       }
+      console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
+      setSales(formatSales(salesData || []));
 
       // Load service taxes
       console.log('🏷️ Loading service taxes...');

@@ -1,4 +1,3 @@
-
 // Core interfaces
 export interface User {
   id: string;
@@ -102,7 +101,10 @@ export interface Sale {
   subtotal: number;
   tax: number;
   total: number;
-  paymentMethod: PaymentMethod;
+  payments: Array<{
+    method: PaymentMethod;
+    amount: number;
+  }>;
   customerName?: string;
   userId: string;
   cash_register_id: string;
@@ -110,6 +112,20 @@ export interface Sale {
   is_direct_sale: boolean;
   createdAt: string;
 }
+
+export interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  type: ExpenseType;
+  quantity?: number;
+  created_at: string;
+  updated_at: string;
+  cash_register_id: string;
+  user_id: string;
+}
+
+export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';
 
 export interface ServiceTax {
   id: string;

@@ -119,8 +119,7 @@ export interface Sale {
     total_price: number;
     product_type: string;
   }>;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
 }
 
 export interface ServiceTax {
@@ -151,29 +150,27 @@ export interface CashRegister {
 // Expense interfaces
 export interface Expense {
   id: string;
+  description: string;
+  amount: number;
+  type: ExpenseType;
+  quantity?: number;
+  created_at: string;
+  updated_at: string;
   cash_register_id: string;
   user_id: string;
-  type: 'product_loss' | 'ingredient_loss' | 'other';
-  product_id?: string;
-  ingredient_ids?: string[];
-  description: string;
-  amount: number;
-  quantity?: number;
-  reason?: string;
-  created_at: string;
-}
-
-export interface NewExpense {
-  type: 'product_loss' | 'ingredient_loss' | 'other';
-  product_id?: string;
-  ingredient_ids?: string[];
-  description: string;
-  amount: number;
-  quantity?: number;
-  reason?: string;
 }
 
 export type ExpenseType = 'product_loss' | 'ingredient_loss' | 'other';
+
+export interface NewExpense {
+  description: string;
+  amount: number;
+  type: ExpenseType;
+  quantity?: number;
+  product_id?: string;
+  ingredient_ids?: string[];
+  reason?: string;
+}
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 export type PaymentMethod = 'cash' | 'card' | 'pix';
@@ -193,7 +190,7 @@ export interface AppContextType {
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
-  closeOrder: (orderId: string, paymentMethod: PaymentMethod) => Promise<void>;
+  closeOrder: (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>) => Promise<void>;
   addIngredient: (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateIngredient: (id: string, updates: Partial<Ingredient>) => Promise<void>;
   deleteIngredient: (id: string) => Promise<void>;
@@ -215,8 +212,8 @@ export interface AppContextType {
   openCashRegister: (amount: number) => Promise<void>;
   closeCashRegister: (amount: number) => Promise<void>;
   checkCashRegisterAccess: () => boolean;
-  refreshData: () => Promise<void>;
   updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 // Unit conversion types - aligned with unitConversion.ts

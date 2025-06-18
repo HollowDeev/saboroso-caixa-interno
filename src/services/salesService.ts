@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Sale, User, CashRegister } from '@/types';
 
@@ -36,7 +35,7 @@ export const addSale = async (
       subtotal: sale.total,
       tax: 0,
       total: sale.total,
-      payment_method: sale.paymentMethod,
+      payments: sale.payments,
       cash_register_id: sale.cash_register_id,
       order_id: sale.order_id,
       is_direct_sale: sale.is_direct_sale
@@ -66,7 +65,7 @@ export const updateSale = async (id: string, updates: Partial<Sale>) => {
   if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
   if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
   if (updates.total !== undefined) dbUpdates.total = updates.total;
-  if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
+  if (updates.payments !== undefined) dbUpdates.payments = updates.payments;
   if (updates.cash_register_id !== undefined) dbUpdates.cash_register_id = updates.cash_register_id;
   if (updates.order_id !== undefined) dbUpdates.order_id = updates.order_id;
   if (updates.is_direct_sale !== undefined) dbUpdates.is_direct_sale = updates.is_direct_sale;
