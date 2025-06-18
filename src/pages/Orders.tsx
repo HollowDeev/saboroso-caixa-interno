@@ -168,13 +168,6 @@ export const Orders = () => {
 
   return (
     <div className="space-y-6">
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-100 p-2 text-xs">
-          Debug: User: {currentUser?.id}, CashRegister: {currentCashRegister?.id},
-          Orders: {orders?.length}, Products: {products?.length}, External: {externalProducts?.length}
-        </div>
-      )}
-
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Comandas</h1>
