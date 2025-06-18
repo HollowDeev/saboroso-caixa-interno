@@ -208,19 +208,19 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">
             <div className="flex items-center">
-              {order.customerName && (
+              {order.customer_name && (
                 <>
                   <User className="h-4 w-4 mr-2" />
-                  {order.customerName}
+                  {order.customer_name}
                 </>
               )}
-              {order.tableNumber !== undefined && order.tableNumber !== null && (
+              {order.table_number !== undefined && order.table_number !== null && (
                 <>
                   <Hash className="h-4 w-4 ml-2 mr-2" />
-                  Mesa {order.tableNumber}
+                  Mesa {order.table_number}
                 </>
               )}
-              {!order.customerName && !order.tableNumber && (
+              {!order.customer_name && !order.table_number && (
                 <>
                   <Hash className="h-4 w-4 mr-2" />
                   Mesa S/N

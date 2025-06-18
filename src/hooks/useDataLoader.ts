@@ -137,7 +137,18 @@ export const useDataLoader = () => {
       console.log('📝 Loading orders...');
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          order_items (
+            id,
+            product_id,
+            product_name,
+            quantity,
+            unit_price,
+            total_price,
+            product_type
+          )
+        `)
         .eq('cash_register_id', cashRegisterData?.id)
         .order('created_at', { ascending: false });
 

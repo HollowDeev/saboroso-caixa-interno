@@ -90,6 +90,7 @@ export interface Order {
   tax: number;
   total: number;
   status: 'open' | 'closed';
+  payment_method?: PaymentMethod;
   user_id: string;
   cash_register_id: string;
   created_at: string;
@@ -98,7 +99,7 @@ export interface Order {
 
 export interface Sale {
   id: string;
-  order_id: string;
+  order_id: string | null;
   total: number;
   subtotal: number;
   tax: number;

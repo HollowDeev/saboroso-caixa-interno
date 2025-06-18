@@ -56,7 +56,7 @@ export const addSale = async (
       total: Number(sale.total),
       payments: formattedPayments,
       cash_register_id: sale.cash_register_id,
-      order_id: sale.order_id,
+      order_id: sale.order_id || null,
       is_direct_sale: sale.is_direct_sale
     })
     .select()

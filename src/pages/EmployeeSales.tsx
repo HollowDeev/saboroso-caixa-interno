@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ export const EmployeeSales = () => {
   const closedOrders = orders.filter(order => order.status === 'closed');
   const totalSales = closedOrders.reduce((sum, order) => sum + order.total, 0);
   const todaysSales = closedOrders.filter(
-    order => new Date(order.createdAt).toDateString() === new Date().toDateString()
+    order => new Date(order.created_at).toDateString() === new Date().toDateString()
   );
   const todaysTotal = todaysSales.reduce((sum, order) => sum + order.total, 0);
 
@@ -131,18 +130,18 @@ export const EmployeeSales = () => {
                           </div>
                           <div>
                             <p className="font-medium">
-                              {order.customerName || `Mesa ${order.tableNumber || 'S/N'}`}
+                              {order.customer_name || `Mesa ${order.table_number || 'S/N'}`}
                             </p>
                             <p className="text-sm text-gray-600">
-                              {new Date(order.createdAt).toLocaleTimeString()}
+                              {new Date(order.created_at).toLocaleTimeString()}
                             </p>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        {order.paymentMethod && (
-                          <Badge className={getPaymentMethodColor(order.paymentMethod)}>
-                            {getPaymentMethodText(order.paymentMethod)}
+                        {order.payment_method && (
+                          <Badge className={getPaymentMethodColor(order.payment_method)}>
+                            {getPaymentMethodText(order.payment_method)}
                           </Badge>
                         )}
                         <span className="font-bold text-lg">R$ {order.total.toFixed(2)}</span>
@@ -174,18 +173,18 @@ export const EmployeeSales = () => {
                           </div>
                           <div>
                             <p className="font-medium">
-                              {order.customerName || `Mesa ${order.tableNumber || 'S/N'}`}
+                              {order.customer_name || `Mesa ${order.table_number || 'S/N'}`}
                             </p>
                             <p className="text-sm text-gray-600">
-                              {new Date(order.createdAt).toLocaleDateString()} às {new Date(order.createdAt).toLocaleTimeString()}
+                              {new Date(order.created_at).toLocaleDateString()} às {new Date(order.created_at).toLocaleTimeString()}
                             </p>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
-                        {order.paymentMethod && (
-                          <Badge className={getPaymentMethodColor(order.paymentMethod)}>
-                            {getPaymentMethodText(order.paymentMethod)}
+                        {order.payment_method && (
+                          <Badge className={getPaymentMethodColor(order.payment_method)}>
+                            {getPaymentMethodText(order.payment_method)}
                           </Badge>
                         )}
                         <span className="font-bold text-lg">R$ {order.total.toFixed(2)}</span>

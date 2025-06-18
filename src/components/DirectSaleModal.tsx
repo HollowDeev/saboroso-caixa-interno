@@ -171,7 +171,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         is_direct_sale: true,
         cash_register_id: currentCashRegister.id,
         items: formattedItems,
-        order_id: ''
+        order_id: null
       });
 
       toast({

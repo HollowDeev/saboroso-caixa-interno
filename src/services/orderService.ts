@@ -1,54 +1,106 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Order, NewOrderItem, PaymentMethod, User, CashRegister } from '@/types';
+import { Order, OrderItem, NewOrderItem, PaymentMethod, User, CashRegister } from '@/types';
+import { PostgrestError } from '@supabase/supabase-js';
+
+interface OrderData {
+  user_id: string;
+  cash_register_id: string;
+  customer_name?: string | null;
+  table_number?: number | null;
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: 'open' | 'closed';
+}
+
+interface OrderItemData {
+  order_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  product_type: 'food' | 'external_product';
+  cash_register_id: string;
+}
+
+interface CreatedOrder extends OrderData {
+  id: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export const addOrder = async (
   order: Omit<Order, 'id' | 'created_at' | 'updated_at'>,
-  currentUser: User,
+  currentUser: User | null,
   currentCashRegister: CashRegister | null
-) => {
-  const ownerId = currentUser?.role === 'employee'
-    ? (currentUser as any).owner_id || currentUser.id
-    : currentUser?.id;
+): Promise<Order> => {
+  if (!currentUser) throw new Error('Usuário não autenticado');
+  if (!currentCashRegister) throw new Error('Não há caixa aberto');
+
+  const ownerId = currentUser.role === 'employee'
+    ? currentUser.owner_id || currentUser.id
+    : currentUser.id;
 
   // CORRIGIDO: usar ownerId para user_id quando for funcionário
-  const userIdForOrder = currentUser?.role === 'employee' ? ownerId : currentUser?.id;
+  const userIdForOrder = currentUser.role === 'employee' ? ownerId : currentUser.id;
 
-  // Primeiro, criar a comanda
-  const { data: orderData, error: orderError } = await supabase
-    .from('orders')
-    .insert([{
+  try {
+    // Primeiro, criar a comanda
+    const orderData: OrderData = {
       user_id: userIdForOrder,
-      cash_register_id: currentCashRegister?.id || '',
+      cash_register_id: currentCashRegister.id,
       customer_name: order.customer_name,
       table_number: order.table_number,
-      subtotal: order.subtotal,
-      tax: 0,
-      total: order.subtotal,
+      subtotal: Number(order.subtotal),
+      tax: Number(order.tax),
+      total: Number(order.total),
       status: order.status
-    }])
-    .select()
-    .single();
+    };
 
-  if (orderError) throw orderError;
+    const { data: createdOrder, error: orderError } = await supabase
+      .from('orders')
+      .insert(orderData)
+      .select()
+      .single();
 
-  // Depois, criar os itens da comanda
-  if (order.items && order.items.length > 0) {
-    const orderItems = order.items.map(item => ({
-      order_id: orderData.id,
-      product_id: item.productId,
-      product_name: item.product_name,
-      quantity: item.quantity,
-      unit_price: item.unitPrice,
-      total_price: item.totalPrice,
-      product_type: item.product_type,
-      cash_register_id: currentCashRegister?.id || ''
-    }));
+    if (orderError) throw orderError;
+    if (!createdOrder) throw new Error('Erro ao criar comanda: nenhum dado retornado');
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
+    // Depois, criar os itens da comanda
+    if (order.items && order.items.length > 0) {
+      const orderItems: OrderItemData[] = order.items.map(item => ({
+        order_id: createdOrder.id,
+        product_id: item.productId,
+        product_name: item.product?.name || item.product_name,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unitPrice),
+        total_price: Number(item.totalPrice),
+        product_type: item.product_type,
+        cash_register_id: currentCashRegister.id
+      }));
 
-    if (itemsError) throw itemsError;
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        // Se houver erro ao criar os itens, excluir a comanda para manter consistência
+        await supabase.from('orders').delete().eq('id', createdOrder.id);
+        throw itemsError;
+      }
+    }
+
+    // Retornar a comanda com os itens
+    return {
+      ...createdOrder,
+      items: order.items
+    } as Order;
+  } catch (error) {
+    if (error instanceof PostgrestError) {
+      throw new Error(`Erro ao criar comanda: ${error.message}`);
+    }
+    throw error;
   }
 };
 
