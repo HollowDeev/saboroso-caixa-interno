@@ -1,13 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle, Printer, TrendingDown, FileDown } from 'lucide-react';
+import { CalendarIcon, Download, CreditCard, DollarSign, BarChart3, Plus, Trash2, Edit, ChevronDown, CheckCircle, Printer, TrendingDown, FileDown, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -93,7 +99,6 @@ export const Sales = () => {
 
   const [isDirectSaleOpen, setIsDirectSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [dateFilter, setDateFilter] = useState<Date | undefined>(new Date());
   const [cashRegisterSales, setCashRegisterSales] = useState<Sale[]>([]);
   const [isOpenCashRegisterModalOpen, setIsOpenCashRegisterModalOpen] = useState(false);
   const [isCloseCashRegisterModalOpen, setIsCloseCashRegisterModalOpen] = useState(false);
@@ -103,6 +108,48 @@ export const Sales = () => {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
 
   const isOwner = checkCashRegisterAccess();
+
+  // Filtra vendas e despesas do caixa atual
+  const currentSales = useMemo(() =>
+    sales.filter(sale => sale.cash_register_id === currentCashRegister?.id),
+    [sales, currentCashRegister]
+  );
+
+  const currentExpenses = useMemo(() =>
+    expenses.filter(expense => expense.cash_register_id === currentCashRegister?.id),
+    [expenses, currentCashRegister]
+  );
+
+  // Calcula totais
+  const totalSales = useMemo(() =>
+    currentSales.reduce((sum, sale) => sum + sale.total, 0),
+    [currentSales]
+  );
+
+  const totalCashSales = useMemo(() =>
+    currentSales.reduce((sum, sale) => sum + (sale.payments.find(p => p.method === 'cash')?.amount || 0), 0),
+    [currentSales]
+  );
+
+  const totalCardSales = useMemo(() =>
+    currentSales.reduce((sum, sale) => sum + (sale.payments.find(p => p.method === 'card')?.amount || 0), 0),
+    [currentSales]
+  );
+
+  const totalPixSales = useMemo(() =>
+    currentSales.reduce((sum, sale) => sum + (sale.payments.find(p => p.method === 'pix')?.amount || 0), 0),
+    [currentSales]
+  );
+
+  const totalExpenses = useMemo(() =>
+    currentExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    [currentExpenses]
+  );
+
+  const totalProfit = useMemo(() =>
+    totalSales - totalExpenses,
+    [totalSales, totalExpenses]
+  );
 
   useEffect(() => {
     const loadCashRegisterSales = async () => {
@@ -162,29 +209,6 @@ export const Sales = () => {
     }
   }, [saleToPrint]);
 
-  const filteredSales = sales.filter(sale => {
-    if (!dateFilter) return true;
-    const saleDate = new Date(sale.createdAt);
-    return saleDate.toDateString() === dateFilter.toDateString();
-  });
-
-  const filteredExpenses = expenses.filter(expense => {
-    if (!dateFilter) return true;
-    const expenseDate = new Date(expense.created_at);
-    return expenseDate.toDateString() === dateFilter.toDateString();
-  });
-
-  const totalSales = filteredSales.reduce((sum, sale) => sum + sale.total, 0);
-  const totalCashSales = filteredSales
-    .reduce((sum, sale) => sum + (sale.payments.find(p => p.method === 'cash')?.amount || 0), 0);
-  const totalCardSales = filteredSales
-    .reduce((sum, sale) => sum + (sale.payments.find(p => p.method === 'card')?.amount || 0), 0);
-  const totalPixSales = filteredSales
-    .reduce((sum, sale) => sum + (sale.payments.find(p => p.method === 'pix')?.amount || 0), 0);
-
-  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalProfit = totalSales - totalExpenses;
-
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case 'cash': return 'Dinheiro';
@@ -215,7 +239,7 @@ export const Sales = () => {
   const exportSales = () => {
     const csvContent = [
       'Data,Cliente,Total,Taxa,Subtotal,Método de Pagamento,Tipo',
-      ...filteredSales.map(sale => [
+      ...currentSales.map(sale => [
         format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
         sale.customer_name || 'Cliente não informado',
         sale.total.toFixed(2),
@@ -230,11 +254,42 @@ export const Sales = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `vendas_${format(dateFilter || new Date(), 'dd-MM-yyyy')}.csv`);
+    link.setAttribute('download', `vendas_${format(new Date(), 'dd-MM-yyyy')}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const copyDataToClipboard = () => {
+    if (!currentCashRegister) return;
+
+    const salesText = currentSales.map(sale => {
+      const items = sale.items.map(item => `${item.quantity}x ${item.product_name}`).join(', ');
+      return `> ${sale.customer_name || 'Cliente não informado'} - ${items} - R$ ${sale.total.toFixed(2)}`;
+    }).join('\n');
+
+    const text = `*CAIXA*\n` +
+      ` - *Lucro Total:* R$ ${totalProfit.toFixed(2)}\n` +
+      ` - Despesa Total: R$ ${totalExpenses.toFixed(2)}\n\n` +
+      `*PAGAMENTOS*\n` +
+      ` - Dinheiro: R$ ${totalCashSales.toFixed(2)}\n` +
+      ` - Cartão: R$ ${totalCardSales.toFixed(2)}\n` +
+      ` - Pix: R$ ${totalPixSales.toFixed(2)}\n\n` +
+      `*VENDAS*\n\n${salesText}`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Sucesso",
+        description: "Dados copiados para a área de transferência!",
+      });
+    }).catch(() => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível copiar os dados.",
+        variant: "destructive"
+      });
+    });
   };
 
   const handleOpenCashRegister = async (amount: number) => {
@@ -294,18 +349,11 @@ export const Sales = () => {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold">Financeiro</h1>
-          <div className="flex items-center gap-2">
-            <DatePicker
-              selected={dateFilter}
-              onChange={(date) => setDateFilter(date)}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="Filtrar por data"
-              className="w-40"
-            />
-            <Button variant="outline" onClick={() => setDateFilter(undefined)}>
-              Limpar
-            </Button>
-          </div>
+          {currentCashRegister && (
+            <p className="text-sm text-muted-foreground">
+              Caixa aberto em {format(new Date(currentCashRegister.opened_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row items-start md:items-center gap-2">
@@ -315,22 +363,43 @@ export const Sales = () => {
             </Button>
           )}
           {isOwner && currentCashRegister && (
-            <Button onClick={() => setIsCloseCashRegisterModalOpen(true)}>
+            <Button onClick={() => setIsCloseCashRegisterModalOpen(true)} variant="destructive">
               Fechar Caixa
             </Button>
           )}
-          <Button onClick={() => setIsDirectSaleOpen(true)}>
+          <Button
+            onClick={() => setIsDirectSaleOpen(true)}
+            className="bg-green-500 hover:bg-green-600"
+          >
             <Plus className="h-4 w-4 mr-2" />
             Nova Venda
           </Button>
-          <Button onClick={() => setIsExpenseModalOpen(true)} variant="outline">
+          <Button
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+          >
             <TrendingDown className="h-4 w-4 mr-2" />
             Nova Despesa
           </Button>
-          <Button onClick={exportSales} variant="outline">
-            <FileDown className="h-4 w-4 mr-2" />
-            Exportar
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <FileDown className="h-4 w-4" />
+                Exportar
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={exportSales}>
+                <FileDown className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyDataToClipboard}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Dados
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -344,7 +413,7 @@ export const Sales = () => {
           <CardContent>
             <div className="text-2xl font-bold">R$ {totalSales.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {filteredSales.length} {filteredSales.length === 1 ? 'venda' : 'vendas'}
+              {currentSales.length} {currentSales.length === 1 ? 'venda' : 'vendas'}
             </p>
           </CardContent>
         </Card>
@@ -357,7 +426,7 @@ export const Sales = () => {
           <CardContent>
             <div className="text-2xl font-bold text-red-500">R$ {totalExpenses.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {filteredExpenses.length} {filteredExpenses.length === 1 ? 'despesa' : 'despesas'}
+              {currentExpenses.length} {currentExpenses.length === 1 ? 'despesa' : 'despesas'}
             </p>
           </CardContent>
         </Card>
@@ -372,7 +441,7 @@ export const Sales = () => {
               R$ {totalProfit.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {filteredExpenses.length} {filteredExpenses.length === 1 ? 'despesa' : 'despesas'}
+              {currentExpenses.length} {currentExpenses.length === 1 ? 'despesa' : 'despesas'}
             </p>
           </CardContent>
         </Card>
@@ -388,7 +457,7 @@ export const Sales = () => {
           <CardContent>
             <div className="text-2xl font-bold text-green-500">R$ {totalCashSales.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {filteredSales.filter(s => s.payments.some(p => p.method === 'cash')).length} pagamentos
+              {currentSales.filter(s => s.payments.some(p => p.method === 'cash')).length} pagamentos
             </p>
           </CardContent>
         </Card>
@@ -401,7 +470,7 @@ export const Sales = () => {
           <CardContent>
             <div className="text-2xl font-bold text-blue-500">R$ {totalCardSales.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {filteredSales.filter(s => s.payments.some(p => p.method === 'card')).length} pagamentos
+              {currentSales.filter(s => s.payments.some(p => p.method === 'card')).length} pagamentos
             </p>
           </CardContent>
         </Card>
@@ -416,7 +485,7 @@ export const Sales = () => {
           <CardContent>
             <div className="text-2xl font-bold text-purple-500">R$ {totalPixSales.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {filteredSales.filter(s => s.payments.some(p => p.method === 'pix')).length} pagamentos
+              {currentSales.filter(s => s.payments.some(p => p.method === 'pix')).length} pagamentos
             </p>
           </CardContent>
         </Card>
@@ -431,7 +500,7 @@ export const Sales = () => {
         <TabsContent value="sales" className="space-y-4">
           <h2 className="text-xl font-bold">Histórico de Vendas</h2>
           <Accordion type="single" collapsible className="space-y-2">
-            {filteredSales.map((sale) => (
+            {currentSales.map((sale) => (
               <AccordionItem key={sale.id} value={sale.id} className="border rounded-lg px-4">
                 <AccordionTrigger className="py-2 hover:no-underline">
                   <div className="flex items-center justify-between w-full">
@@ -535,7 +604,7 @@ export const Sales = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredExpenses.map((expense) => (
+                {currentExpenses.map((expense) => (
                   <TableRow key={expense.id}>
                     <TableCell>
                       {format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
