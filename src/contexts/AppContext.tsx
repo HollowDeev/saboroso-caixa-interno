@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useState,
@@ -29,7 +28,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [serviceTaxes, setServiceTaxes] = useState<ServiceTax[]>([]);
   const [currentCashRegister, setCurrentCashRegister] = useState<CashRegister | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  
+
   const { loadData, isLoading } = useDataLoader();
 
   const refreshData = () => loadData(
@@ -48,14 +47,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const authenticateEmployeeInSupabase = async (employeeId: string) => {
     try {
       console.log('🔐 Authenticating employee in Supabase:', employeeId);
-      
+
       // Criar uma sessão temporária para o funcionário
       // Como não podemos criar usuários auth reais para funcionários, 
       // vamos usar uma abordagem diferente - fazer o login como owner
       const employeeData = localStorage.getItem('employee_data');
       if (employeeData) {
         const employee = JSON.parse(employeeData);
-        
+
         // Fazer login como owner temporariamente para acessar dados
         const { data: ownerProfile, error: ownerError } = await supabase
           .from('profiles')
@@ -103,7 +102,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         owner_id: employee.owner_id
       });
       setIsEmployee(true);
-      
+
       // Autenticar funcionário no Supabase
       authenticateEmployeeInSupabase(employee.id);
     } else if (storedUser) {
@@ -189,14 +188,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const closeOrder = async (orderId: string, paymentMethod: PaymentMethod) => {
-    try {
-      await orderService.closeOrder(orderId, paymentMethod, currentUser!, currentCashRegister!);
-      await refreshData();
-    } catch (error) {
-      console.error('Error closing order:', error);
-      throw error;
+  const closeOrder = async (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>) => {
+    if (!currentUser || !currentCashRegister) {
+      throw new Error('Usuário ou caixa não encontrado');
     }
+
+    await orderService.closeOrder(orderId, payments, currentUser, currentCashRegister);
+    await refreshData();
   };
 
   const addIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => {

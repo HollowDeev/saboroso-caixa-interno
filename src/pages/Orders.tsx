@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +51,7 @@ export const Orders = () => {
           : item
       ));
     } else {
+      const isExternalProduct = 'current_stock' in product;
       const newItem: OrderItem = {
         id: `temp-${Date.now()}`,
         productId: product.id,
@@ -62,7 +62,8 @@ export const Orders = () => {
         },
         quantity: 1,
         unitPrice: product.price,
-        totalPrice: product.price
+        totalPrice: product.price,
+        product_type: isExternalProduct ? 'external_product' : 'food'
       };
       setSelectedProducts(prev => [...prev, newItem]);
     }
@@ -103,15 +104,16 @@ export const Orders = () => {
     try {
       const { subtotal, tax, total } = calculateTotal();
 
-      const newOrder: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
-        customerName: customerName || undefined,
-        tableNumber: tableNumber !== undefined && tableNumber !== null ? Number(tableNumber) : undefined,
+      const newOrder: Omit<Order, 'id' | 'created_at' | 'updated_at'> = {
+        customer_name: customerName || undefined,
+        table_number: tableNumber !== undefined && tableNumber !== null ? Number(tableNumber) : undefined,
         items: selectedProducts,
         subtotal,
         tax,
         total,
         status: 'open',
-        userId: currentUser!.id
+        user_id: currentUser!.id,
+        cash_register_id: currentCashRegister!.id
       };
 
       await addOrder(newOrder);
@@ -145,7 +147,7 @@ export const Orders = () => {
 
   const filteredOrders = orders.filter(order => {
     if (!currentCashRegister || order.cash_register_id !== currentCashRegister.id) return false;
-    
+
     if (activeTab === 'open') return order.status === 'open';
     if (activeTab === 'closed') return order.status === 'closed';
     return true;
@@ -164,7 +166,7 @@ export const Orders = () => {
     <div className="space-y-6">
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-gray-100 p-2 text-xs">
-          Debug: User: {currentUser?.id}, CashRegister: {currentCashRegister?.id}, 
+          Debug: User: {currentUser?.id}, CashRegister: {currentCashRegister?.id},
           Orders: {orders?.length}, Products: {products?.length}, External: {externalProducts?.length}
         </div>
       )}

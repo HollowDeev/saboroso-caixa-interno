@@ -1,4 +1,3 @@
-
 // Core interfaces
 export interface User {
   id: string;
@@ -69,6 +68,7 @@ export interface OrderItem {
   unitPrice: number;
   totalPrice: number;
   product_type: 'food' | 'external_product';
+  product?: Product | ExternalProduct;
 }
 
 export interface NewOrderItem {
@@ -76,38 +76,51 @@ export interface NewOrderItem {
   product_name: string;
   quantity: number;
   unitPrice: number;
+  totalPrice: number;
   product_type: 'food' | 'external_product';
+  product: Product | ExternalProduct;
 }
 
 export interface Order {
   id: string;
-  tableNumber?: number;
-  customerName?: string;
-  status: OrderStatus;
+  customer_name?: string;
+  table_number?: number;
   items: OrderItem[];
   subtotal: number;
   tax: number;
   total: number;
-  userId: string;
-  paymentMethod?: PaymentMethod;
+  status: 'open' | 'closed';
+  user_id: string;
   cash_register_id: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Sale {
   id: string;
-  items?: OrderItem[];
+  order_id: string;
+  total: number;
   subtotal: number;
   tax: number;
-  total: number;
-  paymentMethod: PaymentMethod;
-  customerName?: string;
-  userId: string;
-  order_id?: string;
+  payments: Array<{
+    method: PaymentMethod;
+    amount: number;
+  }>;
+  user_id: string;
   cash_register_id: string;
   is_direct_sale: boolean;
-  createdAt: string;
+  customer_name?: string;
+  items: Array<{
+    id: string;
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+    product_type: string;
+  }>;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ServiceTax {

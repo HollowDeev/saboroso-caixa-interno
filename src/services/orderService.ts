@@ -1,9 +1,8 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Order, NewOrderItem, PaymentMethod, User, CashRegister } from '@/types';
 
 export const addOrder = async (
-  order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>,
+  order: Omit<Order, 'id' | 'created_at' | 'updated_at'>,
   currentUser: User,
   currentCashRegister: CashRegister | null
 ) => {
@@ -20,13 +19,12 @@ export const addOrder = async (
     .insert([{
       user_id: userIdForOrder,
       cash_register_id: currentCashRegister?.id || '',
-      customer_name: order.customerName,
-      table_number: order.tableNumber,
+      customer_name: order.customer_name,
+      table_number: order.table_number,
       subtotal: order.subtotal,
       tax: 0,
       total: order.subtotal,
-      status: order.status,
-      payment_method: order.paymentMethod
+      status: order.status
     }])
     .select()
     .single();
@@ -38,11 +36,11 @@ export const addOrder = async (
     const orderItems = order.items.map(item => ({
       order_id: orderData.id,
       product_id: item.productId,
-      product_name: item.product.name,
+      product_name: item.product_name,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       total_price: item.totalPrice,
-      product_type: 'current_stock' in item.product ? 'external_product' : 'food',
+      product_type: item.product_type,
       cash_register_id: currentCashRegister?.id || ''
     }));
 
@@ -129,7 +127,7 @@ export const addItemToOrder = async (
 
 export const closeOrder = async (
   orderId: string,
-  paymentMethod: PaymentMethod,
+  payments: Array<{ method: PaymentMethod; amount: number }>,
   currentUser: User,
   currentCashRegister: CashRegister
 ) => {
@@ -182,7 +180,7 @@ export const closeOrder = async (
       total: order.total,
       subtotal: order.total,
       tax: 0,
-      payment_method: paymentMethod,
+      payments: payments,
       user_id: currentUser!.id,
       cash_register_id: currentCashRegister!.id,
       is_direct_sale: false,
@@ -207,7 +205,6 @@ export const closeOrder = async (
     .from('orders')
     .update({
       status: 'closed',
-      payment_method: paymentMethod,
       updated_at: new Date().toISOString()
     })
     .eq('id', orderId);
