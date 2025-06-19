@@ -123,34 +123,9 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
 
     try {
       setIsCreatingSale(true);
-      const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
-
-      const stockCheck = await processOrderItemsStockConsumption(
-        selectedItems.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          product: {
-            id: item.product!.id,
-            name: item.product!.name,
-            price: item.product!.price,
-            available: 'available' in item.product! ? item.product!.available : true,
-            current_stock: 'current_stock' in item.product! ? item.product!.current_stock : undefined,
-            product_type: item.product_type
-          }
-        })),
-        currentUser.id,
-        'Venda Direta'
-      );
-
-      if (!stockCheck.success && stockCheck.errors.some(error => error.includes('Estoque insuficiente'))) {
-        const proceed = window.confirm(
-          `Atenção: Alguns itens têm estoque insuficiente:\n\n${stockCheck.errors.join('\n')}\n\nDeseja continuar mesmo assim?`
-        );
-
-        if (!proceed) {
-          return;
-        }
-      }
+      
+      // Remover a verificação de estoque aqui, pois ela será feita no salesService.addSale
+      // A verificação duplicada estava causando problemas com a remoção de itens do estoque
 
       // Formatar os itens para o formato esperado pelo serviço
       const formattedItems = selectedItems.map(item => ({

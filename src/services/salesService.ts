@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { Sale, User, CashRegister, PaymentMethod } from '@/types';
+import { Database } from '@/integrations/supabase/types';
 
 interface SaleItem {
   product_id: string;
@@ -15,6 +16,9 @@ interface Payment {
   amount: number;
 }
 
+// Define a type alias for the sales insert type
+type SalesInsert = Database['public']['Tables']['sales']['Insert'];
+
 export const addSale = async (
   sale: Omit<Sale, 'id' | 'createdAt'>,
   currentUser: User,
@@ -27,7 +31,7 @@ export const addSale = async (
     ? currentUser.owner_id || currentUser.id
     : currentUser.id;
 
-  // CORRIGIDO: usar ownerId para user_id quando for funcionário  
+  // CORRIGIDO: usar ownerId para user_id quando for funcionário
   const userIdForSale = currentUser.role === 'employee' ? ownerId : currentUser.id;
 
   // Converter os itens para o formato esperado pelo Supabase
@@ -45,9 +49,49 @@ export const addSale = async (
     amount: Number(p.amount)
   }));
 
+  // Processar o consumo de estoque
+  const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+  console.log('Iniciando processamento de estoque para venda direta:', {
+    items: formattedItems,
+    userId: currentUser.id
+  });
+
+  const stockResult = await processOrderItemsStockConsumption(
+    sale.items.map(item => ({
+      productId: item.product_id,
+      quantity: item.quantity,
+      product: {
+        id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        available: true,
+        product_type: item.product_type
+      }
+    })),
+    currentUser!.id,
+    'Venda Direta Registrada'
+  );
+
+  console.log('Resultado do processamento de estoque:', stockResult);
+
+  // Se houver erros no processamento do estoque, não permitir a venda
+  if (!stockResult.success) {
+    const stockErrors = stockResult.errors.join('\n');
+    console.error('Erros no processamento de estoque:', stockErrors);
+    
+    // Se houver erros de estoque insuficiente, mostrar mensagem específica
+    if (stockResult.errors.some(error => error.includes('Estoque insuficiente'))) {
+      throw new Error(`Não é possível completar a venda: Estoque insuficiente\n\n${stockErrors}`);
+    } else {
+      throw new Error(`Erro ao processar estoque:\n\n${stockErrors}`);
+    }
+  }
+
+  const { id: cash_register_id } = currentCashRegister;
+
   const { data, error } = await supabase
     .from('sales')
-    .insert({
+    .insert<Database['public']['Tables']['sales']['Insert']>({
       user_id: userIdForSale,
       customer_name: sale.customer_name,
       items: formattedItems,
@@ -55,7 +99,7 @@ export const addSale = async (
       tax: Number(sale.tax),
       total: Number(sale.total),
       payments: formattedPayments,
-      cash_register_id: sale.cash_register_id,
+      cash_register_id: cash_register_id,
       order_id: sale.order_id || null,
       is_direct_sale: sale.is_direct_sale
     })
@@ -81,7 +125,7 @@ export const addSale = async (
 
 export const updateSale = async (id: string, updates: Partial<Sale>) => {
   const dbUpdates: any = {};
-  if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
+  if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
   if (updates.items !== undefined) dbUpdates.items = updates.items;
   if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
   if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
