@@ -13,10 +13,16 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/utils/dataFormatters';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileDown, Copy, ChevronDown, ShoppingCart } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const SaleCard = ({ sale, isOpen, onToggle }: { sale: Sale, isOpen: boolean, onToggle: () => void }) => {
   return (
@@ -132,6 +138,118 @@ export const CashRegisters = () => {
       : sales.filter(sale => sale.payment_method === selectedPaymentMethod);
   };
 
+  // Função para exportar dados dos caixas em CSV
+  const exportCashRegisters = () => {
+    const csvContent = [
+      'Data de Abertura,Data de Fechamento,Status,Valor de Abertura,Valor de Fechamento,Total de Vendas,Total de Despesas',
+      ...cashRegisters.map(register => [
+        register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+        register.closed_at ? format(new Date(register.closed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+        register.is_open ? 'Aberto' : 'Fechado',
+        register.opening_amount?.toFixed(2) ?? '',
+        register.closing_amount?.toFixed(2) ?? '',
+        (salesByRegister[register.id]?.reduce((acc, sale) => acc + sale.total, 0) || 0).toFixed(2),
+        (expensesByRegister[register.id]?.reduce((acc, exp) => acc + exp.amount, 0) || 0).toFixed(2),
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `caixas_${format(new Date(), 'dd-MM-yyyy')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Função para copiar resumo dos caixas
+  const copyCashRegistersToClipboard = () => {
+    const text = cashRegisters.map(register => {
+      const vendas = salesByRegister[register.id]?.reduce((acc, sale) => acc + sale.total, 0) || 0;
+      const despesas = expensesByRegister[register.id]?.reduce((acc, exp) => acc + exp.amount, 0) || 0;
+      return [
+        `Caixa (${register.is_open ? 'Aberto' : 'Fechado'})`,
+        `Abertura: ${register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
+        `Fechamento: ${register.closed_at ? format(new Date(register.closed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
+        `Valor de Abertura: R$ ${register.opening_amount?.toFixed(2) ?? '-'}`,
+        `Valor de Fechamento: R$ ${register.closing_amount?.toFixed(2) ?? '-'}`,
+        `Total de Vendas: R$ ${vendas.toFixed(2)}`,
+        `Total de Despesas: R$ ${despesas.toFixed(2)}`,
+        ''
+      ].join('\n');
+    }).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Dados copiados para a área de transferência!');
+    }).catch(() => {
+      alert('Não foi possível copiar os dados.');
+    });
+  };
+
+  // Funções auxiliares para exportação/cópia individual
+  const exportSingleCashRegister = (register) => {
+    const vendas = salesByRegister[register.id] || [];
+    const despesas = expensesByRegister[register.id]?.reduce((acc, exp) => acc + exp.amount, 0) || 0;
+    const csvHeader = 'Data de Abertura,Data de Fechamento,Status,Valor de Abertura,Valor de Fechamento,Total de Vendas,Total de Despesas';
+    const caixaLine = [
+      register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+      register.closed_at ? format(new Date(register.closed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+      register.is_open ? 'Aberto' : 'Fechado',
+      register.opening_amount?.toFixed(2) ?? '',
+      register.closing_amount?.toFixed(2) ?? '',
+      vendas.reduce((acc, sale) => acc + sale.total, 0).toFixed(2),
+      despesas.toFixed(2),
+    ].join(',');
+    const vendasHeader = '\n\nData,Cliente,Total,Taxa,Subtotal,Método de Pagamento,Tipo,Itens';
+    const vendasLines = vendas.map(sale => [
+      sale.createdAt ? format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '',
+      sale.customer_name || 'Cliente não informado',
+      sale.total?.toFixed(2) ?? '',
+      sale.tax?.toFixed(2) ?? '',
+      sale.subtotal?.toFixed(2) ?? '',
+      sale.payments ? sale.payments.map(p => p.method).join(' + ') : '',
+      sale.is_direct_sale ? 'Venda Direta' : 'Comanda',
+      sale.items ? sale.items.map(item => `${item.quantity}x ${item.product_name}`).join(' | ') : ''
+    ].join(',')).join('\n');
+    const csvContent = [csvHeader, caixaLine, vendasHeader, vendasLines].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `caixa_${format(new Date(register.opened_at), 'dd-MM-yyyy')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const copySingleCashRegisterToClipboard = (register) => {
+    const vendas = salesByRegister[register.id] || [];
+    const despesas = expensesByRegister[register.id]?.reduce((acc, exp) => acc + exp.amount, 0) || 0;
+    const vendasText = vendas.map(sale => {
+      const items = sale.items ? sale.items.map(item => `${item.quantity}x ${item.product_name}`).join(', ') : '';
+      return `> ${sale.customer_name || 'Cliente não informado'} - ${items} - R$ ${sale.total?.toFixed(2) ?? ''}`;
+    }).join('\n');
+    const text = [
+      `Caixa (${register.is_open ? 'Aberto' : 'Fechado'})`,
+      `Abertura: ${register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
+      `Fechamento: ${register.closed_at ? format(new Date(register.closed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
+      `Valor de Abertura: R$ ${register.opening_amount?.toFixed(2) ?? '-'}`,
+      `Valor de Fechamento: R$ ${register.closing_amount?.toFixed(2) ?? '-'}`,
+      `Total de Vendas: R$ ${vendas.reduce((acc, sale) => acc + sale.total, 0).toFixed(2)}`,
+      `Total de Despesas: R$ ${despesas.toFixed(2)}`,
+      '',
+      '*VENDAS*',
+      vendasText
+    ].join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Dados copiados para a área de transferência!');
+    }).catch(() => {
+      alert('Não foi possível copiar os dados.');
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -144,6 +262,25 @@ export const CashRegisters = () => {
     <div className="p-0 md:p-4 lg:p-6 space-y-4 md:space-y-6">
       <div className="flex justify-between items-center px-4 md:px-0">
         <h1 className="text-2xl font-bold">Caixas</h1>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm font-medium bg-white hover:bg-gray-50">
+              <FileDown className="h-4 w-4" />
+              Exportar
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={exportCashRegisters}>
+              <FileDown className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={copyCashRegistersToClipboard}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copiar Dados
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid gap-4">
@@ -151,13 +288,34 @@ export const CashRegisters = () => {
           {cashRegisters.map((register) => (
             <AccordionItem key={register.id} value={register.id} className="bg-white border-x-0 md:border-x md:rounded-lg mb-4 first:border-t-0 md:first:border-t last:border-b-0 md:last:border-b">
               <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left w-full">
                   <div className="text-sm md:text-base font-medium">
                     {format(new Date(register.opened_at), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </div>
                   <Badge variant={register.is_open ? "default" : "secondary"} className="w-fit">
                     {register.is_open ? "Aberto" : "Fechado"}
                   </Badge>
+                  {/* Botão de exportação individual do caixa */}
+                  <div className="ml-auto">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="inline-flex items-center gap-2 px-2 py-1 border rounded-md text-xs font-medium bg-white hover:bg-gray-50">
+                          <FileDown className="h-4 w-4" />
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={e => { e.stopPropagation(); exportSingleCashRegister(register); }}>
+                          <FileDown className="h-4 w-4 mr-2" />
+                          Exportar CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={e => { e.stopPropagation(); copySingleCashRegisterToClipboard(register); }}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copiar Dados
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
@@ -303,15 +461,13 @@ export const CashRegisters = () => {
                             <div className="p-4">
                               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                                 <div className="flex flex-col md:flex-row md:items-center gap-2">
-                                  <span className="text-sm whitespace-nowrap">
-                                    {sale.createdAt && isValid(new Date(sale.createdAt))
-                                      ? format(new Date(sale.createdAt), "HH:mm")
-                                      : "Horário não disponível"}
-                                  </span>
-                                  {sale.customer_name && (
-                                    <span className="text-sm text-gray-600">
-                                      {sale.customer_name}
-                                    </span>
+                                  {/* Prioridade: nome do cliente > horário > ícone */}
+                                  {sale.customer_name ? (
+                                    <span className="font-medium text-gray-900 truncate">{sale.customer_name}</span>
+                                  ) : sale.createdAt && isValid(new Date(sale.createdAt)) ? (
+                                    <span className="text-gray-600 text-xs">{format(new Date(sale.createdAt), 'HH:mm')}</span>
+                                  ) : (
+                                    <ShoppingCart className="h-4 w-4 text-gray-400" />
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto">

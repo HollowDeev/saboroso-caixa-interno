@@ -26,6 +26,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
   const [description, setDescription] = useState('');
   const [reason, setReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expenseKind, setExpenseKind] = useState<'consumo' | 'perda'>('consumo');
 
   const filteredExternalProducts = useMemo(() => {
     return externalProducts.filter(product =>
@@ -49,18 +50,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
     setDescription('');
     setReason('');
     setSelectedTab('product_loss');
+    setExpenseKind('consumo');
   };
 
   const calculateAmount = () => {
     if (selectedTab === 'product_loss' && selectedProduct && quantity) {
       const product = externalProducts.find(p => p.id === selectedProduct);
       if (product) {
-        return product.cost * quantity;
+        return expenseKind === 'consumo' ? product.cost * quantity : product.price * quantity;
       }
     } else if (selectedTab === 'ingredient_loss' && selectedFood && quantity) {
       const food = products.find(p => p.id === selectedFood);
       if (food) {
-        return food.cost * quantity;
+        return expenseKind === 'consumo' ? food.cost * quantity : food.price * quantity;
       }
     }
     return amount;
@@ -200,6 +202,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
             </div>
           )}
 
+          {(selectedTab === 'product_loss' || selectedTab === 'ingredient_loss') && (
+            <div className="mt-4">
+              <Label>Tipo de Despesa</Label>
+              <Select value={expenseKind} onValueChange={v => setExpenseKind(v as 'consumo' | 'perda')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consumo">Consumo</SelectItem>
+                  <SelectItem value="perda">Perda</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <TabsContent value="product_loss" className="space-y-4">
             <div>
               <Label>Produto Externo</Label>
@@ -210,7 +227,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                 <SelectContent>
                   {filteredExternalProducts.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
-                      {product.name} - R$ {product.cost.toFixed(2)} (Estoque: {product.current_stock})
+                      {product.name} - {expenseKind === 'consumo' ? `Custo: R$ ${product.cost.toFixed(2)}` : `Venda: R$ ${product.price.toFixed(2)}`} (Estoque: {product.current_stock})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -256,7 +273,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                 <SelectContent>
                   {filteredProducts.map((food) => (
                     <SelectItem key={food.id} value={food.id}>
-                      {food.name} - Custo: R$ {food.cost.toFixed(2)}
+                      {food.name} - {expenseKind === 'consumo' ? `Custo: R$ ${food.cost.toFixed(2)}` : `Venda: R$ ${food.price.toFixed(2)}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
