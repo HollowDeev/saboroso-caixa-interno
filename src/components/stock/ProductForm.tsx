@@ -86,10 +86,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const addIngredient = () => {
     const newIngredient: ProductIngredient = {
       ingredient_id: '',
+      ingredient_name: '',
       quantity: 0,
-      unit: ''  // Deixar vazio até que o ingrediente seja selecionado
+      unit: 'unidade'
     };
-    console.log('Adicionando novo ingrediente:', newIngredient);
     onChange('ingredients', [...product.ingredients, newIngredient]);
   };
 
@@ -99,50 +99,28 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   const updateIngredient = (index: number, field: keyof ProductIngredient, value: string | number) => {
-    console.log('Atualizando ingrediente:', { field, value });
     const updatedIngredients = [...product.ingredients];
     
-    switch (field) {
-      case 'ingredient_id': {
-        const selectedIngredient = ingredients.find(i => i.id === value);
-        if (selectedIngredient?.unit) {
-          console.log('Ingrediente selecionado:', selectedIngredient);
-          // Mantém a unidade atual se já estiver definida e for válida para o ingrediente
-          const currentUnit = updatedIngredients[index].unit;
-          const availableUnits = getAvailableSubunits(selectedIngredient.unit as Unit);
-          const unit = availableUnits.includes(currentUnit) ? currentUnit : selectedIngredient.unit;
-          
-          updatedIngredients[index] = {
-            ingredient_id: value as string,
-            quantity: updatedIngredients[index].quantity || 0,
-            unit
-          };
-          console.log('Ingrediente atualizado:', updatedIngredients[index]);
-        } else {
-          updatedIngredients[index] = {
-            ingredient_id: value as string,
-            quantity: 0,
-            unit: 'unidade'
-          };
-        }
-        break;
-      }
-      case 'unit':
-        if (value) { // Só atualiza se houver um valor
-          updatedIngredients[index] = {
-            ...updatedIngredients[index],
-            unit: value as string
-          };
-        }
-        break;
-      case 'quantity':
+    if (field === 'ingredient_id') {
+      const selectedIngredient = ingredients.find(ing => ing.id === value);
+      if (selectedIngredient) {
+        console.log('Ingrediente selecionado:', selectedIngredient);
         updatedIngredients[index] = {
           ...updatedIngredients[index],
-          quantity: value as number
+          ingredient_id: value as string,
+          ingredient_name: selectedIngredient.name,
+          unit: selectedIngredient.unit,
+          quantity: updatedIngredients[index].quantity || 0
         };
-        break;
+        console.log('Ingrediente atualizado:', updatedIngredients[index]);
+      }
+    } else {
+      updatedIngredients[index] = {
+        ...updatedIngredients[index],
+        [field]: value
+      };
     }
-    
+
     onChange('ingredients', updatedIngredients);
   };
 
@@ -182,11 +160,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="prato_principal">Prato Principal</SelectItem>
-            <SelectItem value="sobremesa">Sobremesa</SelectItem>
+            <SelectItem value="comida">Comida</SelectItem>
             <SelectItem value="bebida">Bebida</SelectItem>
-            <SelectItem value="acompanhamento">Acompanhamento</SelectItem>
-            <SelectItem value="entrada">Entrada</SelectItem>
           </SelectContent>
         </Select>
       </div>

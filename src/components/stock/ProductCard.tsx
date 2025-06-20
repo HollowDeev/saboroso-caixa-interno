@@ -79,12 +79,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <div>
               <span className="font-medium text-gray-700 text-sm block mb-2">Ingredientes:</span>
               <div className="flex flex-wrap gap-2">
-                {product.ingredients.slice(0, 3).map((ing, index) => (
-                  <Badge key={index} variant="outline" className="text-xs py-1 px-2">
-                    <UtensilsCrossed className="h-3 w-3 mr-2" />
-                    {ing.quantity} {ing.unit}
-                  </Badge>
-                ))}
+                {product.ingredients.slice(0, 3).map((ing, index) => {
+                  console.log('Renderizando ingrediente:', ing);
+                  return (
+                    <Badge key={index} variant="outline" className="text-xs py-1 px-2">
+                      <UtensilsCrossed className="h-3 w-3 mr-2" />
+                      {ing.ingredient_name || 'Sem nome'}: {ing.quantity} {ing.unit}
+                    </Badge>
+                  );
+                })}
                 {product.ingredients.length > 3 && (
                   <Badge variant="outline" className="text-xs py-1 px-2">
                     +{product.ingredients.length - 3} mais

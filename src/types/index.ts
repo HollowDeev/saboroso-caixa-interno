@@ -34,16 +34,16 @@ export interface FoodIngredient {
 export interface Product {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   price: number;
   cost: number;
   available: boolean;
   category: string;
   preparation_time: number;
-  owner_id: string;
-  created_at: string;
-  updated_at: string;
-  ingredients?: FoodIngredient[];
+  ingredients: ProductIngredient[];
+  created_at?: string;
+  updated_at?: string;
+  owner_id?: string;
 }
 
 export interface ExternalProduct {
@@ -233,9 +233,14 @@ export interface UnitCategory {
 }
 
 export interface ProductIngredient {
+  id?: string;
+  food_id?: string;
   ingredient_id: string;
+  ingredient_name?: string;
   quantity: number;
   unit: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProductFormData {
