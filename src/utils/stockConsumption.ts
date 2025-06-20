@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { OrderItem } from '@/types';
+import { convertValue, Unit } from '@/utils/unitConversion';
 
 export interface IngredientConsumption {
   ingredientId: string;
@@ -225,11 +226,12 @@ export const processOrderItemsStockConsumption = async (
         for (const foodIngredient of foodIngredients) {
           console.log('Processando ingrediente:', foodIngredient);
           
-          // Converter quantidade para a unidade base (kg) se necessário
-          let quantityToConsume = foodIngredient.quantity;
-          if (foodIngredient.unit === 'g') {
-            quantityToConsume = foodIngredient.quantity / 1000;
-          }
+          // Converter quantidade para a unidade base do ingrediente
+          const quantityToConsume = convertValue(
+            foodIngredient.quantity,
+            foodIngredient.unit as Unit,
+            foodIngredient.ingredients.unit as Unit
+          );
 
           const totalQuantity = quantityToConsume * Math.abs(item.quantity);
           console.log('Quantidade total a consumir:', {
@@ -246,7 +248,7 @@ export const processOrderItemsStockConsumption = async (
           }
 
           if (item.quantity > 0 && foodIngredient.ingredients.current_stock < totalQuantity) {
-            errors.push(`Estoque insuficiente para ${foodIngredient.ingredients.name}. Disponível: ${foodIngredient.ingredients.current_stock}, Necessário: ${totalQuantity}`);
+            errors.push(`Estoque insuficiente para ${foodIngredient.ingredients.name}. Disponível: ${foodIngredient.ingredients.current_stock}${foodIngredient.ingredients.unit}, Necessário: ${totalQuantity}${foodIngredient.ingredients.unit}`);
             success = false;
             continue;
           }
@@ -359,15 +361,17 @@ export const consumeIngredientsFromStock = async (
         continue;
       }
 
-      let quantityInKg = ingredient.quantity;
-      if (ingredient.unit === 'g') {
-        quantityInKg = ingredient.quantity / 1000;
-      }
+      // Converter a quantidade para a unidade base do ingrediente
+      const quantityInBaseUnit = convertValue(
+        ingredient.quantity,
+        ingredient.unit as Unit,
+        currentIngredient.unit as Unit
+      );
 
-      const totalQuantityToConsume = quantityInKg * quantityMultiplier;
+      const totalQuantityToConsume = quantityInBaseUnit * quantityMultiplier;
 
       if (currentIngredient.current_stock < totalQuantityToConsume) {
-        errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}kg, Necessário: ${totalQuantityToConsume}kg`);
+        errors.push(`Estoque insuficiente para ${ingredient.ingredientName}. Disponível: ${currentIngredient.current_stock}${currentIngredient.unit}, Necessário: ${totalQuantityToConsume}${currentIngredient.unit}`);
         continue;
       }
 

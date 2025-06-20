@@ -1,4 +1,3 @@
-
 // Tipos de unidades disponíveis
 export type MassUnit = 'kg' | 'g' | 'mg';
 export type VolumeUnit = 'L' | 'ml';
@@ -84,4 +83,4 @@ export const convertToBaseUnit = (value: number, fromUnit: Unit, baseUnit: Unit)
 // Função para converter da unidade base
 export const convertFromBaseUnit = (value: number, baseUnit: Unit, toUnit: Unit): number => {
   return convertValue(value, baseUnit, toUnit);
-}; 
+};

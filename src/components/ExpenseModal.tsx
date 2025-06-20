@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useApp } from '@/contexts/AppContext';
 import { NewExpense } from '@/types';
 import { toast } from '@/components/ui/use-toast';
+import { Search } from 'lucide-react';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -24,6 +25,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
   const [amount, setAmount] = useState<number>(0);
   const [description, setDescription] = useState('');
   const [reason, setReason] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredExternalProducts = useMemo(() => {
+    return externalProducts.filter(product =>
+      product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [externalProducts, searchTerm]);
+
+  const filteredProducts = useMemo(() => {
+    return products
+      .filter(p => p.available)
+      .filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [products, searchTerm]);
 
   const resetForm = () => {
     setSelectedProduct('');
@@ -145,11 +161,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
 
       resetForm();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao registrar despesa:', error);
       toast({
         title: "Erro ao registrar despesa",
-        description: error.message || "Ocorreu um erro ao registrar a despesa. Tente novamente.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao registrar a despesa. Tente novamente.",
         variant: "destructive"
       });
     }
@@ -169,6 +185,21 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
             <TabsTrigger value="other">Outras Despesas</TabsTrigger>
           </TabsList>
 
+          {(selectedTab === 'product_loss' || selectedTab === 'ingredient_loss') && (
+            <div className="mt-4">
+              <Label>Pesquisar</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Digite para pesquisar..."
+                  className="pl-10"
+                />
+              </div>
+            </div>
+          )}
+
           <TabsContent value="product_loss" className="space-y-4">
             <div>
               <Label>Produto Externo</Label>
@@ -177,7 +208,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                   <SelectValue placeholder="Selecione um produto" />
                 </SelectTrigger>
                 <SelectContent>
-                  {externalProducts.map((product) => (
+                  {filteredExternalProducts.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name} - R$ {product.cost.toFixed(2)} (Estoque: {product.current_stock})
                     </SelectItem>
@@ -223,7 +254,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
                   <SelectValue placeholder="Selecione uma comida" />
                 </SelectTrigger>
                 <SelectContent>
-                  {products.filter(p => p.available).map((food) => (
+                  {filteredProducts.map((food) => (
                     <SelectItem key={food.id} value={food.id}>
                       {food.name} - Custo: R$ {food.cost.toFixed(2)}
                     </SelectItem>

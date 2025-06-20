@@ -232,5 +232,17 @@ export interface UnitCategory {
   conversions: UnitConversion[];
 }
 
-// Export expense types for re-export
-export type { Expense, NewExpense, ExpenseType };
+export interface ProductIngredient {
+  ingredient_id: string;
+  quantity: number;
+  unit: string;
+}
+
+export interface ProductFormData {
+  name: string;
+  description: string | null;
+  price: number;
+  cost: number;
+  available: boolean;
+  ingredients: ProductIngredient[];
+}

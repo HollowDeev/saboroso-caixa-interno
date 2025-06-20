@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +13,7 @@ import { ProductFormData, ProductIngredient } from '@/types';
 
 interface ProductFormProps {
   product: ProductFormData;
-  onChange: (field: keyof ProductFormData, value: any) => void;
+  onChange: (field: keyof ProductFormData, value: ProductFormData[keyof ProductFormData]) => void;
   onSubmit: () => void;
   onCancel: () => void;
   submitLabel: string;
@@ -29,6 +28,29 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 }) => {
   const { ingredients } = useApp();
   const [calculatedCost, setCalculatedCost] = useState(0);
+
+  // Memoize os ingredientes e unidades disponíveis para cada ingrediente do produto
+  const productIngredientsData = useMemo(() => {
+    console.log('Recalculando productIngredientsData:', { ingredients, productIngredients: product.ingredients });
+    return product.ingredients.map(productIngredient => {
+      const ingredient = ingredients.find(i => i.id === productIngredient.ingredient_id);
+      let availableUnits: string[] = ['unidade'];
+      
+      if (ingredient?.unit) {
+        try {
+          console.log('Unidade base do ingrediente:', ingredient.unit);
+          availableUnits = getAvailableSubunits(ingredient.unit as Unit);
+          console.log('Unidades disponíveis:', availableUnits);
+        } catch (error) {
+          console.error('Erro ao obter subunidades:', error);
+          console.error('Unidade base inválida:', ingredient.unit);
+        }
+      }
+      
+      console.log('Dados do ingrediente:', { productIngredient, ingredient, availableUnits });
+      return { ingredient, availableUnits };
+    });
+  }, [ingredients, product.ingredients]);
 
   // Calcular custo automaticamente quando ingredientes mudarem
   useEffect(() => {
@@ -65,8 +87,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     const newIngredient: ProductIngredient = {
       ingredient_id: '',
       quantity: 0,
-      unit: 'kg'
+      unit: ''  // Deixar vazio até que o ingrediente seja selecionado
     };
+    console.log('Adicionando novo ingrediente:', newIngredient);
     onChange('ingredients', [...product.ingredients, newIngredient]);
   };
 
@@ -75,16 +98,49 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     onChange('ingredients', updatedIngredients);
   };
 
-  const updateIngredient = (index: number, field: keyof ProductIngredient, value: any) => {
+  const updateIngredient = (index: number, field: keyof ProductIngredient, value: string | number) => {
+    console.log('Atualizando ingrediente:', { field, value });
     const updatedIngredients = [...product.ingredients];
-    updatedIngredients[index] = { ...updatedIngredients[index], [field]: value };
     
-    // Se mudou o ingrediente, atualizar a unidade para a unidade base do ingrediente
-    if (field === 'ingredient_id') {
-      const selectedIngredient = ingredients.find(i => i.id === value);
-      if (selectedIngredient) {
-        updatedIngredients[index].unit = selectedIngredient.unit;
+    switch (field) {
+      case 'ingredient_id': {
+        const selectedIngredient = ingredients.find(i => i.id === value);
+        if (selectedIngredient?.unit) {
+          console.log('Ingrediente selecionado:', selectedIngredient);
+          // Mantém a unidade atual se já estiver definida e for válida para o ingrediente
+          const currentUnit = updatedIngredients[index].unit;
+          const availableUnits = getAvailableSubunits(selectedIngredient.unit as Unit);
+          const unit = availableUnits.includes(currentUnit) ? currentUnit : selectedIngredient.unit;
+          
+          updatedIngredients[index] = {
+            ingredient_id: value as string,
+            quantity: updatedIngredients[index].quantity || 0,
+            unit
+          };
+          console.log('Ingrediente atualizado:', updatedIngredients[index]);
+        } else {
+          updatedIngredients[index] = {
+            ingredient_id: value as string,
+            quantity: 0,
+            unit: 'unidade'
+          };
+        }
+        break;
       }
+      case 'unit':
+        if (value) { // Só atualiza se houver um valor
+          updatedIngredients[index] = {
+            ...updatedIngredients[index],
+            unit: value as string
+          };
+        }
+        break;
+      case 'quantity':
+        updatedIngredients[index] = {
+          ...updatedIngredients[index],
+          quantity: value as number
+        };
+        break;
     }
     
     onChange('ingredients', updatedIngredients);
@@ -92,8 +148,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   const getIngredientSubunits = (ingredientId: string) => {
     const ingredient = ingredients.find(i => i.id === ingredientId);
+    console.log('Buscando subunidades para ingrediente:', ingredient);
     if (!ingredient) return ['unidade'];
-    return getAvailableSubunits(ingredient.unit as Unit);
+    
+    const baseUnit = ingredient.unit as Unit;
+    console.log('Unidade base para subunidades:', baseUnit);
+    const subunits = getAvailableSubunits(baseUnit);
+    console.log('Subunidades disponíveis:', subunits);
+    return subunits;
   };
 
   return (
@@ -132,8 +194,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
 
         {product.ingredients.map((productIngredient, index) => {
-          const ingredient = ingredients.find(i => i.id === productIngredient.ingredient_id);
-          const availableUnits = getIngredientSubunits(productIngredient.ingredient_id);
+          const { ingredient, availableUnits } = productIngredientsData[index];
           
           return (
             <Card key={index} className="p-4">
@@ -141,8 +202,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 <div className="space-y-2">
                   <Label>Ingrediente</Label>
                   <Select
-                    value={productIngredient.ingredient_id}
-                    onValueChange={(value) => updateIngredient(index, 'ingredient_id', value)}
+                    value={productIngredient.ingredient_id || undefined}
+                    defaultValue=""
+                    onValueChange={(value) => {
+                      console.log('Selecionando ingrediente:', value);
+                      updateIngredient(index, 'ingredient_id', value);
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o ingrediente" />
@@ -173,11 +238,16 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   <Label>Unidade</Label>
                   <Select
                     value={productIngredient.unit}
-                    onValueChange={(value) => updateIngredient(index, 'unit', value)}
+                    onValueChange={(value) => {
+                      if (value) {
+                        console.log('Selecionando unidade:', value);
+                        updateIngredient(index, 'unit', value);
+                      }
+                    }}
                     disabled={!productIngredient.ingredient_id}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Selecione a unidade" />
                     </SelectTrigger>
                     <SelectContent>
                       {availableUnits.map((unit) => (
