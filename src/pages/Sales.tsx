@@ -315,20 +315,24 @@ export const Sales = () => {
               Fechar Caixa
             </Button>
           )}
-          <Button
-            onClick={() => setIsDirectSaleOpen(true)}
-            className="bg-green-500 hover:bg-green-600"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Venda
-          </Button>
-          <Button
-            onClick={() => setIsExpenseModalOpen(true)}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white"
-          >
-            <TrendingDown className="h-4 w-4 mr-2" />
-            Nova Despesa
-          </Button>
+          {currentCashRegister && (
+            <>
+              <Button
+                onClick={() => setIsDirectSaleOpen(true)}
+                className="bg-green-500 hover:bg-green-600"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Venda
+              </Button>
+              <Button
+                onClick={() => setIsExpenseModalOpen(true)}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white"
+              >
+                <TrendingDown className="h-4 w-4 mr-2" />
+                Nova Despesa
+              </Button>
+            </>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
