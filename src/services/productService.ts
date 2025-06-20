@@ -168,6 +168,16 @@ export const updateIngredient = async (id: string, updates: Partial<Ingredient>)
 };
 
 export const deleteIngredient = async (id: string) => {
+  // Verificar se o ingrediente está em uso em food_ingredients
+  const { data: foodIngredients, error: foodIngredientsError } = await supabase
+    .from('food_ingredients')
+    .select('id')
+    .eq('ingredient_id', id);
+
+  if (foodIngredientsError) throw foodIngredientsError;
+  if (foodIngredients && foodIngredients.length > 0) {
+    throw new Error('Não é possível excluir o ingrediente pois ele está sendo usado em uma ou mais comidas.');
+  }
   const { error } = await supabase
     .from('ingredients')
     .delete()

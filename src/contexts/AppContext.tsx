@@ -13,6 +13,7 @@ import * as productService from '@/services/productService';
 import * as salesService from '@/services/salesService';
 import * as cashRegisterService from '@/services/cashRegisterService';
 import * as expenseService from '@/services/expenseService';
+import { useToast } from '@/components/ui/use-toast';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -29,6 +30,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [expenses, setExpenses] = useState<Expense[]>([]);
 
   const { loadData, isLoading } = useDataLoader();
+  const { toast } = useToast();
 
   const refreshData = () => loadData(
     currentUser,
@@ -220,8 +222,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await productService.deleteIngredient(id);
       await refreshData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting ingredient:', error);
+      if (error.message && error.message.includes('usado em uma ou mais comidas')) {
+        toast({
+          title: 'Não é possível excluir',
+          description: 'Este ingrediente está sendo usado em uma ou mais comidas. Remova-o dos produtos antes de excluir.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro ao excluir ingrediente',
+          description: error.message || 'Não foi possível excluir o ingrediente.',
+          variant: 'destructive',
+        });
+      }
       throw error;
     }
   };
