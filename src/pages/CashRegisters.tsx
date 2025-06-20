@@ -24,20 +24,11 @@ const SaleCard = ({ sale, isOpen, onToggle }: { sale: Sale, isOpen: boolean, onT
       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-left p-4" onClick={onToggle}>
         <div className="flex items-center gap-2">
           <span className="text-sm">
-            {sale.created_at && isValid(new Date(sale.created_at))
-              ? format(new Date(sale.created_at), "HH:mm")
+            {sale.createdAt && isValid(new Date(sale.createdAt))
+              ? format(new Date(sale.createdAt), "HH:mm")
               : "Horário não disponível"} -
-            {sale.customerName || 'Venda Direta'}
+            {sale.customer_name || 'Venda Direta'}
           </span>
-          <Badge variant={
-            sale.payment_method === 'cash' ? 'default' :
-              sale.payment_method === 'card' ? 'secondary' :
-                'outline'
-          }>
-            {sale.payment_method === 'cash' ? 'Dinheiro' :
-              sale.payment_method === 'card' ? 'Cartão' :
-                'Pix'}
-          </Badge>
         </div>
         <span className="font-semibold">{formatCurrency(sale.total)}</span>
       </div>
@@ -48,7 +39,7 @@ const SaleCard = ({ sale, isOpen, onToggle }: { sale: Sale, isOpen: boolean, onT
             {sale.items?.map((item, index) => (
               <div key={index} className="flex justify-between text-sm">
                 <span>{item.quantity}x {item.product_name}</span>
-                <span>{formatCurrency(item.total_price || item.totalPrice)}</span>
+                <span>{formatCurrency(item.total_price)}</span>
               </div>
             ))}
             <div className="pt-2 border-t mt-2">
@@ -222,54 +213,59 @@ export const CashRegisters = () => {
 
                 {/* Cards de métodos de pagamento */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* Dinheiro */}
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">Vendas em Dinheiro</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Dinheiro</CardTitle>
+                      <svg className="h-4 w-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a5 5 0 00-10 0v2M5 9h14a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7a2 2 0 012-2zm7 4v2m-4 4h8" /></svg>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-green-500">
                         {formatCurrency(
-                          salesByRegister[register.id]?.filter(sale => sale.payment_method === 'cash')
-                            .reduce((acc, sale) => acc + sale.total, 0) || 0
+                          (salesByRegister[register.id]?.reduce((acc, sale) => acc + (sale.payments?.filter(p => p.method === 'cash').reduce((s, p) => s + p.amount, 0) || 0), 0)) || 0
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {salesByRegister[register.id]?.filter(sale => sale.payment_method === 'cash').length || 0} vendas
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {(salesByRegister[register.id]?.reduce((acc, sale) => acc + (sale.payments?.filter(p => p.method === 'cash').length || 0), 0)) || 0} pagamentos
+                      </p>
                     </CardContent>
                   </Card>
 
+                  {/* Cartão */}
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">Vendas em Cartão</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Cartão</CardTitle>
+                      <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2" /><path d="M2 10h20" /></svg>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-blue-500">
                         {formatCurrency(
-                          salesByRegister[register.id]?.filter(sale => sale.payment_method === 'card')
-                            .reduce((acc, sale) => acc + sale.total, 0) || 0
+                          (salesByRegister[register.id]?.reduce((acc, sale) => acc + (sale.payments?.filter(p => p.method === 'card').reduce((s, p) => s + p.amount, 0) || 0), 0)) || 0
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {salesByRegister[register.id]?.filter(sale => sale.payment_method === 'card').length || 0} vendas
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {(salesByRegister[register.id]?.reduce((acc, sale) => acc + (sale.payments?.filter(p => p.method === 'card').length || 0), 0)) || 0} pagamentos
+                      </p>
                     </CardContent>
                   </Card>
 
+                  {/* Pix */}
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">Vendas em Pix</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">PIX</CardTitle>
+                      <svg className="h-4 w-4 text-purple-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9.5 4V7M14.5 4V7M4 11.5H7M4 16.5H7M11.5 20H7C5.34315 20 4 18.6569 4 17V7C4 5.34315 5.34315 4 7 4H17C18.6569 4 20 5.34315 20 7V11.5M20 20L15 15M15 20L20 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-purple-500">
                         {formatCurrency(
-                          salesByRegister[register.id]?.filter(sale => sale.payment_method === 'pix')
-                            .reduce((acc, sale) => acc + sale.total, 0) || 0
+                          (salesByRegister[register.id]?.reduce((acc, sale) => acc + (sale.payments?.filter(p => p.method === 'pix').reduce((s, p) => s + p.amount, 0) || 0), 0)) || 0
                         )}
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {salesByRegister[register.id]?.filter(sale => sale.payment_method === 'pix').length || 0} vendas
-                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {(salesByRegister[register.id]?.reduce((acc, sale) => acc + (sale.payments?.filter(p => p.method === 'pix').length || 0), 0)) || 0} pagamentos
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
@@ -308,8 +304,8 @@ export const CashRegisters = () => {
                               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                                 <div className="flex flex-col md:flex-row md:items-center gap-2">
                                   <span className="text-sm whitespace-nowrap">
-                                    {sale.created_at && isValid(new Date(sale.created_at))
-                                      ? format(new Date(sale.created_at), "HH:mm")
+                                    {sale.createdAt && isValid(new Date(sale.createdAt))
+                                      ? format(new Date(sale.createdAt), "HH:mm")
                                       : "Horário não disponível"}
                                   </span>
                                   {sale.customer_name && (
@@ -319,15 +315,6 @@ export const CashRegisters = () => {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 ml-auto">
-                                  <Badge variant={
-                                    sale.payment_method === 'cash' ? 'default' :
-                                      sale.payment_method === 'card' ? 'secondary' :
-                                        'outline'
-                                  }>
-                                    {sale.payment_method === 'cash' ? 'Dinheiro' :
-                                      sale.payment_method === 'card' ? 'Cartão' :
-                                        'Pix'}
-                                  </Badge>
                                   <span className="font-semibold whitespace-nowrap">
                                     {formatCurrency(sale.total)}
                                   </span>
@@ -341,7 +328,7 @@ export const CashRegisters = () => {
                                   {sale.items?.map((item, index) => (
                                     <div key={index} className="flex justify-between text-sm">
                                       <span>{item.quantity}x {item.product_name}</span>
-                                      <span>{formatCurrency(item.total_price || item.totalPrice)}</span>
+                                      <span>{formatCurrency(item.total_price)}</span>
                                     </div>
                                   ))}
                                   <div className="pt-2 border-t mt-2">
