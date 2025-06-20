@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Product, ExternalProduct, Ingredient, User } from '@/types';
 
@@ -19,7 +18,9 @@ export const addProduct = async (
     .insert([{
       ...foodData,
       owner_id: ownerId,
-      deleted_at: null
+      deleted_at: null,
+      preparation_time: foodData.preparation_time || 0,
+      category: foodData.category || 'prato_principal'
     }])
     .select()
     .single();

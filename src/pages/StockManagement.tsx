@@ -72,6 +72,8 @@ export const StockManagement = () => {
     price: 0,
     cost: 0,
     available: true,
+    category: 'prato_principal',
+    preparation_time: 0,
     ingredients: [],
   });
 
@@ -105,9 +107,9 @@ export const StockManagement = () => {
       description: null,
       price: 0,
       cost: 0,
-      category: '',
-      preparation_time: 0,
       available: true,
+      category: 'prato_principal',
+      preparation_time: 0,
       ingredients: [],
     });
   };

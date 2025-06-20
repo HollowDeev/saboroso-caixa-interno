@@ -167,7 +167,51 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           type="text"
           value={product.name}
           onChange={(e) => onChange('name', e.target.value)}
-          placeholder="Nome do produto"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="category">Categoria *</Label>
+        <Select
+          value={product.category}
+          onValueChange={(value) => onChange('category', value)}
+          required
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione a categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="prato_principal">Prato Principal</SelectItem>
+            <SelectItem value="sobremesa">Sobremesa</SelectItem>
+            <SelectItem value="bebida">Bebida</SelectItem>
+            <SelectItem value="acompanhamento">Acompanhamento</SelectItem>
+            <SelectItem value="entrada">Entrada</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="price">Preço *</Label>
+        <Input
+          id="price"
+          type="number"
+          step="0.01"
+          min="0"
+          value={product.price}
+          onChange={(e) => onChange('price', parseFloat(e.target.value) || 0)}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="preparation_time">Tempo de Preparo (minutos) *</Label>
+        <Input
+          id="preparation_time"
+          type="number"
+          min="0"
+          value={product.preparation_time}
+          onChange={(e) => onChange('preparation_time', parseInt(e.target.value) || 0)}
           required
         />
       </div>
@@ -177,9 +221,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         <Textarea
           id="description"
           value={product.description || ''}
-          onChange={(e) => onChange('description', e.target.value || null)}
-          placeholder="Descrição do produto"
-          rows={3}
+          onChange={(e) => onChange('description', e.target.value)}
         />
       </div>
 
@@ -310,20 +352,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
         </CardContent>
       </Card>
-
-      <div className="space-y-2">
-        <Label htmlFor="price">Preço de Venda (R$) *</Label>
-        <Input
-          id="price"
-          type="number"
-          step="0.01"
-          min="0"
-          value={product.price}
-          onChange={(e) => onChange('price', parseFloat(e.target.value) || 0)}
-          placeholder="0,00"
-          required
-        />
-      </div>
 
       <div className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="outline" onClick={onCancel}>

@@ -244,5 +244,7 @@ export interface ProductFormData {
   price: number;
   cost: number;
   available: boolean;
+  category: string;
+  preparation_time: number;
   ingredients: ProductIngredient[];
 }
