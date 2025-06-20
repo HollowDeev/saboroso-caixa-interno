@@ -215,6 +215,7 @@ export interface AppContextType {
   checkCashRegisterAccess: () => boolean;
   updateStock: (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => Promise<void>;
   refreshData: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 // Unit conversion types - aligned with unitConversion.ts

@@ -10,6 +10,7 @@ import { Order, OrderItem, Product, NewOrderItem, ExternalProduct } from '@/type
 import { OrderCard } from '@/components/OrderCard';
 import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
 import { toast } from '@/hooks/use-toast';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const Orders = () => {
   const {
@@ -32,7 +33,17 @@ export const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const isOwner = checkCashRegisterAccess();
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('new') === '1') {
+      setIsNewOrderOpen(true);
+    }
+  }, [location.search]);
 
   const handleNewOrder = () => {
     if (!currentCashRegister) {

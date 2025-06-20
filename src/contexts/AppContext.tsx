@@ -455,6 +455,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return cashRegisterService.checkCashRegisterAccess(currentUser);
   };
 
+  const logout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('employee_data');
+    setCurrentUser(null);
+    setIsEmployee(false);
+    window.location.reload();
+  };
+
   const value: AppContextType = {
     currentUser,
     isEmployee,
@@ -493,7 +502,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     closeCashRegister,
     checkCashRegisterAccess,
     updateStock,
-    refreshData
+    refreshData,
+    logout
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

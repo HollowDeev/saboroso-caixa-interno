@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, Expense } from '@/types';
+import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, CashRegister, Expense, PaymentMethod } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { formatOrders, formatSales } from '@/utils/dataFormatters';
@@ -30,7 +30,7 @@ export const useDataLoader = () => {
 
       // Para funcionários, usar o owner_id; para admin, usar o próprio id
       const ownerId = currentUser.role === 'employee'
-        ? (currentUser as any).owner_id || currentUser.id
+        ? (currentUser as { owner_id?: string }).owner_id || currentUser.id
         : currentUser.id;
 
       console.log('👤 Using owner ID:', ownerId);
@@ -107,7 +107,14 @@ export const useDataLoader = () => {
         owner_id: food.owner_id,
         created_at: food.created_at,
         updated_at: food.updated_at,
-        ingredients: (food.food_ingredients || []).map((fi: any) => ({
+        ingredients: (Array.isArray(food.food_ingredients) ? food.food_ingredients : []).map((fi: {
+          id: string;
+          ingredient_id: string;
+          quantity: number;
+          unit: string;
+          created_at: string;
+          updated_at: string;
+        }) => ({
           id: fi.id,
           food_id: food.id,
           ingredient_id: fi.ingredient_id,
@@ -133,46 +140,65 @@ export const useDataLoader = () => {
       console.log('✅ External products loaded:', externalProductsData?.length || 0, 'items');
       setExternalProducts(externalProductsData || []);
 
-      // Load orders
-      console.log('📝 Loading orders...');
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            product_id,
-            product_name,
-            quantity,
-            unit_price,
-            total_price,
-            product_type
-          )
-        `)
-        .eq('cash_register_id', cashRegisterData?.id)
-        .order('created_at', { ascending: false });
+      // Se não houver caixa aberto, limpar orders e sales e pular buscas
+      if (!cashRegisterData) {
+        console.log('ℹ️ No open cash register - clearing orders and sales');
+        setOrders([]);
+        setSales([]);
+      } else {
+        // Load orders
+        console.log('📝 Loading orders...');
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              product_id,
+              product_name,
+              quantity,
+              unit_price,
+              total_price,
+              product_type
+            )
+          `)
+          .eq('cash_register_id', cashRegisterData?.id)
+          .order('created_at', { ascending: false });
 
-      if (ordersError) {
-        console.error('❌ Error loading orders:', ordersError);
-        throw ordersError;
+        if (ordersError) {
+          console.error('❌ Error loading orders:', ordersError);
+          throw ordersError;
+        }
+        console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
+        setOrders(formatOrders((ordersData || []).map(order => ({
+          ...order,
+          status: (order.status === 'open' || order.status === 'closed') ? order.status as 'open' | 'closed' : 'open',
+          payment_method: order.payment_method as PaymentMethod || undefined,
+        }))));
+
+        // Load sales
+        console.log('💵 Loading sales...');
+        const { data: salesData, error: salesError } = await supabase
+          .from('sales')
+          .select('*')
+          .eq('cash_register_id', cashRegisterData?.id)
+          .order('created_at', { ascending: false });
+
+        if (salesError) {
+          console.error('❌ Error loading sales:', salesError);
+          throw salesError;
+        }
+        console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
+        setSales(formatSales((salesData || []).map(sale => ({
+          ...sale,
+          items: Array.isArray(sale.items)
+            ? sale.items
+            : (typeof sale.items === 'string' ? JSON.parse(sale.items) : []),
+          payments: Array.isArray(sale.payments)
+            ? sale.payments
+            : (typeof sale.payments === 'string' ? JSON.parse(sale.payments) : []),
+        }))));
       }
-      console.log('✅ Orders loaded:', ordersData?.length || 0, 'items');
-      setOrders(formatOrders(ordersData || []));
-
-      // Load sales
-      console.log('💵 Loading sales...');
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('*')
-        .eq('cash_register_id', cashRegisterData?.id)
-        .order('created_at', { ascending: false });
-
-      if (salesError) {
-        console.error('❌ Error loading sales:', salesError);
-        throw salesError;
-      }
-      console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
-      setSales(formatSales(salesData || []));
 
       // Load service taxes
       console.log('🏷️ Loading service taxes...');
@@ -216,7 +242,8 @@ export const useDataLoader = () => {
           amount: expense.amount,
           quantity: expense.quantity,
           reason: expense.reason,
-          created_at: expense.created_at
+          created_at: expense.created_at,
+          updated_at: typeof expense['updated_at'] === 'string' ? expense['updated_at'] : '',
         }));
         
         setExpenses(mappedExpenses);
