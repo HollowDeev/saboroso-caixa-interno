@@ -21,6 +21,8 @@ import { ProductFormData } from '@/types';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { convertValue } from '@/utils/unitConversion';
+import { Unit } from '@/utils/unitConversion';
 
 export const StockManagement = () => {
   const {
@@ -166,23 +168,55 @@ export const StockManagement = () => {
     }
 
     try {
+      // Calcular custo total dos ingredientes (incluindo produtos externos)
+      const totalCost = newProduct.ingredients.reduce((total, ing) => {
+        if (ing.type === 'external_product') {
+          // Buscar produto externo
+          const prod = externalProducts.find(p => p.id === ing.ingredient_id);
+          if (!prod) return total;
+          let factor = 1;
+          if (ing.unit === '1 und') factor = 1;
+          else if (ing.unit === '1/2 und') factor = 0.5;
+          else if (ing.unit === '1/4 und') factor = 0.25;
+          return total + (factor * prod.cost * ing.quantity);
+        } else {
+          // Buscar ingrediente
+          const ingredient = ingredients.find(i => i.id === ing.ingredient_id);
+          if (!ingredient) return total;
+          // Converter unidade
+          let quantity = ing.quantity;
+          if (ingredient.unit !== ing.unit) {
+            quantity = convertValue(
+              ing.quantity,
+              ing.unit as Unit,
+              ingredient.unit as Unit
+            );
+          }
+          return total + (quantity * ingredient.cost);
+        }
+      }, 0);
+
       // Preparar os dados do produto para o backend
       const productData = {
         name: newProduct.name,
         description: newProduct.description,
         price: newProduct.price,
-        cost: newProduct.cost,
+        cost: totalCost,
         available: newProduct.available,
         owner_id: currentUser.id,
-        ingredients: newProduct.ingredients.map(ing => ({
-          id: '',
-          food_id: '',
-          ingredient_id: ing.ingredient_id,
-          quantity: ing.quantity,
-          unit: ing.unit,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })),
+        category: newProduct.category,
+        preparation_time: newProduct.preparation_time,
+        ingredients: newProduct.ingredients
+          .filter(ing => !ing.type || ing.type === 'ingredient') // Só ingredientes reais
+          .map(ing => ({
+            id: '',
+            food_id: '',
+            ingredient_id: ing.ingredient_id,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })),
       };
 
       await addProduct(productData);

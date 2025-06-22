@@ -242,6 +242,7 @@ export interface ProductIngredient {
   unit: string;
   created_at?: string;
   updated_at?: string;
+  type?: 'ingredient' | 'external_product';
 }
 
 export interface ProductFormData {

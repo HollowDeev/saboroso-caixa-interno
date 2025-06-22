@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/contexts/AppContext';
 import { Plus, Trash2 } from 'lucide-react';
 import { convertValue, getAvailableSubunits, Unit } from '@/utils/unitConversion';
-import { ProductFormData, ProductIngredient } from '@/types';
+import { ProductFormData, ProductIngredient, ExternalProduct, Ingredient } from '@/types';
 
 interface ProductFormProps {
   product: ProductFormData;
@@ -26,7 +26,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
   submitLabel
 }) => {
-  const { ingredients } = useApp();
+  const { ingredients, externalProducts } = useApp();
   const [calculatedCost, setCalculatedCost] = useState(0);
 
   // Memoize os ingredientes e unidades disponíveis para cada ingrediente do produto
@@ -88,7 +88,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       ingredient_id: '',
       ingredient_name: '',
       quantity: 0,
-      unit: 'unidade'
+      unit: 'unidade',
+      type: 'ingredient',
     };
     onChange('ingredients', [...product.ingredients, newIngredient]);
   };
@@ -98,21 +99,30 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     onChange('ingredients', updatedIngredients);
   };
 
-  const updateIngredient = (index: number, field: keyof ProductIngredient, value: string | number) => {
+  const updateIngredient = (index: number, field: keyof ProductIngredient | 'type', value: string | number) => {
     const updatedIngredients = [...product.ingredients];
-    
-    if (field === 'ingredient_id') {
-      const selectedIngredient = ingredients.find(ing => ing.id === value);
-      if (selectedIngredient) {
-        console.log('Ingrediente selecionado:', selectedIngredient);
+    if (field === 'type') {
+      updatedIngredients[index] = {
+        ...updatedIngredients[index],
+        type: value as 'ingredient' | 'external_product',
+        ingredient_id: '',
+        ingredient_name: '',
+        unit: 'unidade',
+        quantity: 0,
+      };
+    } else if (field === 'ingredient_id') {
+      const isExternal = updatedIngredients[index].type === 'external_product';
+      const selected = isExternal
+        ? externalProducts.find(prod => prod.id === value)
+        : ingredients.find(ing => ing.id === value);
+      if (selected) {
         updatedIngredients[index] = {
           ...updatedIngredients[index],
           ingredient_id: value as string,
-          ingredient_name: selectedIngredient.name,
-          unit: selectedIngredient.unit,
-          quantity: updatedIngredients[index].quantity || 0
+          ingredient_name: selected.name,
+          unit: !isExternal ? (selected as Ingredient).unit : 'unidade',
+          quantity: updatedIngredients[index].quantity || 0,
         };
-        console.log('Ingrediente atualizado:', updatedIngredients[index]);
       }
     } else {
       updatedIngredients[index] = {
@@ -120,7 +130,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         [field]: value
       };
     }
-
     onChange('ingredients', updatedIngredients);
   };
 
@@ -211,71 +220,75 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
 
         {product.ingredients.map((productIngredient, index) => {
-          const { ingredient, availableUnits } = productIngredientsData[index];
+          const isExternal = productIngredient.type === 'external_product';
+          const selectedList = isExternal ? externalProducts : ingredients;
+          const selected = selectedList.find(i => i.id === productIngredient.ingredient_id);
+          const availableUnits = isExternal ? ['1 und', '1/2 und', '1/4 und'] : getAvailableSubunits((selected && !isExternal) ? (selected as Ingredient).unit as Unit : 'unidade') || ['unidade'];
           
           return (
             <Card key={index} className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div className="space-y-2">
-                  <Label>Ingrediente</Label>
+                  <Label>Tipo</Label>
                   <Select
-                    value={productIngredient.ingredient_id || undefined}
-                    defaultValue=""
-                    onValueChange={(value) => {
-                      console.log('Selecionando ingrediente:', value);
-                      updateIngredient(index, 'ingredient_id', value);
-                    }}
+                    value={productIngredient.type || 'ingredient'}
+                    onValueChange={value => updateIngredient(index, 'type', value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione o ingrediente" />
+                      <SelectValue placeholder="Tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ingredients.map((ing) => (
-                        <SelectItem key={ing.id} value={ing.id}>
-                          {ing.name} ({ing.unit})
+                      <SelectItem value="ingredient">Ingrediente</SelectItem>
+                      <SelectItem value="external_product">Produto Externo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{isExternal ? 'Produto Externo' : 'Ingrediente'}</Label>
+                  <Select
+                    value={productIngredient.ingredient_id || undefined}
+                    onValueChange={value => updateIngredient(index, 'ingredient_id', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={isExternal ? 'Selecione o produto externo' : 'Selecione o ingrediente'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedList.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name}{isExternal && (item as ExternalProduct).brand ? ` (${(item as ExternalProduct).brand})` : ''}{!isExternal ? ` (${(item as Ingredient).unit})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="space-y-2">
                   <Label>Quantidade</Label>
                   <Input
                     type="number"
-                    step="0.001"
+                    step={isExternal ? 0.25 : 0.001}
                     min="0"
                     value={productIngredient.quantity}
-                    onChange={(e) => updateIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
+                    onChange={e => updateIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
                     placeholder="0"
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label>Unidade</Label>
                   <Select
                     value={productIngredient.unit}
-                    onValueChange={(value) => {
-                      if (value) {
-                        console.log('Selecionando unidade:', value);
-                        updateIngredient(index, 'unit', value);
-                      }
-                    }}
+                    onValueChange={value => updateIngredient(index, 'unit', value)}
                     disabled={!productIngredient.ingredient_id}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a unidade" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableUnits.map((unit) => (
-                        <SelectItem key={unit} value={unit}>
-                          {unit}
-                        </SelectItem>
+                      {availableUnits.map(unit => (
+                        <SelectItem key={unit} value={unit}>{unit}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-
                 <Button
                   type="button"
                   variant="outline"
@@ -286,20 +299,29 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-
-              {ingredient && productIngredient.quantity > 0 && (
+              {selected && productIngredient.quantity > 0 && (
                 <div className="mt-3 pt-3 border-t">
                   <div className="flex justify-between items-center text-sm">
-                    <span>Custo do ingrediente:</span>
+                    <span>Custo do {isExternal ? 'produto externo' : 'ingrediente'}:</span>
                     <Badge variant="secondary">
                       R$ {(() => {
                         try {
-                          const quantityInBaseUnit = convertValue(
-                            productIngredient.quantity,
-                            productIngredient.unit as Unit,
-                            ingredient.unit as Unit
-                          );
-                          return (quantityInBaseUnit * ingredient.cost).toFixed(2);
+                          let cost = 0;
+                          if (isExternal) {
+                            let factor = 1;
+                            if (productIngredient.unit === '1 und') factor = 1;
+                            else if (productIngredient.unit === '1/2 und') factor = 0.5;
+                            else if (productIngredient.unit === '1/4 und') factor = 0.25;
+                            cost = factor * (selected as ExternalProduct).cost * productIngredient.quantity;
+                          } else {
+                            const quantityInBaseUnit = convertValue(
+                              productIngredient.quantity,
+                              productIngredient.unit as Unit,
+                              (selected as Ingredient).unit as Unit
+                            );
+                            cost = quantityInBaseUnit * (selected as Ingredient).cost;
+                          }
+                          return cost.toFixed(2);
                         } catch (error) {
                           return '0.00';
                         }

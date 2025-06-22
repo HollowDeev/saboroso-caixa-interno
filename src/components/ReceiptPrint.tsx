@@ -41,14 +41,19 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
 
   // Função para criar linha de produto
   const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number) => {
-    const lines = [];
-    // Nome do produto
-    lines.push(name);
-    // Quantidade e valores alinhados à direita
-    const qtyAndPrices = `${quantity}x ${formatCurrency(unitPrice)}`;
-    const total = formatCurrency(totalPrice);
-    lines.push(rightAlign(qtyAndPrices, total));
-    return lines.join('\n');
+    // Exemplo:
+    // Espetinho Carne
+    //   - 2x R$ 10.00
+    //   - Total: R$ 20.00
+    const qtyAndUnit = `${quantity}x ${formatCurrency(unitPrice)}`;
+    const right = formatCurrency(totalPrice);
+    // Limitar o nome para não quebrar a linha
+    const maxNameLength = 30;
+    let trimmedName = name;
+    if (trimmedName.length > maxNameLength) {
+      trimmedName = trimmedName.slice(0, maxNameLength - 1) + '…';
+    }
+    return `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}\n`;
   };
 
   // Função para criar linha divisória
@@ -58,10 +63,10 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
     <pre style={{
       margin: 0,
       padding: '0 5mm',
-      fontSize: '10px',
+      fontSize: '14px',
       fontFamily: 'monospace',
-      whiteSpace: 'pre-wrap',
-      width: '58mm',
+      whiteSpace: 'pre',
+      width: '80mm',
       background: 'white'
     }}>
       <style>{`
@@ -91,14 +96,14 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
       {'\n'}
       {divider}
       {'\n'}
-      {items.map((item) => {
+      {items.map((item, idx) => {
         const quantity = Number(item.quantity) || 0;
         const unitPrice = Number(item.unit_price) || 0;
         const totalPrice = Number(item.total_price) || 0;
         const productName = item.product_name || 'Produto não identificado';
-
-        return formatProductLine(productName, quantity, unitPrice, totalPrice) + '\n';
-      }).join('\n')}
+        return formatProductLine(productName, quantity, unitPrice, totalPrice) + (idx < items.length - 1 ? '\n' : '');
+      }).join('')}
+      {'\n'}
       {divider}
       {'\n'}
       {rightAlign('Subtotal:', formatCurrency(sale.subtotal))}
@@ -111,11 +116,12 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
       {'\n'}
       {centerLine('PAGAMENTOS')}
       {'\n'}
-      {payments.map((payment) => {
+      {payments.map((payment, idx) => {
         const amount = Number(payment.amount) || 0;
         const method = payment.method || 'Não especificado';
-        return rightAlign(getPaymentMethodLabel(method) + ':', formatCurrency(amount)) + '\n';
+        return rightAlign(getPaymentMethodLabel(method) + ':', formatCurrency(amount)) + (idx < payments.length - 1 ? '\n' : '');
       }).join('')}
+      {'\n'}
       {divider}
       {'\n'}
       {centerLine('Obrigado pela preferencia!')}
