@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,11 +8,12 @@ import { Switch } from '@/components/ui/switch';
 import { useApp } from '@/contexts/AppContext';
 import { ServiceTax } from '@/types';
 import { Pencil, Trash2, Plus } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Settings = () => {
-    const { serviceTaxes, addServiceTax, updateServiceTax, deleteServiceTax } = useApp();
+    const { serviceTaxes, addServiceTax, updateServiceTax, deleteServiceTax, currentUser, profileId, isEmployee } = useApp();
     const [isAddTaxOpen, setIsAddTaxOpen] = useState(false);
     const [editingTax, setEditingTax] = useState<ServiceTax | null>(null);
     const [newTax, setNewTax] = useState({
@@ -22,6 +22,25 @@ export const Settings = () => {
         percentage: 0,
         is_active: true
     });
+
+    // Estados para alteração de senha do comércio
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+
+    // Estados para alteração de senha do perfil admin
+    const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
+    const [profileNewPassword, setProfileNewPassword] = useState('');
+    const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
+    const [profilePasswordLoading, setProfilePasswordLoading] = useState(false);
+    const [profilePasswordMessage, setProfilePasswordMessage] = useState<string | null>(null);
+
+    const [openCommerceModal, setOpenCommerceModal] = useState(false);
+    const [openProfileModal, setOpenProfileModal] = useState(false);
+
+    const [commerceEmail, setCommerceEmail] = useState(currentUser?.email || '');
 
     const handleAddTax = () => {
         addServiceTax(newTax);
@@ -63,6 +82,61 @@ export const Settings = () => {
         });
     };
 
+    // Função para alterar senha do comércio (Supabase)
+    const handleChangeCommercePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setPasswordMessage(null);
+        if (!commerceEmail) return setPasswordMessage('Informe o e-mail do comércio.');
+        if (!currentPassword || !newPassword || !confirmPassword) return setPasswordMessage('Preencha todos os campos.');
+        if (newPassword !== confirmPassword) return setPasswordMessage('As senhas não coincidem.');
+        setPasswordLoading(true);
+        try {
+            // Reautenticar e alterar senha
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: commerceEmail,
+                password: currentPassword
+            });
+            if (signInError) throw signInError;
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            setPasswordMessage('Senha alterada com sucesso!');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err: unknown) {
+            setPasswordMessage((err instanceof Error && err.message) ? err.message : 'Erro ao alterar senha.');
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
+    // Função para alterar senha do perfil admin (funcionário)
+    const handleChangeProfilePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProfilePasswordMessage(null);
+        if (!profileId) return setProfilePasswordMessage('Perfil não encontrado.');
+        if (!profileCurrentPassword || !profileNewPassword || !profileConfirmPassword) return setProfilePasswordMessage('Preencha todos os campos.');
+        if (profileNewPassword !== profileConfirmPassword) return setProfilePasswordMessage('As senhas não coincidem.');
+        setProfilePasswordLoading(true);
+        try {
+            // Chamar função RPC para alterar senha do perfil
+            const { error } = await supabase.rpc('update_employee_password', {
+                p_employee_id: profileId,
+                p_current_password: profileCurrentPassword,
+                p_new_password: profileNewPassword
+            });
+            if (error) throw error;
+            setProfilePasswordMessage('Senha do perfil alterada com sucesso!');
+            setProfileCurrentPassword('');
+            setProfileNewPassword('');
+            setProfileConfirmPassword('');
+        } catch (err: unknown) {
+            setProfilePasswordMessage((err instanceof Error && err.message) ? err.message : 'Erro ao alterar senha do perfil.');
+        } finally {
+            setProfilePasswordLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div>
@@ -79,38 +153,103 @@ export const Settings = () => {
                 <TabsContent value="account" className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Configurações da Conta</CardTitle>
+                            <CardTitle>Senha do Comércio</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label htmlFor="email">E-mail</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value="admin@restaurant.com"
-                                    disabled
-                                />
-                            </div>
-                            <div>
-                                <Label htmlFor="name">Nome</Label>
-                                <Input
-                                    id="name"
-                                    type="text"
-                                    value="Admin User"
-                                    disabled
-                                />
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="font-medium">Alterar Senha</h3>
-                                    <p className="text-sm text-gray-600">Atualize sua senha de acesso</p>
-                                </div>
-                                <Button variant="outline">
-                                    Alterar Senha
-                                </Button>
-                            </div>
+                        <CardContent>
+                            <p className="text-gray-600 mb-4">Altere a senha de acesso do comércio (conta principal do sistema).</p>
+                            <Dialog open={openCommerceModal} onOpenChange={setOpenCommerceModal}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline">Trocar Senha do Comércio</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Alterar Senha do Comércio</DialogTitle>
+                                    </DialogHeader>
+                                    <form onSubmit={handleChangeCommercePassword} className="space-y-2 mt-2">
+                                        <Input
+                                            type="email"
+                                            placeholder="E-mail do comércio"
+                                            value={commerceEmail}
+                                            onChange={e => setCommerceEmail(e.target.value)}
+                                            required
+                                        />
+                                        <Input
+                                            type="password"
+                                            placeholder="Senha atual"
+                                            value={currentPassword}
+                                            onChange={e => setCurrentPassword(e.target.value)}
+                                            required
+                                        />
+                                        <Input
+                                            type="password"
+                                            placeholder="Nova senha"
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            required
+                                        />
+                                        <Input
+                                            type="password"
+                                            placeholder="Confirmar nova senha"
+                                            value={confirmPassword}
+                                            onChange={e => setConfirmPassword(e.target.value)}
+                                            required
+                                        />
+                                        <Button type="submit" disabled={passwordLoading} className="w-full">
+                                            {passwordLoading ? 'Salvando...' : 'Alterar Senha'}
+                                        </Button>
+                                        {passwordMessage && <p className="text-sm text-red-600 mt-1">{passwordMessage}</p>}
+                                    </form>
+                                </DialogContent>
+                            </Dialog>
                         </CardContent>
                     </Card>
+                    {isEmployee && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Senha do Seu Perfil</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-gray-600 mb-4">Altere a senha do seu perfil de funcionário/admin.</p>
+                                <Dialog open={openProfileModal} onOpenChange={setOpenProfileModal}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline">Trocar Senha do Perfil</Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Alterar Senha do Perfil</DialogTitle>
+                                        </DialogHeader>
+                                        <form onSubmit={handleChangeProfilePassword} className="space-y-2 mt-2">
+                                            <Input
+                                                type="password"
+                                                placeholder="Senha atual do perfil"
+                                                value={profileCurrentPassword}
+                                                onChange={e => setProfileCurrentPassword(e.target.value)}
+                                                required
+                                            />
+                                            <Input
+                                                type="password"
+                                                placeholder="Nova senha do perfil"
+                                                value={profileNewPassword}
+                                                onChange={e => setProfileNewPassword(e.target.value)}
+                                                required
+                                            />
+                                            <Input
+                                                type="password"
+                                                placeholder="Confirmar nova senha do perfil"
+                                                value={profileConfirmPassword}
+                                                onChange={e => setProfileConfirmPassword(e.target.value)}
+                                                required
+                                            />
+                                            <Button type="submit" disabled={profilePasswordLoading} className="w-full">
+                                                {profilePasswordLoading ? 'Salvando...' : 'Alterar Senha do Perfil'}
+                                            </Button>
+                                            {profilePasswordMessage && <p className="text-sm text-red-600 mt-1">{profilePasswordMessage}</p>}
+                                        </form>
+                                    </DialogContent>
+                                </Dialog>
+                            </CardContent>
+                        </Card>
+                    )}
                 </TabsContent>
 
                 <TabsContent value="taxes" className="space-y-4">

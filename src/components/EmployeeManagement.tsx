@@ -269,7 +269,7 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.map((employee) => (
+                {employees.filter(emp => emp.role !== 'Admin').map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="font-medium">{employee.name}</TableCell>
                     <TableCell className="font-mono">{employee.access_code}</TableCell>
