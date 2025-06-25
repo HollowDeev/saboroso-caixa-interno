@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,21 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-interface Employee {
-  id: string;
-  name: string;
-  access_key: string;
-  is_active: boolean;
-  created_at: string;
-}
+import type { Database } from '@/integrations/supabase/types';
+type EmployeeProfile = Database['public']['Tables']['employee_profile']['Row'];
 
 interface EmployeeManagementProps {
   currentUserId: string;
 }
 
 export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
@@ -42,13 +35,11 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('owner_id', currentUserId)
+        .from('employee_profile')
+        .select('id, name, access_code, role, is_active, created_at')
+        .eq('user_id', currentUserId)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-
       setEmployees(data || []);
     } catch (error) {
       console.error('Erro ao buscar funcionários:', error);
@@ -82,14 +73,13 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         });
         return;
       }
-
       // Verificar se a chave de acesso já existe
       const { data: existingEmployee } = await supabase
-        .from('employees')
-        .select('access_key')
-        .eq('access_key', newEmployee.access_key)
+        .from('employee_profile')
+        .select('access_code')
+        .eq('access_code', newEmployee.access_key)
+        .eq('user_id', currentUserId)
         .single();
-
       if (existingEmployee) {
         toast({
           title: 'Erro',
@@ -98,30 +88,27 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         });
         return;
       }
-
-      // Usar a função create_employee do Supabase
-      const { data, error } = await supabase.rpc('create_employee', {
-        p_owner_id: currentUserId,
-        p_access_key: newEmployee.access_key,
+      // Inserir novo funcionário (hash da senha via SQL)
+      const { error } = await supabase.rpc('create_employee_profile', {
+        p_user_id: currentUserId,
+        p_access_code: newEmployee.access_key,
         p_password: newEmployee.password,
-        p_name: newEmployee.name
+        p_name: newEmployee.name,
+        p_role: 'Funcionario'
       });
-
       if (error) throw error;
-
       toast({
         title: 'Sucesso',
         description: 'Funcionário criado com sucesso',
       });
-
       setNewEmployee({ name: '', access_key: '', password: '' });
       setIsModalOpen(false);
       fetchEmployees();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao criar funcionário:', error);
       toast({
         title: 'Erro',
-        description: error.message || 'Erro ao criar funcionário',
+        description: (typeof error === 'object' && error !== null && 'message' in error) ? (error as { message: string }).message : 'Erro ao criar funcionário',
         variant: 'destructive',
       });
     }
@@ -130,18 +117,15 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
   const toggleEmployeeStatus = async (employeeId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('employees')
+        .from('employee_profile')
         .update({ is_active: !currentStatus })
         .eq('id', employeeId)
-        .eq('owner_id', currentUserId);
-
+        .eq('user_id', currentUserId);
       if (error) throw error;
-
       toast({
         title: 'Sucesso',
         description: `Funcionário ${!currentStatus ? 'ativado' : 'desativado'} com sucesso`,
       });
-
       fetchEmployees();
     } catch (error) {
       console.error('Erro ao alterar status do funcionário:', error);
@@ -157,20 +141,16 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
     try {
       const confirmed = window.confirm('Tem certeza que deseja excluir este funcionário?');
       if (!confirmed) return;
-
       const { error } = await supabase
-        .from('employees')
+        .from('employee_profile')
         .delete()
         .eq('id', employeeId)
-        .eq('owner_id', currentUserId);
-
+        .eq('user_id', currentUserId);
       if (error) throw error;
-
       toast({
         title: 'Sucesso',
         description: 'Funcionário excluído com sucesso',
       });
-
       fetchEmployees();
     } catch (error) {
       console.error('Erro ao excluir funcionário:', error);
@@ -292,14 +272,10 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                 {employees.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell className="font-medium">{employee.name}</TableCell>
-                    <TableCell className="font-mono">{employee.access_key}</TableCell>
+                    <TableCell className="font-mono">{employee.access_code}</TableCell>
                     <TableCell>
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          employee.is_active
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${employee.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
                       >
                         {employee.is_active ? 'Ativo' : 'Inativo'}
                       </span>

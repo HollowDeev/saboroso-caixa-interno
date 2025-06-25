@@ -7,28 +7,48 @@ import { ShoppingCart, BarChart3, DollarSign, Package, Plus } from 'lucide-react
 
 interface LayoutProps {
   children: React.ReactNode;
+  adminData?: {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+  };
+  employeeData?: {
+    id: string;
+    name: string;
+    owner_id: string;
+    role?: string;
+  };
+  onLogout?: () => void;
+  isEmployee?: boolean;
 }
 
-export const Layout = ({ children }: LayoutProps) => {
+export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { currentUser, isEmployee, logout } = useAppContext();
+  const { currentUser, isEmployee: appContextIsEmployee, logout } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Determinar se é admin principal ou funcionário admin
+  const isAdmin = (
+    (adminData && adminData.role === 'admin') ||
+    (employeeData && employeeData.role === 'Admin')
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         onMenuClick={() => setSidebarOpen(true)}
-        adminData={!isEmployee && currentUser ? { id: currentUser.id, name: currentUser.name, email: currentUser.email } : undefined}
-        employeeData={isEmployee && currentUser ? { id: currentUser.id, name: currentUser.name, owner_id: (currentUser as any).owner_id } : undefined}
-        onLogout={logout}
+        adminData={adminData}
+        employeeData={employeeData}
+        onLogout={onLogout}
         isEmployee={isEmployee}
       />
 
       <div className="flex">
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
-          <Sidebar isEmployee={isEmployee} />
+          <Sidebar isEmployee={isEmployee} isAdmin={isAdmin} />
         </div>
 
         {/* Mobile Sidebar */}
@@ -39,7 +59,7 @@ export const Layout = ({ children }: LayoutProps) => {
               onClick={() => setSidebarOpen(false)}
             />
             <div className="relative">
-              <Sidebar onClose={() => setSidebarOpen(false)} isEmployee={isEmployee} />
+              <Sidebar onClose={() => setSidebarOpen(false)} isEmployee={isEmployee} isAdmin={isAdmin} />
             </div>
           </div>
         )}

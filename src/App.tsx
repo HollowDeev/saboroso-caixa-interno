@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,6 +32,7 @@ const App = () => {
     id: string;
     name: string;
     owner_id: string;
+    role?: string;
   } | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -108,7 +108,7 @@ const App = () => {
     localStorage.removeItem('employee_data');
   };
 
-  const handleEmployeeLogin = (employee: { id: string; name: string; owner_id: string }) => {
+  const handleEmployeeLogin = (employee: { id: string; name: string; owner_id: string; role?: string }) => {
     setEmployeeData(employee);
     setAdminData(null);
     localStorage.setItem('employee_data', JSON.stringify(employee));
@@ -134,16 +134,21 @@ const App = () => {
     }
   };
 
-  const handleEmployeeLogout = () => {
+  const handleEmployeeLogout = async () => {
     // Limpar dados do funcionário
     localStorage.removeItem('employee_data');
     localStorage.removeItem('currentUser');
     setEmployeeData(null);
-    
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Erro ao fazer logout do Supabase:', error);
+    }
     // Forçar reload da página
     window.location.href = '/';
   };
 
+  // Se está carregando, mostra loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -152,11 +157,9 @@ const App = () => {
     );
   }
 
-  const currentUser = adminData || employeeData;
-  const isEmployee = !!employeeData;
-
-  // Se há usuário logado (admin ou funcionário), mostrar interface principal
-  if (currentUser) {
+  // Só renderiza o sistema se employeeData estiver presente
+  if (employeeData) {
+    const isEmployeeAdmin = employeeData.role === 'Admin';
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
@@ -167,17 +170,16 @@ const App = () => {
               <Layout 
                 adminData={adminData} 
                 employeeData={employeeData}
-                onLogout={isEmployee ? handleEmployeeLogout : handleAdminLogout}
-                isEmployee={isEmployee}
+                onLogout={handleEmployeeLogout}
+                isEmployee={true}
               >
                 <Routes>
                   {/* Rotas disponíveis para funcionários */}
                   <Route path="/" element={<Orders />} />
                   <Route path="/orders" element={<Orders />} />
                   <Route path="/sales" element={<Sales />} />
-                  
-                  {/* Rotas apenas para admin */}
-                  {!isEmployee && (
+                  {/* Rotas para funcionário admin */}
+                  {isEmployeeAdmin && (
                     <>
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/stock" element={<StockManagement />} />
@@ -187,14 +189,12 @@ const App = () => {
                       <Route path="/cash-registers" element={<CashRegisters />} />
                     </>
                   )}
-                  
-                  {/* Redirecionar funcionários para comandas se tentarem acessar rotas restritas */}
-                  {isEmployee && (
+                  {/* Redirecionar funcionários comuns para comandas se tentarem acessar rotas restritas */}
+                  {!isEmployeeAdmin && (
                     <Route path="*" element={<Navigate to="/orders" replace />} />
                   )}
-                  
                   {/* Admin 404 */}
-                  {!isEmployee && (
+                  {isEmployeeAdmin && (
                     <Route path="*" element={<NotFound />} />
                   )}
                 </Routes>
@@ -206,7 +206,7 @@ const App = () => {
     );
   }
 
-  // Se não há dados de login, mostrar página de login
+  // Se não há perfil de funcionário, mostra sempre a tela de login de perfil
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

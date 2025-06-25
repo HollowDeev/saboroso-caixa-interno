@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -17,15 +16,16 @@ import { cn } from '@/lib/utils';
 interface SidebarProps {
   onClose?: () => void;
   isEmployee?: boolean;
+  isAdmin?: boolean;
 }
 
-export const Sidebar = ({ onClose, isEmployee }: SidebarProps) => {
+export const Sidebar = ({ onClose, isEmployee, isAdmin }: SidebarProps) => {
   const menuItems = [
     { icon: ShoppingCart, label: 'Comandas', path: '/orders' },
     { icon: BarChart3, label: 'Vendas', path: '/sales' },
     { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
     // Admin only items
-    ...(!isEmployee ? [
+    ...((isAdmin || !isEmployee) ? [
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
       { icon: Package, label: 'Estoque', path: '/stock' },
       { icon: Users, label: 'Usuários', path: '/users' },

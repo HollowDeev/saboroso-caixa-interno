@@ -16,9 +16,10 @@ export const Users = () => {
 
       try {
         const { count, error } = await supabase
-          .from('employees')
+          .from('employee_profile')
           .select('*', { count: 'exact', head: true })
-          .eq('owner_id', currentUser.id);
+          .eq('user_id', currentUser.id)
+          .eq('is_active', true);
 
         if (error) throw error;
 

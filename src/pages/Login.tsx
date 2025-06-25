@@ -11,11 +11,13 @@ import { toast } from '@/components/ui/use-toast';
 
 interface LoginProps {
   onAdminLogin: (admin: { id: string; name: string; email: string; role: string }) => void;
-  onEmployeeLogin: (employee: { id: string; name: string; owner_id: string }) => void;
+  onEmployeeLogin: (employee: { id: string; name: string; owner_id: string; role: string }) => void;
 }
 
 export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
-  const [loginType, setLoginType] = useState<'admin' | 'employee'>('admin');
+  // Novo estado para controlar a etapa do login
+  const [step, setStep] = useState<1 | 2>(1);
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Admin login states
   const [email, setEmail] = useState('');
@@ -65,76 +67,78 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
     checkExistingSession();
   }, [onAdminLogin]);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Nova função para autenticar o comércio
+  const handleCommerceLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-
+    setError('');
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-
       if (error) throw error;
-
       if (data.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileError) throw profileError;
-
-        onAdminLogin({
-          id: data.user.id,
-          name: profile.name || 'Admin',
-          email: data.user.email || '',
-          role: profile.role || 'admin'
-        });
-
-        navigate('/');
+        setUserId(data.user.id);
+        setStep(2); // Avança para a etapa do funcionário
       }
-    } catch (error: any) {
-      console.error('Erro ao fazer login:', error);
-      toast({
-        title: 'Erro ao fazer login',
-        description: error.message,
-        variant: 'destructive',
-      });
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null && 'message' in error) {
+        setError((error as { message: string }).message || 'Erro ao autenticar comércio.');
+      } else {
+        setError('Erro ao autenticar comércio.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEmployeeLogin = async (e: React.FormEvent) => {
+  // Nova função para autenticar funcionário
+  const handleEmployeeProfileLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
+      if (!userId) {
+        setError('Usuário do comércio não autenticado.');
+        return;
+      }
+      // Definir tipo para o retorno da função
+      type EmployeeCredential = {
+        employee_id: string;
+        employee_name: string;
+        owner_id: string;
+        role: string;
+      };
+      // Verifica o funcionário usando a função RPC que já faz a verificação de senha
       const { data, error } = await supabase.rpc('verify_employee_credentials', {
         p_access_key: accessKey,
         p_password: employeePassword
       });
-
-      if (error) {
-        throw error;
+      // LOGS para debug
+      console.log('Retorno verify_employee_credentials:', { data, error });
+      if (error || !data || data.length === 0) {
+        setError('Código de acesso ou senha incorretos.');
+        return;
       }
-
-      if (data && data.length > 0) {
-        const employee = data[0];
-        onEmployeeLogin({
-          id: employee.employee_id,
-          name: employee.employee_name,
-          owner_id: employee.owner_id
-        });
-      } else {
-        setError('Chave de acesso ou senha incorretos');
+      // Confirma se o funcionário pertence ao comércio autenticado
+      const employee = (data as EmployeeCredential[]).find((emp) => emp.owner_id === userId);
+      console.log('Funcionário encontrado para este comércio:', employee);
+      if (!employee) {
+        setError('Funcionário não pertence a este comércio.');
+        return;
       }
-    } catch (err) {
-      console.error('Erro no login do funcionário:', err);
-      setError('Erro ao fazer login. Verifique suas credenciais.');
+      // Login bem-sucedido
+      onEmployeeLogin({
+        id: employee.employee_id,
+        name: employee.employee_name,
+        owner_id: employee.owner_id,
+        role: employee.role
+      });
+      navigate('/');
+    } catch (err: unknown) {
+      console.error('Erro ao autenticar funcionário:', err);
+      setError('Erro ao autenticar funcionário.');
     } finally {
       setLoading(false);
     }
@@ -165,38 +169,14 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
             VarandaOS
           </CardTitle>
           <p className="text-gray-600">
-            Acesse sua conta
+            {step === 1 ? 'Acesse sua conta do comércio' : 'Acesse seu perfil de funcionário'}
           </p>
         </CardHeader>
-
         <CardContent>
-          {/* Login Type Selection */}
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            <Button
-              type="button"
-              variant={loginType === 'admin' ? 'default' : 'outline'}
-              onClick={() => setLoginType('admin')}
-              className="flex items-center space-x-2"
-            >
-              <User className="h-4 w-4" />
-              <span>Admin</span>
-            </Button>
-            <Button
-              type="button"
-              variant={loginType === 'employee' ? 'default' : 'outline'}
-              onClick={() => setLoginType('employee')}
-              className="flex items-center space-x-2"
-            >
-              <Users className="h-4 w-4" />
-              <span>Funcionário</span>
-            </Button>
-          </div>
-
-          {/* Admin Login Form */}
-          {loginType === 'admin' && (
-            <form onSubmit={handleSubmit} className="space-y-4">
+          {step === 1 && (
+            <form onSubmit={handleCommerceLogin} className="space-y-4">
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email do comércio</Label>
                 <Input
                   id="email"
                   type="email"
@@ -207,7 +187,6 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
                   disabled={loading}
                 />
               </div>
-
               <div>
                 <Label htmlFor="password">Senha</Label>
                 <Input
@@ -220,13 +199,11 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
                   disabled={loading}
                 />
               </div>
-
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-
               <Button
                 type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600"
@@ -240,29 +217,26 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
                 ) : (
                   <>
                     <Lock className="h-4 w-4 mr-2" />
-                    Entrar como Admin
+                    Entrar
                   </>
                 )}
               </Button>
             </form>
           )}
-
-          {/* Employee Login Form */}
-          {loginType === 'employee' && (
-            <form onSubmit={handleEmployeeLogin} className="space-y-4">
+          {step === 2 && (
+            <form onSubmit={handleEmployeeProfileLogin} className="space-y-4">
               <div>
-                <Label htmlFor="accessKey">Chave de Acesso</Label>
+                <Label htmlFor="accessKey">Código de Acesso</Label>
                 <Input
                   id="accessKey"
                   type="text"
                   value={accessKey}
                   onChange={(e) => setAccessKey(e.target.value)}
-                  placeholder="Digite sua chave de acesso"
+                  placeholder="Digite seu código de acesso"
                   required
                   disabled={loading}
                 />
               </div>
-
               <div>
                 <Label htmlFor="employeePassword">Senha</Label>
                 <Input
@@ -275,13 +249,11 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
                   disabled={loading}
                 />
               </div>
-
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-
               <Button
                 type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600"

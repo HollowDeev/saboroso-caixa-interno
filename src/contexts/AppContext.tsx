@@ -19,6 +19,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
   const [isEmployee, setIsEmployee] = useState<boolean>(false);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -96,15 +97,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (storedEmployee) {
       const employee = JSON.parse(storedEmployee);
       setCurrentUser({
-        id: employee.id,
+        id: employee.owner_id,
         name: employee.name,
         email: employee.email || '',
         role: 'employee',
         owner_id: employee.owner_id
       });
+      setProfileId(employee.id);
       setIsEmployee(true);
-
-      // Autenticar funcionário no Supabase
       authenticateEmployeeInSupabase(employee.id);
     } else if (storedUser) {
       const user = JSON.parse(storedUser);
@@ -114,6 +114,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: user.email,
         role: user.role || 'cashier'
       });
+      setProfileId(user.id);
       setIsEmployee(user.role === 'employee');
     }
 
@@ -128,6 +129,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         localStorage.setItem('currentUser', JSON.stringify(userData));
         setCurrentUser(userData);
+        setProfileId(userData.id);
         setIsEmployee(userData.role === 'employee');
       }
     });
@@ -143,11 +145,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         localStorage.setItem('currentUser', JSON.stringify(userData));
         setCurrentUser(userData);
+        setProfileId(userData.id);
         setIsEmployee(userData.role === 'employee');
       } else if (!session && !storedEmployee) {
         console.log('No session:', session);
         localStorage.removeItem('currentUser');
         setCurrentUser(null);
+        setProfileId(null);
         setIsEmployee(false);
       }
     });
@@ -475,12 +479,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('currentUser');
     localStorage.removeItem('employee_data');
     setCurrentUser(null);
+    setProfileId(null);
     setIsEmployee(false);
     window.location.reload();
   };
 
   const value: AppContextType = {
     currentUser,
+    profileId,
     isEmployee,
     ingredients,
     products,
