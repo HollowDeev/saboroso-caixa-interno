@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { useApp } from '@/contexts/AppContext';
 import { ServiceTax } from '@/types';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,6 +41,14 @@ export const Settings = () => {
     const [openProfileModal, setOpenProfileModal] = useState(false);
 
     const [commerceEmail, setCommerceEmail] = useState(currentUser?.email || '');
+
+    // Estados para visualização de senha
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [showProfileCurrentPassword, setShowProfileCurrentPassword] = useState(false);
+    const [showProfileNewPassword, setShowProfileNewPassword] = useState(false);
+    const [showProfileConfirmPassword, setShowProfileConfirmPassword] = useState(false);
 
     const handleAddTax = () => {
         addServiceTax(newTax);
@@ -173,27 +181,42 @@ export const Settings = () => {
                                             onChange={e => setCommerceEmail(e.target.value)}
                                             required
                                         />
-                                        <Input
-                                            type="password"
-                                            placeholder="Senha atual"
-                                            value={currentPassword}
-                                            onChange={e => setCurrentPassword(e.target.value)}
-                                            required
-                                        />
-                                        <Input
-                                            type="password"
-                                            placeholder="Nova senha"
-                                            value={newPassword}
-                                            onChange={e => setNewPassword(e.target.value)}
-                                            required
-                                        />
-                                        <Input
-                                            type="password"
-                                            placeholder="Confirmar nova senha"
-                                            value={confirmPassword}
-                                            onChange={e => setConfirmPassword(e.target.value)}
-                                            required
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                type={showCurrentPassword ? 'text' : 'password'}
+                                                placeholder="Senha atual"
+                                                value={currentPassword}
+                                                onChange={e => setCurrentPassword(e.target.value)}
+                                                required
+                                            />
+                                            <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1" onClick={() => setShowCurrentPassword(v => !v)}>
+                                                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                        <div className="relative">
+                                            <Input
+                                                type={showNewPassword ? 'text' : 'password'}
+                                                placeholder="Nova senha"
+                                                value={newPassword}
+                                                onChange={e => setNewPassword(e.target.value)}
+                                                required
+                                            />
+                                            <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1" onClick={() => setShowNewPassword(v => !v)}>
+                                                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
+                                        <div className="relative">
+                                            <Input
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                placeholder="Confirmar nova senha"
+                                                value={confirmPassword}
+                                                onChange={e => setConfirmPassword(e.target.value)}
+                                                required
+                                            />
+                                            <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1" onClick={() => setShowConfirmPassword(v => !v)}>
+                                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </Button>
+                                        </div>
                                         <Button type="submit" disabled={passwordLoading} className="w-full">
                                             {passwordLoading ? 'Salvando...' : 'Alterar Senha'}
                                         </Button>
@@ -219,27 +242,42 @@ export const Settings = () => {
                                             <DialogTitle>Alterar Senha do Perfil</DialogTitle>
                                         </DialogHeader>
                                         <form onSubmit={handleChangeProfilePassword} className="space-y-2 mt-2">
-                                            <Input
-                                                type="password"
-                                                placeholder="Senha atual do perfil"
-                                                value={profileCurrentPassword}
-                                                onChange={e => setProfileCurrentPassword(e.target.value)}
-                                                required
-                                            />
-                                            <Input
-                                                type="password"
-                                                placeholder="Nova senha do perfil"
-                                                value={profileNewPassword}
-                                                onChange={e => setProfileNewPassword(e.target.value)}
-                                                required
-                                            />
-                                            <Input
-                                                type="password"
-                                                placeholder="Confirmar nova senha do perfil"
-                                                value={profileConfirmPassword}
-                                                onChange={e => setProfileConfirmPassword(e.target.value)}
-                                                required
-                                            />
+                                            <div className="relative">
+                                                <Input
+                                                    type={showProfileCurrentPassword ? 'text' : 'password'}
+                                                    placeholder="Senha atual do perfil"
+                                                    value={profileCurrentPassword}
+                                                    onChange={e => setProfileCurrentPassword(e.target.value)}
+                                                    required
+                                                />
+                                                <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1" onClick={() => setShowProfileCurrentPassword(v => !v)}>
+                                                    {showProfileCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showProfileNewPassword ? 'text' : 'password'}
+                                                    placeholder="Nova senha do perfil"
+                                                    value={profileNewPassword}
+                                                    onChange={e => setProfileNewPassword(e.target.value)}
+                                                    required
+                                                />
+                                                <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1" onClick={() => setShowProfileNewPassword(v => !v)}>
+                                                    {showProfileNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
+                                            <div className="relative">
+                                                <Input
+                                                    type={showProfileConfirmPassword ? 'text' : 'password'}
+                                                    placeholder="Confirmar nova senha do perfil"
+                                                    value={profileConfirmPassword}
+                                                    onChange={e => setProfileConfirmPassword(e.target.value)}
+                                                    required
+                                                />
+                                                <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1" onClick={() => setShowProfileConfirmPassword(v => !v)}>
+                                                    {showProfileConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </Button>
+                                            </div>
                                             <Button type="submit" disabled={profilePasswordLoading} className="w-full">
                                                 {profilePasswordLoading ? 'Salvando...' : 'Alterar Senha do Perfil'}
                                             </Button>
