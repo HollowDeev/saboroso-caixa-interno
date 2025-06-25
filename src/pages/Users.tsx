@@ -4,6 +4,7 @@ import { Users as UsersIcon } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { EmployeeManagement } from '@/components/EmployeeManagement';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
 export const Users = () => {
   const { currentUser } = useApp();
@@ -15,11 +16,13 @@ export const Users = () => {
       if (!currentUser?.id) return;
 
       try {
+        // @ts-expect-error employee_profile não está tipada no objeto Database
         const { count, error } = await supabase
-          .from('employees')
+          .from('employee_profile')
           .select('*', { count: 'exact', head: true })
-          .eq('owner_id', currentUser.id)
-          .eq('is_active', true);
+          .eq('user_id', currentUser.id)
+          .eq('is_active', true)
+          .eq('role', 'Funcionario');
 
         if (error) throw error;
 
@@ -41,29 +44,6 @@ export const Users = () => {
           <h1 className="text-3xl font-bold text-gray-900">Funcionários</h1>
           <p className="text-gray-600">Gerencie funcionários e permissões do sistema</p>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total de Funcionários</p>
-                {loading ? (
-                  <>
-                    <p className="text-2xl font-bold text-gray-900">--</p>
-                    <p className="text-xs text-gray-500 mt-1">Carregando...</p>
-                  </>
-                ) : (
-                  <p className="text-2xl font-bold text-gray-900">{totalEmployees}</p>
-                )}
-              </div>
-              <div className="p-3 rounded-lg bg-orange-100">
-                <UsersIcon className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {currentUser?.id && (
