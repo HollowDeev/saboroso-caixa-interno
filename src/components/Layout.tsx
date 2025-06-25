@@ -90,15 +90,29 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
             </button>
           )}
           {/* Ícone de acesso à página de comandas */}
-          <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
-            <ShoppingCart className="h-6 w-6 mb-1" />
-            Comandas
-          </Link>
-          {/* Ícone de acesso à página de caixas */}
-          <Link to="/cash-registers" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
-            <DollarSign className="h-6 w-6 mb-1" />
-            Caixas
-          </Link>
+          {isEmployee ? (
+            <>
+              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
+                <ShoppingCart className="h-6 w-6 mb-1" />
+                Comandas
+              </Link>
+              <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
+                <BarChart3 className="h-6 w-6 mb-1" />
+                Vendas
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
+                <ShoppingCart className="h-6 w-6 mb-1" />
+                Comandas
+              </Link>
+              <Link to="/cash-registers" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
+                <DollarSign className="h-6 w-6 mb-1" />
+                Caixas
+              </Link>
+            </>
+          )}
           {/* Botão de venda direta (direita) */}
           {isEmployee && (
             <button
