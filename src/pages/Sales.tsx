@@ -180,6 +180,15 @@ export const Sales = () => {
     }
   };
 
+  // Função utilitária para extrair o motivo da despesa de forma segura
+  const getExpenseReason = (expense: Expense): string => {
+    if (typeof expense === 'object' && expense !== null && 'reason' in expense) {
+      // @ts-expect-error: pode existir em alguns objetos
+      return expense.reason || '-';
+    }
+    return '-';
+  };
+
   const exportSales = () => {
     const csvContent = [
       'Data,Cliente,Total,Taxa,Subtotal,Método de Pagamento,Tipo',
@@ -554,6 +563,7 @@ export const Sales = () => {
                   <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Valor</TableHead>
+                  <TableHead>Motivo</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -566,6 +576,7 @@ export const Sales = () => {
                     <TableCell>{expense.description}</TableCell>
                     <TableCell>{getExpenseTypeLabel(expense.type)}</TableCell>
                     <TableCell>R$ {expense.amount.toFixed(2)}</TableCell>
+                    <TableCell>{getExpenseReason(expense)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {(isOwner || (currentUser && currentUser.role === 'employee')) && (
