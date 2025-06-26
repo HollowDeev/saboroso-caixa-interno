@@ -160,6 +160,7 @@ const App = () => {
   // Só renderiza o sistema se employeeData estiver presente
   if (employeeData) {
     const isEmployeeAdmin = employeeData.role === 'Admin';
+    const isManager = employeeData.role === 'gerente' || employeeData.role === 'Gerente';
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
@@ -178,11 +179,11 @@ const App = () => {
                   <Route path="/" element={<Orders />} />
                   <Route path="/orders" element={<Orders />} />
                   <Route path="/sales" element={<Sales />} />
+                  <Route path="/stock" element={<StockManagement />} />
                   {/* Rotas para funcionário admin */}
                   {isEmployeeAdmin && (
                     <>
                       <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/stock" element={<StockManagement />} />
                       <Route path="/users" element={<Users />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/calculator" element={<ProfitCalculator />} />

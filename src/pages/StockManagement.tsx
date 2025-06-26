@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { convertValue } from '@/utils/unitConversion';
 import { Unit } from '@/utils/unitConversion';
+import { Navigate } from 'react-router-dom';
 
 export const StockManagement = () => {
   const {
@@ -337,6 +338,11 @@ export const StockManagement = () => {
       toast.error('Não foi possível copiar os dados.');
     });
   };
+
+  // Permitir acesso para admin, gerente e funcionário
+  if (!currentUser || !['admin', 'employee', 'gerente'].includes(currentUser.role)) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="container mx-auto py-6 space-y-6">

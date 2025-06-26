@@ -17,9 +17,10 @@ interface SidebarProps {
   onClose?: () => void;
   isEmployee?: boolean;
   isAdmin?: boolean;
+  isManager?: boolean;
 }
 
-export const Sidebar = ({ onClose, isEmployee, isAdmin }: SidebarProps) => {
+export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProps) => {
   const menuItems = [
     { icon: ShoppingCart, label: 'Comandas', path: '/orders' },
     { icon: BarChart3, label: 'Vendas', path: '/sales' },
@@ -33,6 +34,9 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin }: SidebarProps) => {
       { icon: Users, label: 'Usuários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
       { icon: Settings, label: 'Configurações', path: '/settings' },
+    ] : []),
+    ...((isAdmin || isManager || isEmployee) ? [
+      { icon: Package, label: 'Estoque', path: '/stock' },
     ] : [])
   ];
 

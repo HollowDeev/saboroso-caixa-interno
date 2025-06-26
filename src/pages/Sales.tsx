@@ -99,7 +99,7 @@ export const Sales = () => {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isDeletingSale, setIsDeletingSale] = useState(false);
 
-  const isOwner = checkCashRegisterAccess();
+  const isOwner = checkCashRegisterAccess() || (currentUser && (currentUser.role === 'gerente' || currentUser.role === 'employee'));
 
   // Filtra vendas e despesas do caixa atual
   const currentSales = useMemo(() =>
