@@ -77,7 +77,7 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
 
       {/* Barra de navegação inferior mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 h-16 flex items-center justify-between px-4">
-        <div className="relative w-full flex items-center justify-between">
+        <div className="relative w-full flex items-center justify-center gap-4">
           {isAdmin ? (
             <>
               <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
@@ -103,14 +103,30 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
             </>
           ) : (
             <>
-              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <ShoppingCart className="h-4 w-4 mb-1" />
-                Comandas
-              </Link>
-              <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <BarChart3 className="h-4 w-4 mb-1" />
-                Vendas
-              </Link>
+              <button
+                className="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-full h-12 w-12"
+                onClick={() => setOpenNewOrder(true)}
+                aria-label="Nova Comanda"
+              >
+                <ClipboardList className="h-6 w-6" />
+              </button>
+              <div className="flex items-center gap-4">
+                <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700">
+                  <ShoppingCart className="h-4 w-4 mb-1" />
+                  Comandas
+                </Link>
+                <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700">
+                  <BarChart3 className="h-4 w-4 mb-1" />
+                  Vendas
+                </Link>
+              </div>
+              <button
+                className="flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 w-12"
+                onClick={() => setOpenDirectSale(true)}
+                aria-label="Nova Venda Direta"
+              >
+                <Plus className="h-6 w-6" />
+              </button>
             </>
           )}
         </div>
