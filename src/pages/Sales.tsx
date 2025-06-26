@@ -222,6 +222,18 @@ export const Sales = () => {
       return `> ${sale.customer_name || 'Cliente não informado'} - ${items} - R$ ${sale.total.toFixed(2)}`;
     }).join('\n');
 
+    // Adiciona a lista de despesas detalhada
+    const expensesHeader = '\n\n*DESPESAS*\nData | Descrição | Tipo | Valor | Motivo';
+    const expensesText = currentExpenses.length > 0
+      ? currentExpenses.map(expense => [
+          format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          expense.description,
+          getExpenseTypeLabel(expense.type),
+          `R$ ${expense.amount.toFixed(2)}`,
+          getExpenseReason(expense)
+        ].join(' | ')).join('\n')
+      : 'Nenhuma despesa registrada.';
+
     const text = `*CAIXA*\n` +
       ` - *Lucro Total:* R$ ${totalProfit.toFixed(2)}\n` +
       ` - Despesa Total: R$ ${totalExpenses.toFixed(2)}\n\n` +
@@ -229,7 +241,8 @@ export const Sales = () => {
       ` - Dinheiro: R$ ${totalCashSales.toFixed(2)}\n` +
       ` - Cartão: R$ ${totalCardSales.toFixed(2)}\n` +
       ` - Pix: R$ ${totalPixSales.toFixed(2)}\n\n` +
-      `*VENDAS*\n\n${salesText}`;
+      `*VENDAS*\n\n${salesText}` +
+      `${expensesHeader}\n${expensesText}`;
 
     navigator.clipboard.writeText(text).then(() => {
       toast({

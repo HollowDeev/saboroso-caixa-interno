@@ -169,6 +169,17 @@ export const CashRegisters = () => {
     const text = cashRegisters.map(register => {
       const vendas = salesByRegister[register.id]?.reduce((acc, sale) => acc + sale.total, 0) || 0;
       const despesas = expensesByRegister[register.id]?.reduce((acc, exp) => acc + exp.amount, 0) || 0;
+      // Lista detalhada de despesas
+      const expensesList = expensesByRegister[register.id]?.length
+        ? '\n*DESPESAS*\nData | Descrição | Tipo | Valor | Motivo\n' +
+          expensesByRegister[register.id].map(expense => [
+            format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+            expense.description,
+            expense.type,
+            `R$ ${expense.amount.toFixed(2)}`,
+            (typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')
+          ].join(' | ')).join('\n')
+        : '\nNenhuma despesa registrada.';
       return [
         `Caixa (${register.is_open ? 'Aberto' : 'Fechado'})`,
         `Abertura: ${register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
@@ -177,6 +188,7 @@ export const CashRegisters = () => {
         `Valor de Fechamento: R$ ${register.closing_amount?.toFixed(2) ?? '-'}`,
         `Total de Vendas: R$ ${vendas.toFixed(2)}`,
         `Total de Despesas: R$ ${despesas.toFixed(2)}`,
+        expensesList,
         ''
       ].join('\n');
     }).join('\n');
@@ -231,6 +243,17 @@ export const CashRegisters = () => {
       const items = sale.items ? sale.items.map(item => `${item.quantity}x ${item.product_name}`).join(', ') : '';
       return `> ${sale.customer_name || 'Cliente não informado'} - ${items} - R$ ${sale.total?.toFixed(2) ?? ''}`;
     }).join('\n');
+    // Lista detalhada de despesas
+    const expensesList = expensesByRegister[register.id]?.length
+      ? '\n*DESPESAS*\nData | Descrição | Tipo | Valor | Motivo\n' +
+        expensesByRegister[register.id].map(expense => [
+          format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          expense.description,
+          expense.type,
+          `R$ ${expense.amount.toFixed(2)}`,
+          (typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')
+        ].join(' | ')).join('\n')
+      : '\nNenhuma despesa registrada.';
     const text = [
       `Caixa (${register.is_open ? 'Aberto' : 'Fechado'})`,
       `Abertura: ${register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
@@ -241,7 +264,8 @@ export const CashRegisters = () => {
       `Total de Despesas: R$ ${despesas.toFixed(2)}`,
       '',
       '*VENDAS*',
-      vendasText
+      vendasText,
+      expensesList
     ].join('\n');
     navigator.clipboard.writeText(text).then(() => {
       alert('Dados copiados para a área de transferência!');
@@ -529,7 +553,9 @@ export const CashRegisters = () => {
                               {expense.reason && (
                                 <div className="bg-gray-100 p-2 rounded-md">
                                   <p className="text-sm font-medium">Motivo:</p>
-                                  <p className="text-sm text-gray-700">{expense.reason}</p>
+                                  <p className="text-sm text-gray-700">
+                                    {(typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')}
+                                  </p>
                                 </div>
                               )}
                             </div>

@@ -23,7 +23,7 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin }: SidebarProps) => {
   const menuItems = [
     { icon: ShoppingCart, label: 'Comandas', path: '/orders' },
     { icon: BarChart3, label: 'Vendas', path: '/sales' },
-    ...(!isEmployee ? [
+    ...((isAdmin || !isEmployee) ? [
       { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
     ] : []),
     // Admin only items
