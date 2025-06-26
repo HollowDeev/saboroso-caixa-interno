@@ -3,7 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAppContext } from '@/contexts/AppContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, BarChart3, DollarSign, Package, Plus, ClipboardList } from 'lucide-react';
+import { ShoppingCart, BarChart3, DollarSign, Package, Plus, ClipboardList, Users } from 'lucide-react';
 import { DirectSaleModal } from './DirectSaleModal';
 import { NewOrderModal } from './NewOrderModal';
 
@@ -78,51 +78,40 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
       {/* Barra de navegação inferior mobile */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 h-16 flex items-center justify-between px-4">
         <div className="relative w-full flex items-center justify-between">
-          {/* Botão de comanda (esquerda) */}
-          {isEmployee && (
-            <button
-              className="bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center h-16 w-16 border-8 border-white focus:outline-none focus:ring-2 focus:ring-green-400 z-20"
-              style={{ boxShadow: '0 4px 16px rgba(34,197,94,0.3)' }}
-              onClick={() => setOpenNewOrder(true)}
-              aria-label="Nova Comanda"
-            >
-              <ClipboardList className="h-9 w-9" />
-            </button>
-          )}
-          {/* Ícone de acesso à página de comandas */}
-          {isEmployee ? (
+          {isAdmin ? (
             <>
-              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
-                <ShoppingCart className="h-6 w-6 mb-1" />
+              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <ShoppingCart className="h-4 w-4 mb-1" />
                 Comandas
               </Link>
-              <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
-                <BarChart3 className="h-6 w-6 mb-1" />
+              <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <BarChart3 className="h-4 w-4 mb-1" />
                 Vendas
+              </Link>
+              <Link to="/cash-registers" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <DollarSign className="h-4 w-4 mb-1" />
+                Caixas
+              </Link>
+              <Link to="/users" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <Users className="h-4 w-4 mb-1" />
+                Usuários
+              </Link>
+              <Link to="/stock" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <Package className="h-4 w-4 mb-1" />
+                Estoque
               </Link>
             </>
           ) : (
             <>
-              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
-                <ShoppingCart className="h-6 w-6 mb-1" />
+              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <ShoppingCart className="h-4 w-4 mb-1" />
                 Comandas
               </Link>
-              <Link to="/cash-registers" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-2">
-                <DollarSign className="h-6 w-6 mb-1" />
-                Caixas
+              <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
+                <BarChart3 className="h-4 w-4 mb-1" />
+                Vendas
               </Link>
             </>
-          )}
-          {/* Botão de venda direta (direita) */}
-          {isEmployee && (
-            <button
-              className="bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center h-16 w-16 border-8 border-white focus:outline-none focus:ring-2 focus:ring-green-400 z-20"
-              style={{ boxShadow: '0 4px 16px rgba(34,197,94,0.3)' }}
-              onClick={() => setOpenDirectSale(true)}
-              aria-label="Nova Venda Direta"
-            >
-              <Plus className="h-9 w-9" />
-            </button>
           )}
         </div>
       </nav>
