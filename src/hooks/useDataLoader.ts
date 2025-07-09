@@ -46,11 +46,14 @@ export const useDataLoader = () => {
         .select('*')
         .eq('owner_id', ownerId)
         .eq('is_open', true)
-        .single();
+        .maybeSingle();
 
       if (cashRegisterError && cashRegisterError.code !== 'PGRST116') {
         console.error('❌ Error loading cash register:', cashRegisterError);
         throw cashRegisterError;
+      }
+      if (cashRegisterError && cashRegisterError.code === 'PGRST116') {
+        console.warn('ℹ️ No open cash register found (Supabase PGRST116)');
       }
       console.log('✅ Cash register loaded:', cashRegisterData?.id || 'No open cash register');
       setCurrentCashRegister(cashRegisterData || null);

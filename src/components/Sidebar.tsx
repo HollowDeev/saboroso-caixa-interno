@@ -26,16 +26,13 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
     { icon: BarChart3, label: 'Vendas', path: '/sales' },
     ...((isAdmin || !isEmployee) ? [
       { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
-    ] : []),
-    // Admin only items
-    ...((isAdmin || !isEmployee) ? [
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
       { icon: Package, label: 'Estoque', path: '/stock' },
       { icon: Users, label: 'Usuários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
       { icon: Settings, label: 'Configurações', path: '/settings' },
     ] : []),
-    ...((isAdmin || isManager || isEmployee) ? [
+    ...((!isAdmin && (isManager || isEmployee)) ? [
       { icon: Package, label: 'Estoque', path: '/stock' },
     ] : [])
   ];

@@ -12,7 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency } from '@/utils/dataFormatters';
+import { formatCurrency, formatSales } from '@/utils/dataFormatters';
 import { Loader2, FileDown, Copy, ChevronDown, ShoppingCart } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -69,6 +69,22 @@ const SaleCard = ({ sale, isOpen, onToggle }: { sale: Sale, isOpen: boolean, onT
   );
 };
 
+// Função utilitária para formatar despesas vindas do Supabase
+function formatExpenses(expenses: Record<string, unknown>[]): Expense[] {
+  return expenses.map(exp => ({
+    id: exp.id as string,
+    description: exp.description as string,
+    amount: exp.amount as number,
+    type: exp.type as any,
+    quantity: exp.quantity as number | undefined,
+    created_at: exp.created_at as string,
+    updated_at: (exp.updated_at as string) ?? '',
+    cash_register_id: exp.cash_register_id as string,
+    user_id: exp.user_id as string,
+    // Não incluir reason no tipo Expense, mas pode ser acessado via cast na renderização
+  }));
+}
+
 export const CashRegisters = () => {
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
   const [salesByRegister, setSalesByRegister] = useState<Record<string, Sale[]>>({});
@@ -100,7 +116,18 @@ export const CashRegisters = () => {
             .eq('cash_register_id', register.id)
             .order('created_at', { ascending: false });
 
-          salesData[register.id] = sales || [];
+          // Corrigir campos items/payments para garantir arrays
+          const salesParsed = sales?.map(sale => ({
+            ...sale,
+            items: Array.isArray(sale.items)
+              ? sale.items
+              : (typeof sale.items === 'string' ? JSON.parse(sale.items) : (sale.items ?? [])),
+            payments: Array.isArray(sale.payments)
+              ? sale.payments
+              : (typeof sale.payments === 'string' ? JSON.parse(sale.payments) : (sale.payments ?? [])),
+          })) ?? [];
+
+          salesData[register.id] = formatSales(salesParsed);
 
           // Carregar despesas
           const { data: expenses } = await supabase
@@ -109,7 +136,7 @@ export const CashRegisters = () => {
             .eq('cash_register_id', register.id)
             .order('created_at', { ascending: false });
 
-          expensesData[register.id] = expenses || [];
+          expensesData[register.id] = expenses ? formatExpenses(expenses) : [];
         }
 
         setSalesByRegister(salesData);
@@ -135,7 +162,7 @@ export const CashRegisters = () => {
     if (!sales) return [];
     return selectedPaymentMethod === "all"
       ? sales
-      : sales.filter(sale => sale.payment_method === selectedPaymentMethod);
+      : sales.filter(sale => sale.payments.some(p => p.method === selectedPaymentMethod));
   };
 
   // Função para exportar dados dos caixas em CSV
@@ -550,11 +577,11 @@ export const CashRegisters = () => {
                               {expense.quantity && (
                                 <p className="text-sm text-gray-600">Quantidade: {expense.quantity}</p>
                               )}
-                              {expense.reason && (
+                              {'reason' in expense && typeof (expense as { reason?: unknown }).reason === 'string' && (
                                 <div className="bg-gray-100 p-2 rounded-md">
                                   <p className="text-sm font-medium">Motivo:</p>
                                   <p className="text-sm text-gray-700">
-                                    {(typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')}
+                                    {((expense as { reason?: string }).reason as string) || '-'}
                                   </p>
                                 </div>
                               )}

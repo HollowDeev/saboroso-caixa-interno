@@ -104,7 +104,7 @@ export const formatSales = (salesData: RawSale[]): Sale[] => {
       method: p.method,
       amount: Number(p.amount) || 0
     })) : [],
-    customerName: sale.customer_name,
+    customer_name: sale.customer_name, // Corrigido para snake_case
     user_id: sale.user_id,
     cash_register_id: sale.cash_register_id,
     order_id: sale.order_id || '',
