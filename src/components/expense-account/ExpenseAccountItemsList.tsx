@@ -96,46 +96,40 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload }) => {
             {its.map(item => {
               const isContested = item.contested;
               return (
-                <li
-                  key={item.id}
-                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 rounded-lg px-2 ${isContested ? 'bg-[#eaf3fb]' : ''}`}
-                >
-                  {/* Linha 1: Quantidade / Nome */}
-                  <div className="flex flex-row items-center gap-2 sm:flex-1">
-                    <span className={`font-medium ${isContested ? 'text-[#17497a]' : ''}`}>{item.quantity}x</span>
-                    <span className={`font-medium ${isContested ? 'text-[#17497a]' : ''}`}>{item.product_name || (item.product_type === 'food' ? 'Comida' : 'Produto Externo')}</span>
-                  </div>
-                  {/* Linha 2: Valores */}
-                  <div className="flex flex-row sm:flex-col sm:items-end gap-2 mt-1 sm:mt-0">
-                    <span className={`${isContested ? 'text-[#17497a]' : ''}`}>{item.quantity}x R$ {item.unit_price.toFixed(2)}</span>
-                    {item.quantity > 1 && (
-                      <span className={`text-xs ${isContested ? 'text-[#17497a]' : 'text-gray-500'}`}>Total: R$ {(item.unit_price * item.quantity).toFixed(2)}</span>
+                <li key={item.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 rounded-lg px-2 ${item.contested ? 'bg-[#e3f0fd] border border-blue-800' : 'border border-gray-200'}`}>
+                  <div className="flex-1 flex flex-col gap-1 w-full">
+                    <div className="flex flex-row items-center gap-2 w-full">
+                      <span className={`font-medium ${item.contested ? 'text-[#17497a]' : ''}`}>{item.quantity}x </span>
+                      <span className={`font-medium ${item.contested ? 'text-[#17497a]' : ''}`}>{item.product_name || (item.product_type === 'food' ? 'Comida' : 'Produto Externo')}</span>
+                    </div>
+                    {item.contested && (
+                      <>
+                        <div className="w-full">
+                          <span className="inline-block bg-blue-800 text-white text-xs font-semibold rounded px-2 py-0.5 mb-1">Contestado</span>
+                        </div>
+                        <div className="w-full">
+                          <span className="block text-sm font-normal text-black bg-transparent w-full"><b>Mensagem:</b> {item.contest_message}</span>
+                        </div>
+                      </>
                     )}
                   </div>
-                  {/* Linha 3: Botão de contestar/descontestar */}
-                  <div className="flex justify-center mt-2 sm:mt-0 sm:ml-6">
-                    {!isContested && (
-                      <Button size="sm" variant="destructive" onClick={() => handleOpenModal(item)} className="flex items-center gap-1 w-full sm:w-auto">
+                  {/* Linha 2: Valores e botão */}
+                  <div className="flex flex-col items-end gap-2 mt-2 sm:mt-0 sm:ml-6">
+                    <span className={`${item.contested ? 'text-[#17497a]' : ''}`}>{item.quantity}x R$ {item.unit_price.toFixed(2)}</span>
+                    {item.quantity > 1 && (
+                      <span className={`text-xs ${item.contested ? 'text-[#17497a]' : 'text-gray-500'}`}>Total: R$ {(item.unit_price * item.quantity).toFixed(2)}</span>
+                    )}
+                    {!item.contested && (
+                      <Button size="sm" variant="destructive" onClick={() => handleOpenModal(item)} className="flex items-center gap-1">
                         <Trash2 className="h-4 w-4 mr-1" /> Contestar
                       </Button>
                     )}
-                    {isContested && (
-                      <Button size="sm" variant="outline" className="text-[#17497a] border-[#17497a] hover:bg-[#eaf3fb] flex items-center gap-1 w-full sm:w-auto" onClick={() => handleUncontest(item)} disabled={loading}>
-                        {loading ? (
-                          <span className="animate-spin mr-1 w-4 h-4 border-2 border-[#17497a] border-t-transparent rounded-full inline-block"></span>
-                        ) : (
-                          <Undo2 className="h-4 w-4 mr-1" />
-                        )}
-                        Descontestar
+                    {item.contested && (
+                      <Button size="sm" variant="outline" className="text-[#17497a] border-[#17497a] hover:bg-[#eaf3fb] flex items-center gap-1" onClick={() => handleUncontest(item)} disabled={loading}>
+                        <Undo2 className="h-4 w-4 mr-1" /> Descontestar
                       </Button>
                     )}
                   </div>
-                  {/* Mensagem de contestação */}
-                  {isContested && item.contest_message && (
-                    <div className="mt-1 text-sm font-normal text-black bg-transparent w-full">
-                      {item.contest_message}
-                    </div>
-                  )}
                 </li>
               );
             })}
