@@ -98,31 +98,29 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload }) => {
               return (
                 <li
                   key={item.id}
-                  className={`flex items-center justify-between py-2 rounded-lg px-2 ${isContested ? 'bg-[#eaf3fb]' : ''}`}
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 rounded-lg px-2 ${isContested ? 'bg-[#eaf3fb]' : ''}`}
                 >
-                  <div className="flex-1">
-                    <span className={`font-medium ${isContested ? 'text-[#17497a]' : ''}`}>{item.quantity}x </span>
+                  {/* Linha 1: Quantidade / Nome */}
+                  <div className="flex flex-row items-center gap-2 sm:flex-1">
+                    <span className={`font-medium ${isContested ? 'text-[#17497a]' : ''}`}>{item.quantity}x</span>
                     <span className={`font-medium ${isContested ? 'text-[#17497a]' : ''}`}>{item.product_name || (item.product_type === 'food' ? 'Comida' : 'Produto Externo')}</span>
-                    {isContested && item.contest_message && (
-                      <div className="mt-1 text-sm font-normal text-black bg-transparent">
-                        {item.contest_message}
-                      </div>
+                  </div>
+                  {/* Linha 2: Valores */}
+                  <div className="flex flex-row sm:flex-col sm:items-end gap-2 mt-1 sm:mt-0">
+                    <span className={`${isContested ? 'text-[#17497a]' : ''}`}>{item.quantity}x R$ {item.unit_price.toFixed(2)}</span>
+                    {item.quantity > 1 && (
+                      <span className={`text-xs ${isContested ? 'text-[#17497a]' : 'text-gray-500'}`}>Total: R$ {(item.unit_price * item.quantity).toFixed(2)}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-end">
-                      <span className={`${isContested ? 'text-[#17497a]' : ''}`}>{item.quantity}x R$ {item.unit_price.toFixed(2)}</span>
-                      {item.quantity > 1 && (
-                        <span className={`text-xs ${isContested ? 'text-[#17497a]' : 'text-gray-500'}`}>Total: R$ {(item.unit_price * item.quantity).toFixed(2)}</span>
-                      )}
-                    </div>
+                  {/* Linha 3: Botão de contestar/descontestar */}
+                  <div className="flex justify-center mt-2 sm:mt-0 sm:ml-6">
                     {!isContested && (
-                      <Button size="sm" variant="destructive" onClick={() => handleOpenModal(item)} className="flex items-center gap-1">
+                      <Button size="sm" variant="destructive" onClick={() => handleOpenModal(item)} className="flex items-center gap-1 w-full sm:w-auto">
                         <Trash2 className="h-4 w-4 mr-1" /> Contestar
                       </Button>
                     )}
                     {isContested && (
-                      <Button size="sm" variant="outline" className="text-[#17497a] border-[#17497a] hover:bg-[#eaf3fb] flex items-center gap-1" onClick={() => handleUncontest(item)} disabled={loading}>
+                      <Button size="sm" variant="outline" className="text-[#17497a] border-[#17497a] hover:bg-[#eaf3fb] flex items-center gap-1 w-full sm:w-auto" onClick={() => handleUncontest(item)} disabled={loading}>
                         {loading ? (
                           <span className="animate-spin mr-1 w-4 h-4 border-2 border-[#17497a] border-t-transparent rounded-full inline-block"></span>
                         ) : (
@@ -132,6 +130,12 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload }) => {
                       </Button>
                     )}
                   </div>
+                  {/* Mensagem de contestação */}
+                  {isContested && item.contest_message && (
+                    <div className="mt-1 text-sm font-normal text-black bg-transparent w-full">
+                      {item.contest_message}
+                    </div>
+                  )}
                 </li>
               );
             })}

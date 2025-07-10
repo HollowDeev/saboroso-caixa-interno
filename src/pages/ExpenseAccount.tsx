@@ -13,15 +13,15 @@ const ExpenseAccount: React.FC = () => {
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Conta de Despesas</h1>
-        {account && (
-          <Button
-            className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
-            onClick={() => setIsAddModalOpen(true)}
-          >
-            <Plus className="w-4 h-4" /> Adicionar Item
-          </Button>
-        )}
       </div>
+      {account && (
+        <Button
+          className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2 mb-6"
+          onClick={() => setIsAddModalOpen(true)}
+        >
+          <Plus className="w-4 h-4" /> Adicionar Item
+        </Button>
+      )}
       {loading && <div className="text-center text-gray-500 py-8">Carregando...</div>}
       {error && <div className="text-center text-red-500 py-8">{error}</div>}
       {!loading && !account && (

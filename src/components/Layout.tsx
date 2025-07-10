@@ -119,6 +119,10 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
                   <BarChart3 className="h-4 w-4 mb-1" />
                   Vendas
                 </Link>
+                <Link to="/expense-account" className="flex flex-col items-center justify-center text-xs text-gray-700">
+                  <DollarSign className="h-4 w-4 mb-1" />
+                  Despesas
+                </Link>
               </div>
               <button
                 className="flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 w-12"
