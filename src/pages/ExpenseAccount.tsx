@@ -7,7 +7,7 @@ import { useExpenseAccount } from '../hooks/useExpenseAccount';
 
 const ExpenseAccount: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const { account, items, loading, error, openAccount, addItems } = useExpenseAccount();
+  const { account, items, loading, error, openAccount, addItems, reload } = useExpenseAccount();
 
   return (
     <div className="max-w-5xl mx-auto p-6">
@@ -33,7 +33,7 @@ const ExpenseAccount: React.FC = () => {
         </div>
       )}
       {account && (
-        <ExpenseAccountItemsList items={items} />
+        <ExpenseAccountItemsList items={items} reload={reload} />
       )}
       {/* Modal para adicionar item */}
       <AddExpenseItemModal

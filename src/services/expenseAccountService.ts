@@ -70,4 +70,16 @@ export async function addExpenseAccountItems(expenseAccountId: string, items: Ar
     .select();
   if (error) throw error;
   return data;
+}
+
+export async function contestExpenseAccountItem(itemId: string, message: string) {
+  const updateObj = message
+    ? { contested: true, contest_message: message }
+    : { contested: false, contest_message: null };
+  const { error } = await supabase
+    .from('expense_account_items')
+    .update(updateObj)
+    .eq('id', itemId);
+  if (error) throw error;
+  return true;
 } 
