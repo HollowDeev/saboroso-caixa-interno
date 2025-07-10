@@ -815,6 +815,72 @@ export type Database = {
           },
         ]
       }
+      expense_accounts: {
+        Row: {
+          id: string;
+          owner_id: string;
+          employee_profile_id: string;
+          opened_at: string;
+          closed_at: string | null;
+          status: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          employee_profile_id: string;
+          opened_at?: string;
+          closed_at?: string | null;
+          status: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          employee_profile_id?: string;
+          opened_at?: string;
+          closed_at?: string | null;
+          status?: string;
+        };
+        Relationships: [];
+      };
+      expense_account_items: {
+        Row: {
+          id: string;
+          expense_account_id: string;
+          product_id: string;
+          product_type: string;
+          quantity: number;
+          unit_price: number;
+          created_at: string;
+          contested: boolean;
+          contest_message: string | null;
+          removed_by_admin: boolean;
+        };
+        Insert: {
+          id?: string;
+          expense_account_id: string;
+          product_id: string;
+          product_type: string;
+          quantity: number;
+          unit_price: number;
+          created_at?: string;
+          contested?: boolean;
+          contest_message?: string | null;
+          removed_by_admin?: boolean;
+        };
+        Update: {
+          id?: string;
+          expense_account_id?: string;
+          product_id?: string;
+          product_type?: string;
+          quantity?: number;
+          unit_price?: number;
+          created_at?: string;
+          contested?: boolean;
+          contest_message?: string | null;
+          removed_by_admin?: boolean;
+        };
+        Relationships: [];
+      };
     }
     Views: {
       [_ in never]: never

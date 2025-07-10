@@ -1,11 +1,55 @@
 import React from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-const ExpenseAccountItemsList: React.FC = () => {
-  // Futuramente: receberá props ou hook para exibir os itens da conta aberta
+interface Item {
+  id: string;
+  product_id: string;
+  product_type: string;
+  quantity: number;
+  unit_price: number;
+  created_at: string;
+  contested: boolean;
+  contest_message: string | null;
+  removed_by_admin: boolean;
+}
+
+interface Props {
+  items: Item[];
+}
+
+const groupByDate = (items: Item[]) => {
+  return items.reduce((acc, item) => {
+    const date = format(new Date(item.created_at), 'dd/MM/yyyy', { locale: ptBR });
+    if (!acc[date]) acc[date] = [];
+    acc[date].push(item);
+    return acc;
+  }, {} as Record<string, Item[]>);
+};
+
+const ExpenseAccountItemsList: React.FC<Props> = ({ items }) => {
+  if (!items || items.length === 0) {
+    return <div className="bg-white rounded shadow p-4 text-center text-gray-500">Nenhum item marcado ainda.</div>;
+  }
+  const grouped = groupByDate(items);
   return (
-    <div className="bg-white rounded shadow p-4">
-      <h2 className="text-lg font-semibold mb-2">Itens Marcados</h2>
-      <div className="text-gray-500">Nenhum item marcado ainda.</div>
+    <div className="space-y-6">
+      {Object.entries(grouped).map(([date, its]) => (
+        <div key={date} className="bg-white rounded shadow p-4">
+          <h2 className="text-lg font-semibold mb-2">{date}</h2>
+          <ul className="divide-y">
+            {its.map(item => (
+              <li key={item.id} className="flex items-center justify-between py-2">
+                <div>
+                  <span className="font-medium">{item.product_type === 'food' ? 'Comida' : 'Produto Externo'}</span>
+                  <span className="ml-2">x{item.quantity}</span>
+                </div>
+                <div className="text-gray-700">R$ {(item.unit_price * item.quantity).toFixed(2)}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 };

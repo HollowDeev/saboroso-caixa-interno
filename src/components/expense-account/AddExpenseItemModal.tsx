@@ -8,6 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 interface AddExpenseItemModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onAddItems: (items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number }>) => void;
 }
 
 interface SelectedItem {
@@ -18,7 +19,7 @@ interface SelectedItem {
   type: 'food' | 'external';
 }
 
-const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClose }) => {
+const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClose, onAddItems }) => {
   const { products, externalProducts } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
@@ -58,10 +59,15 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
     .filter(p => p.current_stock > 0 && p.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Placeholder para submit
   const handleAddItems = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui será feita a integração para adicionar todos os itens na conta de despesas
+    if (selectedItems.length === 0) return;
+    onAddItems(selectedItems.map(item => ({
+      product_id: item.id,
+      product_type: item.type,
+      quantity: item.quantity,
+      unit_price: item.price,
+    })));
     setSelectedItems([]);
     onClose();
   };
