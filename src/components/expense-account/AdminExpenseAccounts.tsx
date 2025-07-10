@@ -1,0 +1,344 @@
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Trash2, Plus, XCircle, Clipboard, AlertTriangle } from 'lucide-react';
+import AddExpenseItemModal from './AddExpenseItemModal';
+import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems } from '../../services/expenseAccountService';
+import { Switch } from '../ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { useApp } from '@/contexts/AppContext';
+import { processOrderItemsStockConsumption } from '../../utils/stockConsumption';
+
+interface EmployeeAccountCard {
+  accountId: string;
+  employeeName: string;
+}
+
+interface ExpenseItem {
+  id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  created_at: string;
+  contested: boolean;
+  contest_message: string | null;
+  removed_by_admin: boolean;
+}
+
+const pastelOrange = 'bg-[#FFF5E5]'; // laranja pastel claro
+const borderOrange = 'border border-[#FFD9A0]'; // borda laranja clara
+
+const AdminExpenseAccounts: React.FC = () => {
+  const [accounts, setAccounts] = useState<EmployeeAccountCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<EmployeeAccountCard | null>(null);
+  const [items, setItems] = useState<ExpenseItem[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  // Estado local para itens desconsiderados
+  const [ignoredItems, setIgnoredItems] = useState<{ [id: string]: boolean }>({});
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [afterClose, setAfterClose] = useState(false);
+  const { toast } = useToast();
+  const { currentUser } = useApp();
+
+  useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  const fetchAccounts = async () => {
+    setLoading(true);
+    const { data: accountsData, error } = await supabase
+      .from('expense_accounts')
+      .select('id, employee_profile_id, employee_profile(name)')
+      .eq('status', 'open');
+    if (error) {
+      setLoading(false);
+      return;
+    }
+    const result: EmployeeAccountCard[] = (accountsData || []).map((acc: any) => ({
+      accountId: acc.id,
+      employeeName: acc.employee_profile?.name || 'Funcionário',
+    }));
+    setAccounts(result);
+    setLoading(false);
+  };
+
+  const handleView = async (acc: EmployeeAccountCard) => {
+    setSelected(acc);
+    setModalOpen(true);
+    setItemsLoading(true);
+    // Buscar todos os itens da conta ao abrir o modal
+    const { data: itemsData, error } = await supabase
+      .from('expense_account_items')
+      .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
+      .eq('expense_account_id', acc.accountId)
+      .order('created_at', { ascending: false });
+    setItems(itemsData || []);
+    setItemsLoading(false);
+  };
+
+  const reloadItems = async () => {
+    if (!selected) return;
+    setItemsLoading(true);
+    const { data: itemsData } = await supabase
+      .from('expense_account_items')
+      .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
+      .eq('expense_account_id', selected.accountId)
+      .order('created_at', { ascending: false });
+    setItems(itemsData || []);
+    setItemsLoading(false);
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    setRemoving(itemId);
+    // Buscar o item completo para saber tipo, quantidade, nome, etc.
+    const { data: item } = await supabase
+      .from('expense_account_items')
+      .select('id, product_id, product_type, quantity, unit_price, product_name')
+      .eq('id', itemId)
+      .single();
+    if (item) {
+      await processOrderItemsStockConsumption([
+        {
+          productId: item.product_id,
+          quantity: -item.quantity, // negativo para devolver ao estoque
+          product: {
+            id: item.product_id,
+            name: item.product_name,
+            price: item.unit_price,
+            available: true,
+            product_type: item.product_type
+          }
+        }
+      ], currentUser?.id || '', 'Remoção de item da conta de despesas');
+    }
+    await supabase
+      .from('expense_account_items')
+      .update({ removed_by_admin: true })
+      .eq('id', itemId);
+    await reloadItems();
+    setRemoving(null);
+  };
+
+  const handleAddItems = async (newItems: any[]) => {
+    if (!selected) return;
+    await addExpenseAccountItems(selected.accountId, newItems, currentUser?.id);
+    setAddModalOpen(false);
+    await reloadItems();
+  };
+
+  // Função para copiar dados formatados para a área de transferência (pode ser usada no fechamento)
+  const copyData = () => {
+    if (!selected) return;
+    const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
+    const itemsByDate = groupByDate(filteredItems);
+    const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
+    const valorTotal = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const nome = selected.employeeName;
+    const dataAbertura = items.length > 0 ? format(new Date(items[items.length-1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
+    const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
+    let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
+    Object.entries(itemsByDate).forEach(([date, its]) => {
+      texto += `📅 ${date}\n\n`;
+      its.forEach(item => {
+        texto += `${item.quantity}x ${item.product_name} – R$ ${item.unit_price.toFixed(2)}\n`;
+      });
+      texto += '\n';
+    });
+    texto += `🧾 Total de itens consumidos: ${totalItens}\n`;
+    texto += `💸 Valor total a descontar: R$ ${valorTotal.toFixed(2)}\n\n=============================`;
+    navigator.clipboard.writeText(texto);
+  };
+
+  const handleCloseAccount = async () => {
+    setConfirmClose(true);
+  };
+
+  const confirmCloseAccount = async () => {
+    // Copiar dados antes de fechar
+    copyData();
+    if (!selected) return;
+    setClosing(true);
+    await supabase
+      .from('expense_accounts')
+      .update({ status: 'closed', closed_at: new Date().toISOString() })
+      .eq('id', selected.accountId);
+    setClosing(false);
+    setModalOpen(false);
+    setConfirmClose(false);
+    setAfterClose(true);
+    await fetchAccounts();
+  };
+
+  // Função para alternar o estado de desconsiderar
+  const toggleIgnore = (id: string) => {
+    setIgnoredItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Agrupar itens por data
+  const groupByDate = (items: ExpenseItem[]) => {
+    return items.reduce((acc, item) => {
+      const dateObj = new Date(item.created_at);
+      const date = format(dateObj, 'dd/MM/yyyy', { locale: ptBR });
+      const weekDay = format(dateObj, 'EEEE', { locale: ptBR });
+      const label = `${weekDay.charAt(0).toUpperCase() + weekDay.slice(1)} - ${date}`;
+      if (!acc[label]) acc[label] = [];
+      acc[label].push(item);
+      return acc;
+    }, {} as Record<string, ExpenseItem[]>);
+  };
+
+  // Função para copiar dados formatados para a área de transferência
+  const handleCopy = () => {
+    if (!selected) return;
+    const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
+    const itemsByDate = groupByDate(filteredItems);
+    const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
+    const valorTotal = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const nome = selected.employeeName;
+    const dataAbertura = items.length > 0 ? format(new Date(items[items.length-1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
+    const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
+    let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
+    Object.entries(itemsByDate).forEach(([date, its]) => {
+      texto += `📅 ${date}\n\n`;
+      its.forEach(item => {
+        texto += `${item.quantity}x ${item.product_name} – R$ ${item.unit_price.toFixed(2)}\n`;
+      });
+      texto += '\n';
+    });
+    texto += `🧾 Total de itens consumidos: ${totalItens}\n`;
+    texto += `💸 Valor total a descontar: R$ ${valorTotal.toFixed(2)}\n\n=============================`;
+    navigator.clipboard.writeText(texto);
+    toast({ title: 'Dados copiados!', description: 'Os dados foram copiados para a área de transferência.' });
+  };
+
+  if (loading) return <div>Carregando contas de despesas...</div>;
+
+  return (
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {accounts.map(acc => (
+          <Card key={acc.accountId} className={`${pastelOrange} ${borderOrange} flex flex-col items-center justify-center py-8`}>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-center">{acc.employeeName}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => handleView(acc)} className="bg-orange-500 hover:bg-orange-600 text-white w-full">Visualizar</Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Conta de Despesas de {selected?.employeeName}</DialogTitle>
+          </DialogHeader>
+          {itemsLoading ? (
+            <div className="text-center py-8 flex-1 overflow-y-auto">Carregando itens...</div>
+          ) : (
+            <div className="relative pb-32 flex-1 overflow-y-auto"> {/* espaço extra para rodapé e resumo, rolagem interna */}
+              {items.length === 0 ? (
+                <div className="text-gray-500 text-center py-8">Nenhum item marcado nesta conta.</div>
+              ) : (
+                <>
+                  {Object.entries(groupByDate(items.filter(i => !i.removed_by_admin))).map(([date, its]) => (
+                    <div key={date} className="mb-6 bg-gray-100 rounded-lg p-3">
+                      <h2 className="text-lg font-semibold mb-2">{date}</h2>
+                      <ul className="divide-y">
+                        {its.map(item => (
+                          <li key={item.id} className={`flex flex-col md:flex-row md:items-center md:justify-between py-2 rounded-lg px-2 ${item.contested ? 'bg-[#e3f0fd] border border-blue-800' : 'border border-gray-200'}`}>
+                            <div className="flex-1 flex flex-col gap-1">
+                              <div className="flex flex-row items-center gap-2">
+                                <span className={`font-medium ${item.contested ? 'text-[#17497a]' : ''}`}>{item.quantity}x {item.product_name}</span>
+                                <span className={`font-medium ${item.contested ? 'text-[#17497a]' : ''}`}>– R$ {item.unit_price.toFixed(2)}</span>
+                              </div>
+                              {item.contested && (
+                                <>
+                                  <div className="w-full">
+                                    <span className="inline-block bg-blue-800 text-white text-xs font-semibold rounded px-2 py-0.5 mb-1">Contestado</span>
+                                  </div>
+                                  <div className="w-full">
+                                    <span className="block text-sm font-normal text-black bg-transparent w-full"><b>Mensagem:</b> {item.contest_message}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex flex-col md:items-end gap-2 mt-2 md:mt-0 md:ml-6">
+                              <Button size="sm" variant="destructive" onClick={() => handleRemoveItem(item.id)} disabled={removing === item.id} className="flex items-center gap-1 w-full md:w-auto">
+                                {removing === item.id ? (
+                                  <span className="animate-spin mr-1 w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full inline-block"></span>
+                                ) : (
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                )}
+                                Remover
+                              </Button>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Switch checked={!!ignoredItems[item.id]} onCheckedChange={() => toggleIgnore(item.id)} />
+                                <span className={`text-xs font-medium ${ignoredItems[item.id] ? 'text-green-600' : 'text-gray-500'}`}>Desconsiderar</span>
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                  {/* Resumo total */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <span className="font-medium text-gray-700">Total de itens consumidos: {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity, 0)}</span>
+                    <span className="font-medium text-gray-700">Valor total: R$ {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              {/* Rodapé fixo com botões */}
+              <div className="fixed left-0 right-0 bottom-0 z-50 bg-white border-t border-gray-200 flex flex-row justify-between p-4 max-w-2xl mx-auto rounded-b-lg">
+                <div className="flex gap-2">
+                  <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2">
+                    <Plus className="w-4 h-4" />Adicionar Item
+                  </Button>
+                  <Button onClick={handleCopy} variant="outline" className="border border-gray-400 flex items-center gap-2 bg-white text-gray-700">
+                    <Clipboard className="w-4 h-4" /> Copiar Dados
+                  </Button>
+                </div>
+                <Button onClick={handleCloseAccount} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2" disabled={closing}>
+                  {closing ? 'Fechando...' : 'Fechar Conta'}
+                </Button>
+              </div>
+              <AddExpenseItemModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAddItems={handleAddItems} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Confirmação de fechamento */}
+      <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
+          <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+          <div className="text-lg font-semibold mb-2">Tem certeza que deseja fechar a conta?</div>
+          <div className="mb-4 text-gray-700">Ao fechar a comanda a mesma não poderá mais ser modificada e todas as novas despesas registradas pelo <b>{selected?.employeeName}</b> estarão na próxima conta aberta.<br/> <span className='font-bold text-red-600'>TEM CERTEZA?</span></div>
+          <div className="flex gap-4 justify-center mt-2">
+            <Button variant="outline" onClick={() => setConfirmClose(false)}>Cancelar</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={confirmCloseAccount}>Confirmar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Mensagem após fechamento */}
+      <Dialog open={afterClose} onOpenChange={setAfterClose}>
+        <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
+          <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+          <div className="text-lg font-semibold mb-2">Conta fechada e dados copiados!</div>
+          <div className="mb-4 text-gray-700">O conteúdo foi copiado para a área de transferência. Utilize-o antes que outra coisa seja copiada no lugar.</div>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white mt-2" onClick={() => setAfterClose(false)}>OK</Button>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+export default AdminExpenseAccounts; 

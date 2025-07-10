@@ -5,9 +5,12 @@ import { useApp } from '@/contexts/AppContext';
 import { EmployeeManagement } from '@/components/EmployeeManagement';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import AdminExpenseAccounts from '../components/expense-account/AdminExpenseAccounts';
 
 export const Users = () => {
   const { currentUser } = useApp();
+  const [tab, setTab] = useState('contas');
   const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,10 +48,20 @@ export const Users = () => {
           <p className="text-gray-600">Gerencie funcionários e permissões do sistema</p>
         </div>
       </div>
-
-      {currentUser?.id && (
-        <EmployeeManagement currentUserId={currentUser.id} />
-      )}
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="contas">Gerenciar Contas</TabsTrigger>
+          <TabsTrigger value="despesas">Gerenciar Despesas</TabsTrigger>
+        </TabsList>
+        <TabsContent value="contas">
+          {currentUser?.id && (
+            <EmployeeManagement currentUserId={currentUser.id} />
+          )}
+        </TabsContent>
+        <TabsContent value="despesas">
+          <AdminExpenseAccounts />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

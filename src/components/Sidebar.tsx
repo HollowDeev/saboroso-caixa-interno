@@ -28,7 +28,7 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
       { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
       { icon: Package, label: 'Estoque', path: '/stock' },
-      { icon: Users, label: 'Usuários', path: '/users' },
+      { icon: Users, label: 'Funcionários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
       { icon: Settings, label: 'Configurações', path: '/settings' },
     ] : []),
