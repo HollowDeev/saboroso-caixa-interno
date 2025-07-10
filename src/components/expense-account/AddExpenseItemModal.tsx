@@ -16,7 +16,7 @@ interface SelectedItem {
   name: string;
   price: number;
   quantity: number;
-  type: 'food' | 'external';
+  type: 'food' | 'external_product';
 }
 
 const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClose, onAddItems }) => {
@@ -37,11 +37,11 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
     }
   };
 
-  const removeItem = (id: string, type: 'food' | 'external') => {
+  const removeItem = (id: string, type: 'food' | 'external_product') => {
     setSelectedItems(prev => prev.filter(i => !(i.id === id && i.type === type)));
   };
 
-  const updateQuantity = (id: string, type: 'food' | 'external', quantity: number) => {
+  const updateQuantity = (id: string, type: 'food' | 'external_product', quantity: number) => {
     if (quantity <= 0) {
       removeItem(id, type);
       return;
@@ -134,7 +134,7 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
                       <Button
                         size="sm"
                         type="button"
-                        onClick={() => addItem({ id: product.id, name: product.name, price: product.price, quantity: 1, type: 'external' })}
+                        onClick={() => addItem({ id: product.id, name: product.name, price: product.price, quantity: 1, type: 'external_product' })}
                         className="bg-green-500 hover:bg-green-600 ml-2"
                       >
                         <Plus className="h-4 w-4" />

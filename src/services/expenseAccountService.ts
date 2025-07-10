@@ -32,7 +32,30 @@ export async function getExpenseAccountItems(expenseAccountId: string) {
 }
 
 // items: [{ product_id, product_type, quantity, unit_price, product_name }]
-export async function addExpenseAccountItems(expenseAccountId: string, items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number, product_name: string }>) {
+export async function addExpenseAccountItems(expenseAccountId: string, items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number, product_name: string }>, userId?: string) {
+  // Remover do estoque antes de inserir
+  if (userId) {
+    const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
+    const stockResult = await processOrderItemsStockConsumption(
+      items.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        product: {
+          id: item.product_id,
+          name: item.product_name,
+          price: item.unit_price,
+          available: true,
+          product_type: item.product_type
+        }
+      })),
+      userId,
+      'Consumo por conta de despesa'
+    );
+    if (!stockResult.success) {
+      const stockErrors = stockResult.errors.join('\n');
+      throw new Error(`Erro ao processar estoque:\n${stockErrors}`);
+    }
+  }
   const insertData = items.map(item => ({
     expense_account_id: expenseAccountId,
     product_id: item.product_id,

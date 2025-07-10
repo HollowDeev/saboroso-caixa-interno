@@ -54,14 +54,14 @@ export function useExpenseAccount() {
     }
   };
 
-  const handleAddItems = async (newItems: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number }>) => {
+  const handleAddItems = async (newItems: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number, product_name: string }>) => {
     if (!account?.id) {
       console.log('[useExpenseAccount] handleAddItems: sem conta aberta', account);
       return;
     }
     setLoading(true);
     try {
-      await addExpenseAccountItems(account.id, newItems);
+      await addExpenseAccountItems(account.id, newItems, currentUser?.id);
       await fetchAccountAndItems();
     } catch (err: any) {
       console.error('[useExpenseAccount] Erro ao adicionar itens:', err);
