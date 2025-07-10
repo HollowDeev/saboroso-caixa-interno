@@ -34,6 +34,8 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
     ] : []),
     ...((!isAdmin && (isManager || isEmployee)) ? [
       { icon: Package, label: 'Estoque', path: '/stock' },
+      // Adiciona Conta de Despesas apenas para funcionário (não admin)
+      { icon: DollarSign, label: 'Conta de Despesas', path: '/expense-account' },
     ] : [])
   ];
 

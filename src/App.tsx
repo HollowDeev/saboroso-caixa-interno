@@ -17,6 +17,7 @@ import { Login } from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import ExpenseAccount from "./pages/ExpenseAccount";
 
 const queryClient = new QueryClient();
 
@@ -180,6 +181,7 @@ const App = () => {
                   <Route path="/orders" element={<Orders />} />
                   <Route path="/sales" element={<Sales />} />
                   <Route path="/stock" element={<StockManagement />} />
+                  <Route path="/expense-account" element={<ExpenseAccount />} />
                   {/* Rotas para funcionário admin */}
                   {isEmployeeAdmin && (
                     <>
