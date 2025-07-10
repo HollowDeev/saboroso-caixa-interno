@@ -1,0 +1,1 @@
+ALTER TABLE expense_account_items ADD COLUMN product_name TEXT; 

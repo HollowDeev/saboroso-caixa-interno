@@ -6,6 +6,7 @@ interface Item {
   id: string;
   product_id: string;
   product_type: string;
+  product_name?: string;
   quantity: number;
   unit_price: number;
   created_at: string;
@@ -41,10 +42,15 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items }) => {
             {its.map(item => (
               <li key={item.id} className="flex items-center justify-between py-2">
                 <div>
-                  <span className="font-medium">{item.product_type === 'food' ? 'Comida' : 'Produto Externo'}</span>
-                  <span className="ml-2">x{item.quantity}</span>
+                  <span className="font-medium">{item.quantity}x </span>
+                  <span className="font-medium">{item.product_name || (item.product_type === 'food' ? 'Comida' : 'Produto Externo')}</span>
                 </div>
-                <div className="text-gray-700">R$ {(item.unit_price * item.quantity).toFixed(2)}</div>
+                <div className="flex flex-col items-end">
+                  <span>{item.quantity}x R$ {item.unit_price.toFixed(2)}</span>
+                  {item.quantity > 1 && (
+                    <span className="text-xs text-gray-500">Total: R$ {(item.unit_price * item.quantity).toFixed(2)}</span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

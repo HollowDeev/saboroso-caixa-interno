@@ -8,7 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 interface AddExpenseItemModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddItems: (items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number }>) => void;
+  onAddItems: (items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number, product_name: string }>) => void;
 }
 
 interface SelectedItem {
@@ -67,6 +67,7 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
       product_type: item.type,
       quantity: item.quantity,
       unit_price: item.price,
+      product_name: item.name,
     })));
     setSelectedItems([]);
     onClose();

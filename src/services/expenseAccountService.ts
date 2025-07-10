@@ -31,13 +31,15 @@ export async function getExpenseAccountItems(expenseAccountId: string) {
   return data;
 }
 
-export async function addExpenseAccountItems(expenseAccountId: string, items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number }>) {
+// items: [{ product_id, product_type, quantity, unit_price, product_name }]
+export async function addExpenseAccountItems(expenseAccountId: string, items: Array<{ product_id: string, product_type: string, quantity: number, unit_price: number, product_name: string }>) {
   const insertData = items.map(item => ({
     expense_account_id: expenseAccountId,
     product_id: item.product_id,
     product_type: item.product_type,
     quantity: item.quantity,
     unit_price: item.unit_price,
+    product_name: item.product_name,
   }));
   const { data, error } = await supabase
     .from('expense_account_items')
