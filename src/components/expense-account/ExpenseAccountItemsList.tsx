@@ -28,9 +28,12 @@ interface Props {
 
 const groupByDate = (items: Item[]) => {
   return items.reduce((acc, item) => {
-    const date = format(new Date(item.created_at), 'dd/MM/yyyy', { locale: ptBR });
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(item);
+    const dateObj = new Date(item.created_at);
+    const date = format(dateObj, 'dd/MM/yyyy', { locale: ptBR });
+    const weekDay = format(dateObj, 'EEEE', { locale: ptBR });
+    const label = `${weekDay.charAt(0).toUpperCase() + weekDay.slice(1)} - ${date}`;
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(item);
     return acc;
   }, {} as Record<string, Item[]>);
 };
