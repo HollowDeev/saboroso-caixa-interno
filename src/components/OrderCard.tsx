@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, User, Hash, CreditCard, X } from 'lucide-react';
+import { Plus, User, Hash, CreditCard, X, Printer } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { useToast } from '@/components/ui/use-toast';
+import { Dialog as PrintDialog, DialogContent as PrintDialogContent, DialogTrigger as PrintDialogTrigger } from '@/components/ui/dialog';
+import { OrderReceiptPrint } from './OrderReceiptPrint';
 
 interface OrderCardProps {
   order: Order;
@@ -28,6 +30,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     { method: 'cash', amount: order.total.toFixed(2) }
   ]);
   const [isClosingOrder, setIsClosingOrder] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
@@ -234,12 +237,29 @@ export const OrderCard = ({ order }: OrderCardProps) => {
             </div>
           </CardTitle>
           <div className="flex flex-col items-end gap-1">
-            <Badge variant={getStatusColor(order.status)}>
-              {getStatusText(order.status)}
-            </Badge>
-            <span className={`text-xs ${getPaymentStatusColor(order.payment_status)}`}>
-              {getPaymentStatusText(order.payment_status)}
-            </span>
+            <div className="flex items-center gap-2">
+              <PrintDialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
+                <PrintDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setIsPrintOpen(true); }}>
+                    <Printer className="h-4 w-4" />
+                  </Button>
+                </PrintDialogTrigger>
+                <PrintDialogContent>
+                  <div id="print-content-order">
+                    <OrderReceiptPrint order={order} />
+                  </div>
+                  <Button className="mt-4 w-full" onClick={() => { window.print(); setIsPrintOpen(false); }}>
+                    Imprimir
+                  </Button>
+                </PrintDialogContent>
+              </PrintDialog>
+              <Badge variant={getStatusColor(order.status)}>
+                {getStatusText(order.status)}
+              </Badge>
+              <span className={`text-xs ${getPaymentStatusColor(order.payment_status)}`}>
+                {getPaymentStatusText(order.payment_status)}
+              </span>
+            </div>
           </div>
         </div>
       </CardHeader>
