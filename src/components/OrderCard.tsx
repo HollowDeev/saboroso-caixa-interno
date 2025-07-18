@@ -6,13 +6,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, User, Hash, CreditCard, X, Printer } from 'lucide-react';
+import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog as PrintDialog, DialogContent as PrintDialogContent, DialogTrigger as PrintDialogTrigger } from '@/components/ui/dialog';
 import { OrderReceiptPrint } from './OrderReceiptPrint';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel
+} from '@/components/ui/alert-dialog';
 
 interface OrderCardProps {
   order: Order;
@@ -31,6 +41,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   ]);
   const [isClosingOrder, setIsClosingOrder] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [showPrintAlert, setShowPrintAlert] = useState(false);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
@@ -438,13 +449,14 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       </div>
                     </div>
 
-                    <div className="flex space-x-2 pt-4">
+                    {/* Botões alinhados: Cancelar | Fechar | Imprimir */}
+                    <div className="flex flex-row gap-2 pt-4">
                       <Button variant="outline" onClick={() => setIsCloseOrderOpen(false)} className="flex-1">
                         Cancelar
                       </Button>
                       <Button
-                        onClick={handleCloseOrder}
-                        className="flex-1"
+                        onClick={() => setShowPrintAlert(true)}
+                        className="flex-1 bg-green-500 hover:bg-green-600"
                         disabled={remainingAmount > 0 || isClosingOrder}
                       >
                         {isClosingOrder ? (
@@ -453,8 +465,18 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                             Finalizando...
                           </>
                         ) : (
-                          'Finalizar'
+                          'Fechar Comanda'
                         )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsCloseOrderOpen(false);
+                          setIsPrintOpen(true);
+                        }}
+                        className="flex-1"
+                      >
+                        Imprimir
                       </Button>
                     </div>
                   </div>
@@ -464,6 +486,37 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           )}
         </div>
       </CardContent>
+      {/* Alerta de confirmação de impressão */}
+      <AlertDialog open={showPrintAlert} onOpenChange={setShowPrintAlert}>
+        <AlertDialogContent className="border-red-600">
+          <div className="flex flex-col items-center justify-center">
+            <AlertTriangle className="text-red-600 mb-2" size={48} />
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl font-bold text-red-700 text-center">
+                Atenção!
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-lg text-red-600 font-semibold text-center mt-2">
+                É necessário imprimir a comanda para conferência do cliente antes do pagamento.<br />
+                <span className="block mt-2">Você já realizou a impressão?</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowPrintAlert(false)} className="font-bold">
+              Não, voltar para imprimir
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setShowPrintAlert(false);
+                await handleCloseOrder();
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              Sim, já imprimi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
