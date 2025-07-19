@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle } from 'lucide-react';
+import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -42,6 +42,10 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const [isClosingOrder, setIsClosingOrder] = useState(false);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [showPrintAlert, setShowPrintAlert] = useState(false);
+
+  // Estados para novo modal de adição de itens
+  const [addItemsSearch, setAddItemsSearch] = useState('');
+  const [addItemsSelected, setAddItemsSelected] = useState<any[]>([]);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
@@ -221,33 +225,97 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
   };
 
+  // Funções para adicionar/remover/alterar itens
+  const addProductToSelection = (product: Product | ExternalProduct) => {
+    const exists = addItemsSelected.find(item => item.productId === product.id);
+    if (exists) {
+      setAddItemsSelected(prev => prev.map(item =>
+        item.productId === product.id
+          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
+          : item
+      ));
+    } else {
+      const isExternalProduct = 'current_stock' in product;
+      setAddItemsSelected(prev => [...prev, {
+        id: `temp-${Date.now()}-${product.id}`,
+        productId: product.id,
+        product_name: product.name,
+        product,
+        quantity: 1,
+        unitPrice: product.price,
+        totalPrice: product.price,
+        product_type: isExternalProduct ? 'external_product' : 'food'
+      }]);
+    }
+  };
+  const removeProductFromSelection = (productId: string) => {
+    setAddItemsSelected(prev => prev.filter(item => item.productId !== productId));
+  };
+  const updateProductQuantityInSelection = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeProductFromSelection(productId);
+      return;
+    }
+    setAddItemsSelected(prev => prev.map(item =>
+      item.productId === productId
+        ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
+        : item
+    ));
+  };
+  // Produtos filtrados
+  const filteredFoodProducts = products
+    .filter(p => p.available && p.name.toLowerCase().includes(addItemsSearch.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const filteredExternalProducts = externalProducts
+    .filter(p => p.current_stock > 0 && p.name.toLowerCase().includes(addItemsSearch.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Função para confirmar adição dos itens
+  const handleAddItemsToOrder = async () => {
+    for (const item of addItemsSelected) {
+      await addItemToOrder(order.id, {
+        productId: item.productId,
+        product: item.product,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        product_name: item.product_name,
+        product_type: item.product_type
+      });
+    }
+    setAddItemsSelected([]);
+    setIsAddItemOpen(false);
+    setAddItemsSearch('');
+  };
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">
-            <div className="flex items-center">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2 w-full">
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 w-full">
               {order.customer_name && (
                 <>
-                  <User className="h-4 w-4 mr-2" />
-                  {order.customer_name}
+                  <User className="h-4 w-4 mr-1 shrink-0" />
+                  <span className="font-semibold break-all whitespace-normal">{order.customer_name}</span>
                 </>
               )}
               {order.table_number !== undefined && order.table_number !== null && (
                 <>
-                  <Hash className="h-4 w-4 ml-2 mr-2" />
-                  Mesa {order.table_number}
+                  <span className="mx-2 text-gray-400">|</span>
+                  <Hash className="h-4 w-4 mr-1 shrink-0" />
+                  <span className="font-semibold">Mesa {order.table_number}</span>
                 </>
               )}
               {!order.customer_name && !order.table_number && (
                 <>
-                  <Hash className="h-4 w-4 mr-2" />
-                  Mesa S/N
+                  <Hash className="h-4 w-4 mr-1 shrink-0" />
+                  <span className="font-semibold">Mesa S/N</span>
                 </>
               )}
             </div>
-          </CardTitle>
-          <div className="flex flex-col items-end gap-1">
+          </div>
+          <div className="flex flex-col items-end gap-1 min-w-fit">
             <div className="flex items-center gap-2">
               <PrintDialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
                 <PrintDialogTrigger asChild>
@@ -279,11 +347,9 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           {/* Lista de Itens */}
           <div className="space-y-2">
             {order.items.map((item, index) => (
-              <div key={index} className="flex justify-between text-sm">
-                <span>
-                  {item.quantity}x {item.product_name}
-                </span>
-                <span>R$ {item.totalPrice.toFixed(2)}</span>
+              <div key={index} className="flex justify-between items-center text-sm w-full">
+                <span className="break-all whitespace-normal">{item.quantity}x {item.product_name}</span>
+                <span className="whitespace-nowrap">R$ {item.totalPrice.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -305,47 +371,113 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                     Inserir Pedido
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-6">
                   <DialogHeader>
-                    <DialogTitle>Adicionar Item à Comanda</DialogTitle>
+                    <DialogTitle className="text-xl">Adicionar Itens à Comanda</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="product">Produto</Label>
-                      <Select onValueChange={(value) => {
-                        const product = allProducts.find(p => p.id === value);
-                        setSelectedProduct(product || null);
-                      }}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um produto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allProducts.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.name} - R$ {product.price.toFixed(2)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="quantity">Quantidade</Label>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        min="1"
-                        value={quantity}
-                        onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    {selectedProduct && (
-                      <div className="text-sm text-gray-600">
-                        Total: R$ {(selectedProduct.price * quantity).toFixed(2)}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <div>
+                        <Label htmlFor="addItemSearch">Pesquisar Produtos</Label>
+                        <div className="relative mt-1">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <Input
+                            id="addItemSearch"
+                            value={addItemsSearch}
+                            onChange={e => setAddItemsSearch(e.target.value)}
+                            placeholder="Digite o nome do produto..."
+                            className="pl-10"
+                          />
+                        </div>
                       </div>
-                    )}
-                    <Button onClick={handleAddItem} className="w-full">
-                      Adicionar Item
-                    </Button>
+                      <div>
+                        <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
+                        <div className="grid grid-cols-1 gap-2 h-96 overflow-y-auto border rounded-lg p-3">
+                          {filteredFoodProducts.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Comidas ({filteredFoodProducts.length})</h4>
+                              {filteredFoodProducts.map(product => (
+                                <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{product.name}</p>
+                                    <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                                    {product.description && (
+                                      <p className="text-xs text-gray-500 mt-1">{product.description}</p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => addProductToSelection(product)}
+                                    className="bg-green-500 hover:bg-green-600 ml-2"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {filteredExternalProducts.length > 0 && (
+                            <div className={filteredFoodProducts.length > 0 ? 'mt-4' : ''}>
+                              <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Produtos Externos ({filteredExternalProducts.length})</h4>
+                              {filteredExternalProducts.map(product => (
+                                <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">{product.name}</p>
+                                    <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                                    {product.description && (
+                                      <p className="text-xs text-gray-500 mt-1">{product.description}</p>
+                                    )}
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => addProductToSelection(product)}
+                                    className="bg-green-500 hover:bg-green-600 ml-2"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
+                            <div className="text-gray-500 text-center py-8">Nenhum item encontrado.</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <h3 className="font-semibold mb-3">Itens Selecionados</h3>
+                      <div className="h-96 overflow-y-auto border rounded-lg p-3 bg-white">
+                        {addItemsSelected.length === 0 ? (
+                          <div className="text-gray-500 text-center py-8">Nenhum item selecionado.</div>
+                        ) : (
+                          addItemsSelected.map(item => (
+                            <div key={item.productId} className="flex items-center justify-between border-b py-2">
+                              <div>
+                                <p className="font-medium text-sm">{item.product_name}</p>
+                                <p className="text-xs text-gray-500">{item.product_type === 'food' ? 'Comida' : 'Produto Externo'}</p>
+                                <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} x </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={item.quantity}
+                                  onChange={e => updateProductQuantityInSelection(item.productId, Number(e.target.value))}
+                                  className="w-16"
+                                />
+                                <Button type="button" size="icon" variant="ghost" onClick={() => removeProductFromSelection(item.productId)}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <Button onClick={handleAddItemsToOrder} className="w-full bg-green-600 hover:bg-green-700" disabled={addItemsSelected.length === 0}>
+                        Adicionar {addItemsSelected.length > 1 ? 'Itens' : 'Item'} à Comanda
+                      </Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
