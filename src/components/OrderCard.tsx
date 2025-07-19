@@ -49,8 +49,41 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
-  const totalPaid = payments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
-  const remainingAmount = order.total - totalPaid;
+  const handlePaymentAmountChange = (index: number, amount: string) => {
+    // Trocar vírgula por ponto e remover caracteres não numéricos exceto ponto
+    let cleanValue = amount.replace(/,/g, '.').replace(/[^\d.]/g, '');
+    // Garantir que só há um ponto decimal
+    const parts = cleanValue.split('.');
+    if (parts.length > 2) {
+      return;
+    }
+    // Limitar a 2 casas decimais
+    if (parts[1] && parts[1].length > 2) {
+      cleanValue = parts[0] + '.' + parts[1].slice(0, 2);
+    }
+    const newPayments = [...payments];
+    newPayments[index].amount = cleanValue;
+    setPayments(newPayments);
+  };
+
+  // Formatar valor ao sair do campo (onBlur)
+  const handlePaymentAmountBlur = (index: number) => {
+    const newPayments = [...payments];
+    let value = newPayments[index].amount.replace(/,/g, '.');
+    let num = parseFloat(value);
+    if (!isNaN(num)) {
+      num = Math.round(num * 100) / 100;
+      newPayments[index].amount = num.toFixed(2);
+    } else {
+      newPayments[index].amount = '';
+    }
+    setPayments(newPayments);
+  };
+
+  const round2 = (num: number) => Math.round(num * 100) / 100;
+
+  const totalPaid = payments.reduce((sum, payment) => sum + (round2(parseFloat(payment.amount)) || 0), 0);
+  const remainingAmount = round2(order.total) - round2(totalPaid);
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
@@ -138,28 +171,10 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     setPayments(newPayments);
   };
 
-  const handlePaymentAmountChange = (index: number, amount: string) => {
-    // Remover caracteres não numéricos, exceto ponto
-    const cleanValue = amount.replace(/[^\d.]/g, '');
-    // Garantir que só há um ponto decimal
-    const parts = cleanValue.split('.');
-    if (parts.length > 2) {
-      return;
-    }
-    // Limitar a 2 casas decimais
-    if (parts[1] && parts[1].length > 2) {
-      return;
-    }
-
-    const newPayments = [...payments];
-    newPayments[index].amount = cleanValue;
-    setPayments(newPayments);
-  };
-
   const validatePayments = () => {
     // Verificar se há valores inválidos
     const hasInvalidValues = payments.some(payment => {
-      const amount = parseFloat(payment.amount);
+      const amount = parseFloat(payment.amount.replace(/,/g, '.'));
       return isNaN(amount) || amount <= 0;
     });
 
@@ -172,11 +187,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       return false;
     }
 
-    // Verificar se o total dos pagamentos é igual ao valor da comanda
-    if (Math.abs(remainingAmount) > 0.01) {
+    // Tolerância aumentada para 0.05
+    if (Math.abs(remainingAmount) > 0.05) {
       toast({
         title: "Erro de validação",
-        description: "O total dos pagamentos deve ser igual ao valor da comanda.",
+        description: `O total dos pagamentos deve ser igual ao valor da comanda. Falta pagar: R$ ${Math.abs(remainingAmount).toFixed(2)}`,
         variant: "destructive"
       });
       return false;
@@ -204,7 +219,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       // Converter os valores de string para número
       const processedPayments = payments.map(payment => ({
         method: payment.method,
-        amount: parseFloat(payment.amount)
+        amount: parseFloat(payment.amount.replace(/,/g, '.'))
       }));
 
       await closeOrder(order.id, processedPayments);
@@ -539,6 +554,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                               type="text"
                               value={payment.amount}
                               onChange={(e) => handlePaymentAmountChange(index, e.target.value)}
+                              onBlur={() => handlePaymentAmountBlur(index)}
                               className="w-32"
                             />
                             {index > 0 && (
