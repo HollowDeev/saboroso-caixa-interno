@@ -31,7 +31,11 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
 
   const total = useMemo(() => selectedItems.reduce((sum, item) => sum + item.totalPrice, 0), [selectedItems]);
   const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + payment.amount, 0), [payments]);
-  const remainingAmount = useMemo(() => total - totalPaid, [total, totalPaid]);
+  const remainingAmount = useMemo(() => {
+    const diff = total - totalPaid;
+    return diff > 0 ? diff : 0;
+  }, [total, totalPaid]);
+  const change = useMemo(() => totalPaid > total ? totalPaid - total : 0, [total, totalPaid]);
 
   const addPayment = () => {
     setPayments([...payments, { method: 'cash', amount: 0 }]);
@@ -72,10 +76,10 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
       setSelectedItems(prev => prev.map(item =>
         item.productId === product.id
           ? {
-              ...item,
-              quantity: item.quantity + 1,
-              totalPrice: (item.quantity + 1) * item.unitPrice
-            }
+            ...item,
+            quantity: item.quantity + 1,
+            totalPrice: (item.quantity + 1) * item.unitPrice
+          }
           : item
       ));
     } else {
@@ -121,11 +125,17 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
       return;
     }
 
+    if (!customerName.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'O nome do cliente é obrigatório para registrar a venda direta.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setIsCreatingSale(true);
-      
-      // Remover a verificação de estoque aqui, pois ela será feita no salesService.addSale
-      // A verificação duplicada estava causando problemas com a remoção de itens do estoque
 
       // Formatar os itens para o formato esperado pelo serviço
       const formattedItems = selectedItems.map(item => ({
@@ -144,7 +154,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         tax: 0,
         payments,
         user_id: currentUser.id,
-        customer_name: customerName || undefined,
+        customer_name: customerName,
         is_direct_sale: true,
         cash_register_id: currentCashRegister.id,
         items: formattedItems,
@@ -205,7 +215,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="customerName">Nome do Cliente (opcional)</Label>
+                <Label htmlFor="customerName">Nome do Cliente <span className="text-red-500">*</span></Label>
                 <Input
                   id="customerName"
                   value={customerName}
@@ -403,12 +413,18 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                   <span>Total Pago:</span>
                   <span>R$ {totalPaid.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between font-bold">
-                  <span>Valor Restante:</span>
-                  <span className={cn(remainingAmount > 0 ? "text-red-500" : remainingAmount < 0 ? "text-orange-500" : "text-green-500")}>
-                    R$ {remainingAmount.toFixed(2)}
-                  </span>
-                </div>
+                {remainingAmount > 0 && (
+                  <div className="flex justify-between font-bold">
+                    <span>Valor Restante:</span>
+                    <span className={cn("text-red-500")}>R$ {remainingAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                {change > 0 && (
+                  <div className="flex justify-between font-bold text-green-600">
+                    <span>Troco:</span>
+                    <span>R$ {change.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
 

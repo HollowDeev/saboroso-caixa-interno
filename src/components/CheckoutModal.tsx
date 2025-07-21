@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, OrderItem, Product, ExternalProduct } from '@/types';
+
+import { toast } from '@/components/ui/use-toast';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -19,13 +21,14 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
   const { products, externalProducts, updateOrder } = useApp();
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
+  const [amountPaid, setAmountPaid] = useState(0);
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   React.useEffect(() => {
     if (isOpen && order) {
       setSelectedProducts(order.items);
-      setCustomerName(order.customerName || '');
+      setCustomerName(order.customer_name || '');
     }
   }, [isOpen, order]);
 
@@ -39,17 +42,19 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
           : item
       ));
     } else {
+      const isExternalProduct = 'current_stock' in product;
       const newItem: OrderItem = {
         id: `temp-${Date.now()}`,
         productId: product.id,
         product_name: product.name,
         product: {
           ...product,
-          available: 'current_stock' in product ? product.current_stock > 0 : product.available
+          available: isExternalProduct ? product.current_stock > 0 : product.available
         } as Product,
         quantity: 1,
         unitPrice: product.price,
-        totalPrice: product.price
+        totalPrice: product.price,
+        product_type: isExternalProduct ? 'external_product' : 'food'
       };
       setSelectedProducts(prev => [...prev, newItem]);
     }
@@ -73,15 +78,39 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
   };
 
   const total = selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0);
+  const change = useMemo(() => amountPaid > total ? amountPaid - total : 0, [amountPaid, total]);
+  const remainingAmount = useMemo(() => {
+    const diff = total - amountPaid;
+    return diff > 0 ? diff : 0;
+  }, [total, amountPaid]);
 
   const finalizeSale = async () => {
     if (!order) return;
 
+    if (!customerName.trim()) {
+      toast({
+        title: 'Erro',
+        description: 'O nome do cliente é obrigatório para finalizar a comanda.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Permitir finalizar mesmo com troco (amountPaid >= total)
+    if (remainingAmount > 0) {
+      toast({
+        title: 'Erro',
+        description: 'O valor pago é insuficiente para finalizar a comanda.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       const updatedOrderData = {
         status: 'closed' as const,
-        paymentMethod,
-        customerName: customerName || order.customerName,
+        payment_method: paymentMethod,
+        customer_name: customerName,
         subtotal: total,
         tax: 0,
         total,
@@ -140,6 +169,17 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
                   <SelectItem value="pix">PIX</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="amountPaid">Valor Pago</Label>
+              <Input
+                id="amountPaid"
+                type="number"
+                min={0}
+                value={amountPaid}
+                onChange={e => setAmountPaid(Number(e.target.value))}
+                placeholder="Digite o valor pago pelo cliente"
+              />
             </div>
 
             <div>
@@ -248,7 +288,22 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
                   <span>Total:</span>
                   <span>R$ {total.toFixed(2)}</span>
                 </div>
-
+                <div className="flex justify-between text-base">
+                  <span>Valor Pago:</span>
+                  <span>R$ {amountPaid.toFixed(2)}</span>
+                </div>
+                {remainingAmount > 0 && (
+                  <div className="flex justify-between text-base text-red-600">
+                    <span>Resta a pagar:</span>
+                    <span>R$ {remainingAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                {change > 0 && (
+                  <div className="flex justify-between font-bold text-green-600">
+                    <span>Troco:</span>
+                    <span>R$ {change.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex space-x-2 mt-4">
                   <Button
                     variant="outline"
