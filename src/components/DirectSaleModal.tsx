@@ -375,9 +375,14 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                       </SelectContent>
                     </Select>
                     <Input
-                      type="number"
-                      value={payment.amount}
-                      onChange={(e) => updatePayment(index, 'amount', Number(e.target.value))}
+                      type="text"
+                      inputMode="decimal"
+                      pattern="[0-9]*[.,]?[0-9]*"
+                      value={payment.amount === 0 ? '' : payment.amount}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(',', '.');
+                        updatePayment(index, 'amount', val === '' ? 0 : Number(val));
+                      }}
                       placeholder="Valor"
                       className="w-[150px]"
                     />
