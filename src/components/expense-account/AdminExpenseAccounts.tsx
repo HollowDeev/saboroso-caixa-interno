@@ -130,9 +130,53 @@ const AdminExpenseAccounts: React.FC = () => {
 
   const handleAddItems = async (newItems: any[]) => {
     if (!selected) return;
-    await addExpenseAccountItems(selected.accountId, newItems, currentUser?.id);
+    if (!currentUser?.id) return;
+
+    // Tenta consumir estoque de todos os itens
+    const { processOrderItemsStockConsumption } = await import('../../utils/stockConsumption');
+    const stockResult = await processOrderItemsStockConsumption(
+      newItems.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        product: {
+          id: item.product_id,
+          name: item.product_name,
+          price: item.unit_price,
+          available: true,
+          product_type: item.product_type
+        }
+      })),
+      currentUser.id,
+      'Consumo por conta de despesa'
+    );
+
+    // Se todos passaram, adiciona normalmente
+    if (stockResult.success) {
+      await addExpenseAccountItems(selected.accountId, newItems, currentUser.id);
+      setAddModalOpen(false);
+      await reloadItems();
+      return;
+    }
+
+    // Se houver erro, filtra os itens que podem ser adicionados
+    const errorMessages = stockResult.errors.join('\n');
+    // Para saber quais itens falharam, busca pelo nome no erro
+    const failedNames = stockResult.errors.map(err => {
+      const match = err.match(/para ([^\.]+)\./);
+      return match ? match[1] : null;
+    }).filter(Boolean);
+    const validItems = newItems.filter(item => !failedNames.includes(item.product_name));
+
+    if (validItems.length > 0) {
+      await addExpenseAccountItems(selected.accountId, validItems, currentUser.id);
+      await reloadItems();
+    }
     setAddModalOpen(false);
-    await reloadItems();
+    toast({
+      title: 'Erro ao adicionar itens',
+      description: errorMessages,
+      variant: 'destructive',
+    });
   };
 
   // Função para copiar dados formatados para a área de transferência (pode ser usada no fechamento)
