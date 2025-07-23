@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Pencil, Trash2, Clock, UtensilsCrossed } from 'lucide-react';
-import { Product } from '@/types';
+import { Product, ProductFormData } from '@/types';
 import { toast } from 'sonner';
+import { ProductForm } from './ProductForm';
 
 interface ProductCardProps {
   product: Product;
@@ -19,6 +20,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onDelete,
 }) => {
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editData, setEditData] = useState<ProductFormData | null>(null);
 
   const handleToggleAvailability = async () => {
     try {
@@ -37,6 +39,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       } catch (error) {
         console.error('Erro ao excluir produto:', error);
       }
+    }
+  };
+
+  const handleEdit = () => {
+    setEditData({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      cost: product.cost,
+      available: product.available,
+      category: product.category,
+      preparation_time: product.preparation_time,
+      ingredients: product.ingredients || [],
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editData) return;
+    try {
+      await onUpdate(product.id, editData);
+      setIsEditOpen(false);
+      toast.success('Comida atualizada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar comida:', error);
+      toast.error('Erro ao atualizar comida');
     }
   };
 
@@ -110,7 +138,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Button
                 size="default"
                 variant="outline"
-                onClick={() => setIsEditOpen(true)}
+                onClick={handleEdit}
                 className="flex-1 py-5 text-base font-medium"
               >
                 <Pencil className="h-5 w-5 mr-2" />
@@ -129,6 +157,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </CardContent>
       </Card>
+      {/* Modal de edição de comida */}
+      {isEditOpen && editData && (
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle>Editar Comida</DialogTitle>
+            </DialogHeader>
+            <ProductForm
+              product={editData}
+              onChange={(field, value) => setEditData(prev => prev ? { ...prev, [field]: value } : prev)}
+              onSubmit={handleEditSubmit}
+              onCancel={() => setIsEditOpen(false)}
+              submitLabel="Salvar Alterações"
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
