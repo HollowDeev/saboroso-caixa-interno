@@ -503,16 +503,6 @@ export const Sales = () => {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditingSale(sale);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
                               setSaleToDelete(sale);
                             }}
                             disabled={isDeletingSale}

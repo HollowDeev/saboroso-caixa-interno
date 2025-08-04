@@ -657,7 +657,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       </div>
                     </div>
 
-                    {/* Botões alinhados: Cancelar | Fechar */}
+                    {/* Botões alinhados: Cancelar | Fechar | Imprimir */}
                     <div className="flex flex-row gap-2 pt-4">
                       <Button variant="outline" onClick={() => setIsCloseOrderOpen(false)} className="flex-1">
                         Cancelar
@@ -676,7 +676,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                           'Fechar Comanda'
                         )}
                       </Button>
-
+                      <Button
+                        variant="outline"
+                        onClick={() => setOrderToPrint(order)}
+                        className="flex-1"
+                      >
+                        Imprimir
+                      </Button>
                     </div>
                   </div>
                 </DialogContent>
