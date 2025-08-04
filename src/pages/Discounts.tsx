@@ -123,7 +123,7 @@ export default function DiscountsPage() {
                           <Button
                             variant={discount.active ? "outline" : "default"}
                             size="sm"
-                            disabled={!!currentCashRegister || toggleLoadingId === discount.id}
+                            disabled={toggleLoadingId === discount.id}
                             onClick={() => handleToggle(discount.id)}
                             className={discount.active ? "border-green-600 text-green-700" : "border-gray-400 text-gray-600"}
                           >
@@ -132,11 +132,6 @@ export default function DiscountsPage() {
                             ) : null}
                             {discount.active ? "Desativar" : "Ativar"}
                           </Button>
-                          {!!currentCashRegister && (
-                            <div className="absolute left-0 top-full mt-1 w-max bg-yellow-100 text-yellow-800 text-xs rounded px-2 py-1 border border-yellow-300 shadow z-10">
-                              Não é possível ativar/desativar descontos com caixa aberto.
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>

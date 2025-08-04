@@ -119,6 +119,7 @@ export interface Sale {
   cash_register_id: string;
   is_direct_sale: boolean;
   customer_name?: string;
+  total_discount?: number;
   items: Array<{
     id: string;
     product_id: string;
@@ -127,6 +128,9 @@ export interface Sale {
     unit_price: number;
     total_price: number;
     product_type: string;
+    original_price?: number;
+    discount_value?: number;
+    discount_id?: string;
   }>;
   createdAt: string;
 }

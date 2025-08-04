@@ -39,25 +39,31 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
   // Função para formatar valor monetário
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2)}`;
 
-  // Função para criar linha de produto
-  const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number) => {
-    // Exemplo:
-    // Espetinho Carne
-    //   - 2x R$ 10.00
-    //   - Total: R$ 20.00
+  // Função para criar linha de produto com desconto
+  const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number, originalPrice?: number, discountValue?: number) => {
     const qtyAndUnit = `${quantity}x ${formatCurrency(unitPrice)}`;
     const right = formatCurrency(totalPrice);
-    // Limitar o nome para não quebrar a linha
     const maxNameLength = 30;
     let trimmedName = name;
     if (trimmedName.length > maxNameLength) {
       trimmedName = trimmedName.slice(0, maxNameLength - 1) + '…';
     }
-    return `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}\n`;
+    let line = `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}`;
+    
+    if (originalPrice && discountValue && discountValue > 0) {
+      line += `\n  - Preço original: ${formatCurrency(originalPrice)}`;
+      line += `\n  (Desconto de: ${formatCurrency(discountValue)})`;
+    }
+    return line + '\n';
   };
 
   // Função para criar linha divisória
   const divider = '-'.repeat(32);
+
+  // Calcular total de descontos usando dados persistidos nos itens
+  const totalDiscount = items.reduce((sum, item) => {
+    return sum + (item.discount_value && item.discount_value > 0 ? item.discount_value * (Number(item.quantity) || 1) : 0);
+  }, 0);
 
   return (
     <pre style={{
@@ -101,13 +107,17 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
         const unitPrice = Number(item.unit_price) || 0;
         const totalPrice = Number(item.total_price) || 0;
         const productName = item.product_name || 'Produto não identificado';
-        return formatProductLine(productName, quantity, unitPrice, totalPrice) + (idx < items.length - 1 ? '\n' : '');
+        const originalPrice = item.original_price;
+        const discountValue = item.discount_value;
+        return formatProductLine(productName, quantity, unitPrice, totalPrice, originalPrice, discountValue) + (idx < items.length - 1 ? '\n' : '');
       }).join('')}
       {'\n'}
       {divider}
       {'\n'}
       {rightAlign('Subtotal:', formatCurrency(sale.subtotal))}
       {'\n'}
+      {totalDiscount > 0 && rightAlign('Total descontos:', formatCurrency(totalDiscount))}
+      {totalDiscount > 0 && '\n'}
       {rightAlign('Taxa:', formatCurrency(sale.tax))}
       {'\n'}
       {rightAlign('TOTAL:', formatCurrency(total))}

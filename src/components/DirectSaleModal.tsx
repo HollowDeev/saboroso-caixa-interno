@@ -10,6 +10,7 @@ import { OrderItem, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useActiveDiscounts } from '@/hooks/useActiveDiscounts';
 
 interface DirectSaleModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingSale, setIsCreatingSale] = useState(false);
+  const { discounts: activeDiscounts } = useActiveDiscounts();
 
   const total = useMemo(() => selectedItems.reduce((sum, item) => sum + item.totalPrice, 0), [selectedItems]);
   const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + payment.amount, 0), [payments]);
@@ -36,6 +38,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
     return diff > 0 ? diff : 0;
   }, [total, totalPaid]);
   const change = useMemo(() => totalPaid > total ? totalPaid - total : 0, [total, totalPaid]);
+  const totalDiscount = selectedItems.reduce((acc, item) => acc + (item.discountValue ? item.discountValue * item.quantity : 0), 0);
 
   const addPayment = () => {
     setPayments([...payments, { method: 'cash', amount: 0 }]);
@@ -70,29 +73,40 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   };
 
   const addItem = (product: Product | ExternalProduct) => {
+    const isExternalProduct = 'current_stock' in product;
+    const discount = activeDiscounts.find(
+      d => d.productId === product.id && d.active && d.productType === (isExternalProduct ? 'external_product' : 'food')
+    );
+    const priceToUse = discount ? discount.newPrice : product.price;
     const existingItem = selectedItems.find(item => item.productId === product.id);
 
     if (existingItem) {
       setSelectedItems(prev => prev.map(item =>
         item.productId === product.id
           ? {
-            ...item,
-            quantity: item.quantity + 1,
-            totalPrice: (item.quantity + 1) * item.unitPrice
-          }
+              ...item,
+              quantity: item.quantity + 1,
+              totalPrice: (item.quantity + 1) * priceToUse,
+              unitPrice: priceToUse,
+              originalPrice: product.price,
+              discountValue: discount ? product.price - discount.newPrice : 0,
+              discountId: discount?.id
+            }
           : item
       ));
     } else {
-      const isExternalProduct = 'current_stock' in product;
       const newItem: OrderItem = {
         id: `temp-${Date.now()}`,
         productId: product.id,
         product_name: product.name,
         product: product,
         quantity: 1,
-        unitPrice: product.price,
-        totalPrice: product.price,
-        product_type: isExternalProduct ? 'external_product' : 'food'
+        unitPrice: priceToUse,
+        totalPrice: priceToUse,
+        product_type: isExternalProduct ? 'external_product' : 'food',
+        originalPrice: product.price,
+        discountValue: discount ? product.price - discount.newPrice : 0,
+        discountId: discount?.id
       };
       setSelectedItems(prev => [...prev, newItem]);
     }
@@ -145,7 +159,10 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         quantity: item.quantity,
         unit_price: item.unitPrice,
         total_price: item.totalPrice,
-        product_type: item.product_type
+        product_type: item.product_type,
+        original_price: item.originalPrice ?? null,
+        discount_value: item.discountValue ?? null,
+        discount_id: item.discountId ?? null
       }));
 
       await addSale({
@@ -310,7 +327,14 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                   <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-sm">{item.product?.name}</p>
-                      <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                        {item.discountValue && item.discountValue > 0 && item.originalPrice && (
+                          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-300 font-semibold ml-1">
+                            Preço original: R$ {item.originalPrice.toFixed(2)} | Desconto: R$ {item.discountValue.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500">Total: R$ {item.totalPrice.toFixed(2)}</p>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -413,6 +437,10 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                 <div className="flex justify-between text-sm">
                   <span>Total da Venda:</span>
                   <span>R$ {total.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Total de Descontos:</span>
+                  <span className="text-green-700">- R$ {totalDiscount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Total Pago:</span>

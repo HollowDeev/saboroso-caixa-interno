@@ -162,10 +162,7 @@ export const useDataLoader = () => {
               quantity,
               unit_price,
               total_price,
-              product_type,
-              original_price,
-              discount_value,
-              discount_id
+              product_type
             )
           `)
           .eq('cash_register_id', cashRegisterData?.id)
@@ -195,6 +192,18 @@ export const useDataLoader = () => {
           throw salesError;
         }
         console.log('✅ Sales loaded:', salesData?.length || 0, 'items');
+
+        // DEBUG: Log das vendas carregadas para verificar os campos
+        salesData?.forEach((sale, idx) => {
+          console.log(`DEBUG - Sale ${idx} raw from DB:`, {
+            id: sale.id,
+            total: sale.total,
+            items: sale.items,
+            items_type: typeof sale.items,
+            items_stringified: JSON.stringify(sale.items)
+          });
+        });
+
         setSales(formatSales((salesData || []).map(sale => ({
           ...sale,
           items: Array.isArray(sale.items)

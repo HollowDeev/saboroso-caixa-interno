@@ -63,6 +63,10 @@ type SaleItem = {
   unit_price: number;
   total_price: number;
   product_type: string;
+  // Campos de desconto
+  original_price?: number;
+  discount_value?: number;
+  discount_id?: string;
 };
 
 type SaleFromDB = Database['public']['Tables']['sales']['Row'] & {
@@ -99,7 +103,7 @@ export const Sales = () => {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isDeletingSale, setIsDeletingSale] = useState(false);
 
-  const isOwner = checkCashRegisterAccess() || (currentUser && (currentUser.role === 'gerente' || currentUser.role === 'employee'));
+  const isOwner = checkCashRegisterAccess() || (currentUser && (currentUser.role === 'admin' || currentUser.role === 'employee'));
 
   // Filtra vendas e despesas do caixa atual
   const currentSales = useMemo(() =>
@@ -525,21 +529,40 @@ export const Sales = () => {
                       ))}
                     </div>
                     <div className="space-y-2">
-                      {sale.items?.map((item, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <span>{item.quantity}x</span>
-                            <span>{item.product_name}</span>
+                      {sale.items?.map((item, index) => {
+                        const original = item.original_price;
+                        const discount = item.discount_value;
+                        return (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <div className="flex items-center gap-2">
+                              <span>{item.quantity}x</span>
+                              <span>{item.product_name}</span>
+                              {discount && discount > 0 && original && (
+                                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-300 font-semibold ml-1">
+                                  Preço original: R$ {Number(original).toFixed(2)} | Desconto: R$ {Number(discount).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            <span>R$ {Number(item.total_price).toFixed(2)}</span>
                           </div>
-                          <span>R$ {Number(item.total_price).toFixed(2)}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
+                    {/* Rodapé do card: incluir total de descontos */}
                     <div className="pt-2 border-t">
                       <div className="flex justify-between text-sm">
                         <span>Subtotal:</span>
                         <span>R$ {Number(sale.subtotal).toFixed(2)}</span>
                       </div>
+                      {/* Total de descontos */}
+                      {sale.items && sale.items.some(item => item.discount_value && item.discount_value > 0) && (
+                        <div className="flex justify-between text-sm">
+                          <span>Total de Descontos:</span>
+                          <span className="text-green-700">
+                            - R$ {sale.items.reduce((acc, item) => acc + (item.discount_value && item.discount_value > 0 ? item.discount_value * (Number(item.quantity) || 1) : 0), 0).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span>Taxa de Serviço:</span>
                         <span>R$ {Number(sale.tax).toFixed(2)}</span>

@@ -257,6 +257,9 @@ export const closeOrder = async (
     }
   }
 
+  // Calcular o total de desconto dos itens
+  const totalDiscount = order.order_items.reduce((acc, item) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
+
   // Criar a venda
   const { data: sale, error: saleError } = await supabase
     .from('sales')
@@ -270,14 +273,19 @@ export const closeOrder = async (
       cash_register_id: currentCashRegister!.id,
       is_direct_sale: false,
       customer_name: order.customer_name,
-      items: order.order_items.map((item: { id: string; product_id: string; product_name: string; quantity: number; unit_price: number; total_price: number; product_type: string }) => ({
+      total_discount: totalDiscount, // novo campo
+      items: order.order_items.map((item: any) => ({
         id: item.id,
         product_id: item.product_id,
         product_name: item.product_name,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.total_price,
-        product_type: item.product_type || 'food'
+        product_type: item.product_type || 'food',
+        // Campos de desconto
+        original_price: item.original_price ?? null,
+        discount_value: item.discount_value ?? null,
+        discount_id: item.discount_id ?? null
       }))
     })
     .select()

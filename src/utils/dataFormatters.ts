@@ -12,6 +12,10 @@ interface RawSaleItem {
   total_price?: number | string;
   totalPrice?: number | string;
   product_type?: string;
+  // Campos de desconto
+  original_price?: number;
+  discount_value?: number;
+  discount_id?: string;
 }
 
 interface RawSale {
@@ -102,7 +106,11 @@ export const formatSales = (salesData: RawSale[]): Sale[] => {
       quantity: Number(item.quantity) || 0,
       unit_price: Number(item.unitPrice || item.unit_price) || 0,
       total_price: Number(item.totalPrice || item.total_price) || 0,
-      product_type: item.product_type || 'food'
+      product_type: item.product_type || 'food',
+      // Campos de desconto
+      original_price: item.original_price || undefined,
+      discount_value: item.discount_value || undefined,
+      discount_id: item.discount_id || undefined
     })) : [],
     subtotal: Number(sale.subtotal) || 0,
     tax: Number(sale.tax) || 0,

@@ -17,3 +17,10 @@ SELECT column_name, data_type, is_nullable
 FROM information_schema.columns 
 WHERE table_name = 'order_items' 
 AND column_name IN ('original_price', 'discount_value', 'discount_id'); 
+
+-- Adicionar campo total_discount na tabela sales
+ALTER TABLE public.sales
+ADD COLUMN total_discount numeric DEFAULT 0;
+
+-- Comentário explicativo
+COMMENT ON COLUMN public.sales.total_discount IS 'Total de descontos aplicados na venda'; 

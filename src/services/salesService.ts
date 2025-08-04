@@ -41,8 +41,15 @@ export const addSale = async (
     quantity: Number(item.quantity),
     unit_price: Number(item.unit_price),
     total_price: Number(item.total_price),
-    product_type: item.product_type
+    product_type: item.product_type,
+    // Novos campos de desconto
+    original_price: item.original_price ?? null,
+    discount_value: item.discount_value ?? null,
+    discount_id: item.discount_id ?? null
   }));
+
+  // Calcular o total de desconto da venda
+  const totalDiscount = sale.items.reduce((acc, item) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
 
   const formattedPayments: Payment[] = sale.payments.map(p => ({
     method: p.method,
@@ -101,7 +108,8 @@ export const addSale = async (
       payments: formattedPayments,
       cash_register_id: cash_register_id,
       order_id: sale.order_id || null,
-      is_direct_sale: sale.is_direct_sale
+      is_direct_sale: sale.is_direct_sale,
+      total_discount: totalDiscount, // novo campo
     })
     .select()
     .single();
