@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "./contexts/AppContext";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
+import DiscountsPage from "./pages/Discounts";
 import { Orders } from "./pages/Orders";
 import { StockManagement } from "./pages/StockManagement";
 import { Sales } from "./pages/Sales";
@@ -169,39 +170,47 @@ const App = () => {
           <Sonner />
           <AppProvider>
             <BrowserRouter>
-              <Layout 
-                adminData={adminData} 
-                employeeData={employeeData}
-                onLogout={handleEmployeeLogout}
-                isEmployee={true}
-              >
-                <Routes>
-                  {/* Rotas disponíveis para funcionários */}
-                  <Route path="/" element={<Orders />} />
-                  <Route path="/orders" element={<Orders />} />
-                  <Route path="/sales" element={<Sales />} />
-                  <Route path="/stock" element={<StockManagement />} />
-                  <Route path="/expense-account" element={<ExpenseAccount />} />
-                  {/* Rotas para funcionário admin */}
-                  {isEmployeeAdmin && (
-                    <>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/users" element={<Users />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/calculator" element={<ProfitCalculator />} />
-                      <Route path="/cash-registers" element={<CashRegisters />} />
-                    </>
-                  )}
-                  {/* Redirecionar funcionários comuns para comandas se tentarem acessar rotas restritas */}
-                  {!isEmployeeAdmin && (
-                    <Route path="*" element={<Navigate to="/orders" replace />} />
-                  )}
-                  {/* Admin 404 */}
-                  {isEmployeeAdmin && (
-                    <Route path="*" element={<NotFound />} />
-                  )}
-                </Routes>
-              </Layout>
+              <Routes>
+                {/* Página de descontos SEM layout */}
+                {isEmployeeAdmin && (
+                  <Route path="/discounts" element={<DiscountsPage />} />
+                )}
+                {/* Demais páginas COM layout */}
+                <Route
+                  path="*"
+                  element={
+                    <Layout
+                      adminData={adminData}
+                      employeeData={employeeData}
+                      onLogout={handleEmployeeLogout}
+                      isEmployee={true}
+                    >
+                      <Routes>
+                        <Route path="/" element={<Orders />} />
+                        <Route path="/orders" element={<Orders />} />
+                        <Route path="/sales" element={<Sales />} />
+                        <Route path="/stock" element={<StockManagement />} />
+                        <Route path="/expense-account" element={<ExpenseAccount />} />
+                        {isEmployeeAdmin && (
+                          <>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/users" element={<Users />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="/calculator" element={<ProfitCalculator />} />
+                            <Route path="/cash-registers" element={<CashRegisters />} />
+                          </>
+                        )}
+                        {!isEmployeeAdmin && (
+                          <Route path="*" element={<Navigate to="/orders" replace />} />
+                        )}
+                        {isEmployeeAdmin && (
+                          <Route path="*" element={<NotFound />} />
+                        )}
+                      </Routes>
+                    </Layout>
+                  }
+                />
+              </Routes>
             </BrowserRouter>
           </AppProvider>
         </TooltipProvider>

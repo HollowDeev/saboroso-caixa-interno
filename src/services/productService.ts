@@ -1,3 +1,11 @@
+export const getExternalProducts = async (): Promise<ExternalProduct[]> => {
+  const { data, error } = await supabase
+    .from('external_products')
+    .select('*')
+    .order('name');
+  if (error) throw error;
+  return data as ExternalProduct[];
+};
 import { supabase } from '@/integrations/supabase/client';
 import { Product, ExternalProduct, Ingredient, User, ProductIngredient } from '@/types';
 import { SupabaseClient } from '@supabase/supabase-js';

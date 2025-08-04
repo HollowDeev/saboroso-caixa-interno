@@ -1,12 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  Home, 
-  ShoppingCart, 
-  Package, 
-  BarChart3, 
-  Users, 
-  Settings, 
+import {
+  Home,
+  ShoppingCart,
+  Package,
+  BarChart3,
+  Users,
+  Settings,
   Calculator,
   X,
   DollarSign
@@ -31,6 +31,7 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
       { icon: Users, label: 'Funcionários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
       { icon: Settings, label: 'Configurações', path: '/settings' },
+      { icon: DollarSign, label: 'Descontos', path: '/discounts' },
     ] : []),
     ...((!isAdmin && (isManager || isEmployee)) ? [
       { icon: Package, label: 'Estoque', path: '/stock' },

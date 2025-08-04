@@ -187,7 +187,7 @@ const AdminExpenseAccounts: React.FC = () => {
     const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
     const valorTotal = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
     const nome = selected.employeeName;
-    const dataAbertura = items.length > 0 ? format(new Date(items[items.length-1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
+    const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
     let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
     Object.entries(itemsByDate).forEach(([date, its]) => {
@@ -248,7 +248,7 @@ const AdminExpenseAccounts: React.FC = () => {
     const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
     const valorTotal = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
     const nome = selected.employeeName;
-    const dataAbertura = items.length > 0 ? format(new Date(items[items.length-1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
+    const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
     let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
     Object.entries(itemsByDate).forEach(([date, its]) => {
@@ -365,7 +365,7 @@ const AdminExpenseAccounts: React.FC = () => {
         <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
           <AlertTriangle className="w-12 h-12 text-orange-500 mx-auto mb-4" />
           <div className="text-lg font-semibold mb-2">Tem certeza que deseja fechar a conta?</div>
-          <div className="mb-4 text-gray-700">Ao fechar a comanda a mesma não poderá mais ser modificada e todas as novas despesas registradas pelo <b>{selected?.employeeName}</b> estarão na próxima conta aberta.<br/> <span className='font-bold text-red-600'>TEM CERTEZA?</span></div>
+          <div className="mb-4 text-gray-700">Ao fechar a comanda a mesma não poderá mais ser modificada e todas as novas despesas registradas pelo <b>{selected?.employeeName}</b> estarão na próxima conta aberta.<br /> <span className='font-bold text-red-600'>TEM CERTEZA?</span></div>
           <div className="flex gap-4 justify-center mt-2">
             <Button variant="outline" onClick={() => setConfirmClose(false)}>Cancelar</Button>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={confirmCloseAccount}>Confirmar</Button>
