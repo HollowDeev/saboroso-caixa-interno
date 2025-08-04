@@ -4,6 +4,7 @@ import { Plus, Edit, Trash, ToggleLeft, ToggleRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/contexts/AppContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 
@@ -21,20 +22,58 @@ interface Discount {
 
 export default function DiscountsPage() {
   const { products, externalProducts } = useAppContext();
+
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Discount | null>(null);
   const [loading, setLoading] = useState(true);
+  // Carregar descontos do banco
+  useEffect(() => {
+    const fetchDiscounts = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('discounts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setDiscounts(data.map((d: any) => ({
+          ...d,
+          productType: d.product_type,
+          productId: d.product_id,
+          name: d.name,
+          newPrice: Number(d.new_price),
+          active: d.active,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
+        })));
+      }
+      setLoading(false);
+    };
+    fetchDiscounts();
+  }, []);
 
   useEffect(() => {
     setLoading(false);
   }, []);
 
-  const handleDelete = (id: string) => {
+  // Deletar desconto
+  const handleDelete = async (id: string) => {
+    await supabase.from('discounts').delete().eq('id', id);
     setDiscounts(discounts.filter((d) => d.id !== id));
   };
-  const handleToggle = (id: string) => {
-    setDiscounts(discounts.map((d) => d.id === id ? { ...d, active: !d.active } : d));
+  // Ativar/desativar desconto
+  const handleToggle = async (id: string) => {
+    const discount = discounts.find((d) => d.id === id);
+    if (!discount) return;
+    const newActive = !discount.active;
+    await supabase.from('discounts').update({ active: newActive, updated_at: new Date().toISOString() }).eq('id', id);
+    setDiscounts(discounts.map((d) => d.id === id ? { ...d, active: newActive } : d));
+    // Atualizar produto/comida se ativando/desativando
+    if (discount.productType === 'food') {
+      await supabase.from('foods').update({ has_discount: newActive, active_discount_id: newActive ? id : null }).eq('id', discount.productId);
+    } else {
+      await supabase.from('external_products').update({ has_discount: newActive, active_discount_id: newActive ? id : null }).eq('id', discount.productId);
+    }
   };
 
   return (
@@ -60,7 +99,18 @@ export default function DiscountsPage() {
                       <div>
                         <div className="font-bold">{discount.name}</div>
                         <div className="text-xs text-gray-500">
-                          {discount.productType === "food" ? "Comida" : "Produto Externo"} - {discount.productName}
+                          {discount.productType === "food" ? "Comida" : "Produto Externo"} - {
+                            (() => {
+                              if (discount.productName && discount.productName !== "") return discount.productName;
+                              if (discount.productType === "food") {
+                                const food = products.find((f: any) => f.id === discount.productId);
+                                return food ? food.name : "";
+                              } else {
+                                const prod = externalProducts.find((p: any) => p.id === discount.productId);
+                                return prod ? prod.name : "";
+                              }
+                            })()
+                          }
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -81,11 +131,45 @@ export default function DiscountsPage() {
             <DiscountModal
               open={modalOpen}
               onClose={() => setModalOpen(false)}
-              onSave={(d: Discount) => {
+              onSave={async (d: Discount) => {
+                let discountId = d.id;
                 if (editing) {
+                  // Update
+                  await supabase.from('discounts').update({
+                    product_type: d.productType,
+                    product_id: d.productId,
+                    name: d.name,
+                    new_price: d.newPrice,
+                    active: d.active,
+                    updated_at: new Date().toISOString(),
+                  }).eq('id', d.id);
                   setDiscounts(discounts.map((disc) => disc.id === d.id ? d : disc));
                 } else {
-                  setDiscounts([...discounts, { ...d, id: Math.random().toString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]);
+                  // Insert
+                  const { data, error } = await supabase.from('discounts').insert({
+                    product_type: d.productType,
+                    product_id: d.productId,
+                    name: d.name,
+                    new_price: d.newPrice,
+                    active: d.active,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  }).select().single();
+                  if (data) {
+                    discountId = data.id;
+                    setDiscounts([...discounts, {
+                      ...d,
+                      id: data.id,
+                      createdAt: data.created_at,
+                      updatedAt: data.updated_at,
+                    }]);
+                  }
+                }
+                // Atualizar produto/comida para marcar desconto ativo
+                if (d.productType === 'food') {
+                  await supabase.from('foods').update({ has_discount: true, active_discount_id: discountId }).eq('id', d.productId);
+                } else {
+                  await supabase.from('external_products').update({ has_discount: true, active_discount_id: discountId }).eq('id', d.productId);
                 }
                 setModalOpen(false);
               }}
