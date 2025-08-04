@@ -7,6 +7,7 @@ import { Plus, Search } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Order, OrderItem, Product, NewOrderItem, ExternalProduct } from '@/types';
+import { useActiveDiscounts } from '@/hooks/useActiveDiscounts';
 import { OrderCard } from '@/components/OrderCard';
 import { NoCashRegisterModal } from '@/components/NoCashRegisterModal';
 import { toast } from '@/hooks/use-toast';
@@ -38,6 +39,9 @@ export const Orders = () => {
 
   const isOwner = checkCashRegisterAccess();
 
+  // Hook para descontos ativos
+  const { discounts: activeDiscounts } = useActiveDiscounts();
+
   React.useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('new') === '1') {
@@ -54,28 +58,44 @@ export const Orders = () => {
   };
 
   const addProductToOrder = (product: Product | ExternalProduct) => {
+    // Verifica desconto ativo
+    const discount = activeDiscounts.find(
+      d => d.productId === product.id && d.active && d.productType === ('current_stock' in product ? 'external_product' : 'food')
+    );
+    const priceToUse = discount ? discount.newPrice : product.price;
     const existingItem = selectedProducts.find(item => item.productId === product.id);
 
     if (existingItem) {
       setSelectedProducts(prev => prev.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
+          ? {
+              ...item,
+              quantity: item.quantity + 1,
+              totalPrice: (item.quantity + 1) * priceToUse,
+              unitPrice: priceToUse,
+              originalPrice: product.price,
+              discountValue: discount ? product.price - discount.newPrice : 0,
+              discountId: discount?.id
+            }
           : item
       ));
     } else {
       const isExternalProduct = 'current_stock' in product;
-      const newItem: OrderItem = {
+      const newItem: OrderItem & { originalPrice?: number; discountValue?: number; discountId?: string } = {
         id: `temp-${Date.now()}`,
         productId: product.id,
         product_name: product.name,
         product: {
           ...product,
-          available: 'current_stock' in product ? product.current_stock > 0 : product.available
+          available: isExternalProduct ? product.current_stock > 0 : product.available
         },
         quantity: 1,
-        unitPrice: product.price,
-        totalPrice: product.price,
-        product_type: isExternalProduct ? 'external_product' : 'food'
+        unitPrice: priceToUse,
+        totalPrice: priceToUse,
+        product_type: isExternalProduct ? 'external_product' : 'food',
+        originalPrice: product.price,
+        discountValue: discount ? product.price - discount.newPrice : 0,
+        discountId: discount?.id
       };
       setSelectedProducts(prev => [...prev, newItem]);
     }
@@ -93,7 +113,15 @@ export const Orders = () => {
 
     setSelectedProducts(prev => prev.map(item =>
       item.productId === productId
-        ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
+        ? { 
+            ...item, 
+            quantity, 
+            totalPrice: quantity * item.unitPrice,
+            // Preservar dados de desconto
+            originalPrice: item.originalPrice,
+            discountValue: item.discountValue,
+            discountId: item.discountId
+          }
         : item
     ));
   };
@@ -117,6 +145,16 @@ export const Orders = () => {
       setIsCreatingOrder(true);
       const { subtotal, tax, total } = calculateTotal();
 
+      // Debug: verificar dados dos produtos selecionados
+      console.log('Orders - produtos selecionados:', selectedProducts);
+      console.log('Orders - dados de desconto nos produtos:', selectedProducts.map(item => ({
+        productName: item.product_name,
+        originalPrice: item.originalPrice,
+        discountValue: item.discountValue,
+        discountId: item.discountId
+      })));
+
+      // Ajuste para aceitar tanto created_at quanto createdAt
       const newOrder: Omit<Order, 'id' | 'created_at' | 'updated_at'> = {
         customer_name: customerName || undefined,
         table_number: tableNumber !== undefined && tableNumber !== null ? Number(tableNumber) : undefined,
@@ -128,6 +166,8 @@ export const Orders = () => {
         user_id: currentUser!.id,
         cash_register_id: currentCashRegister!.id
       };
+
+      console.log('Orders - nova comanda a ser criada:', newOrder);
 
       await addOrder(newOrder);
 
@@ -141,7 +181,8 @@ export const Orders = () => {
         title: "Sucesso",
         description: "Comanda criada com sucesso!",
       });
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Orders - erro ao criar comanda:', error);
       toast({
         title: "Erro ao criar comanda",
         description: error.message || "Ocorreu um erro ao criar a comanda. Tente novamente.",
@@ -248,49 +289,73 @@ export const Orders = () => {
                     {filteredFoodProducts.length > 0 && (
                       <div>
                         <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Comidas ({filteredFoodProducts.length})</h4>
-                        {filteredFoodProducts.map((product) => (
-                          <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{product.name}</p>
-                              <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                              {product.description && (
-                                <p className="text-xs text-gray-500 mt-1">{product.description}</p>
-                              )}
+                        {filteredFoodProducts.map((product) => {
+                          const discount = activeDiscounts.find(
+                            d => d.productId === product.id && d.active && d.productType === 'food'
+                          );
+                          return (
+                            <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{product.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                                  {discount && (
+                                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-300 font-semibold ml-1">
+                                      Preço com desconto: R$ {discount.newPrice.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                                {product.description && (
+                                  <p className="text-xs text-gray-500 mt-1">{product.description}</p>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => addProductToOrder(product)}
+                                className="bg-green-500 hover:bg-green-600 ml-2"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <Button
-                              size="sm"
-                              onClick={() => addProductToOrder(product)}
-                              className="bg-green-500 hover:bg-green-600 ml-2"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
                     {filteredExternalProducts.length > 0 && (
                       <div className={filteredFoodProducts.length > 0 ? "mt-4" : ""}>
                         <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Produtos Externos ({filteredExternalProducts.length})</h4>
-                        {filteredExternalProducts.map((product) => (
-                          <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{product.name}</p>
-                              <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                                {product.brand && <span>{product.brand}</span>}
-                                <span>Estoque: {product.current_stock}</span>
+                        {filteredExternalProducts.map((product) => {
+                          const discount = activeDiscounts.find(
+                            d => d.productId === product.id && d.active && d.productType === 'external_product'
+                          );
+                          return (
+                            <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{product.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                                  {discount && (
+                                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-300 font-semibold ml-1">
+                                      Preço com desconto: R$ {discount.newPrice.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                                  {product.brand && <span>{product.brand}</span>}
+                                  <span>Estoque: {product.current_stock}</span>
+                                </div>
                               </div>
+                              <Button
+                                size="sm"
+                                onClick={() => addProductToOrder(product)}
+                                className="bg-green-500 hover:bg-green-600 ml-2"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <Button
-                              size="sm"
-                              onClick={() => addProductToOrder(product)}
-                              className="bg-green-500 hover:bg-green-600 ml-2"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
@@ -310,7 +375,14 @@ export const Orders = () => {
                     <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1">
                         <p className="font-medium text-sm">{item.product_name}</p>
-                        <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                          {item.discountValue && item.discountValue > 0 && item.originalPrice && (
+                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-300 font-semibold ml-1">
+                              Preço original: R$ {item.originalPrice.toFixed(2)} | Desconto: R$ {item.discountValue.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500">Total: R$ {item.totalPrice.toFixed(2)}</p>
                       </div>
                       <div className="flex items-center space-x-2">

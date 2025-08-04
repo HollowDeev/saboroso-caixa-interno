@@ -41,6 +41,9 @@ interface RawOrder {
     unit_price: number;
     total_price: number;
     product_type: string;
+    original_price?: number;
+    discount_value?: number;
+    discount_id?: string;
   }>;
   subtotal: number;
   tax: number;
@@ -72,7 +75,11 @@ export const formatOrders = (ordersData: RawOrder[]): Order[] => {
       quantity: item.quantity,
       unitPrice: item.unit_price,
       totalPrice: item.total_price,
-      product_type: item.product_type as 'food' | 'external_product'
+      product_type: item.product_type as 'food' | 'external_product',
+      // Campos de desconto
+      originalPrice: item.original_price || undefined,
+      discountValue: item.discount_value || undefined,
+      discountId: item.discount_id || undefined
     })),
     subtotal: order.subtotal,
     tax: order.tax,

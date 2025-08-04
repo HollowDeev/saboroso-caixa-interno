@@ -1,4 +1,4 @@
-import { Order } from '@/types';
+import { Order, Product, ExternalProduct } from '@/types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -13,7 +13,21 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
   const total = typeof order.total === 'number' ? order.total : 0;
   const createdAt = order.created_at || new Date().toISOString();
   const customerName = order.customer_name || 'Não informado';
-  const tableNumber = order.table_number !== undefined && order.table_number !== null ? order.table_number : 'S/N';
+    const tableNumber = order.table_number !== undefined && order.table_number !== null ? order.table_number : 'S/N';
+
+  // Debug: verificar dados de desconto
+  console.log('OrderReceiptPrint - Dados da comanda:', {
+    orderId: order.id,
+    itemsCount: items.length,
+    items: items.map(item => ({
+      productName: item.product_name,
+      originalPrice: item.originalPrice,
+      discountValue: item.discountValue,
+      discountId: item.discountId
+    }))
+  });
+
+  
 
   // Função para criar linha centralizada
   const centerLine = (text: string) => {
@@ -30,8 +44,8 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
   // Função para formatar valor monetário
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2)}`;
 
-  // Função para criar linha de produto
-  const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number) => {
+  // Função para criar linha de produto com desconto
+  const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number, originalPrice?: number, discountValue?: number) => {
     const qtyAndUnit = `${quantity}x ${formatCurrency(unitPrice)}`;
     const right = formatCurrency(totalPrice);
     const maxNameLength = 30;
@@ -39,10 +53,29 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
     if (trimmedName.length > maxNameLength) {
       trimmedName = trimmedName.slice(0, maxNameLength - 1) + '…';
     }
-    return `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}\n`;
+    let line = `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}`;
+    
+    // Debug: verificar dados de desconto para este item
+    console.log('OrderReceiptPrint - formatProductLine:', {
+      name,
+      originalPrice,
+      discountValue,
+      hasDiscount: originalPrice && discountValue && discountValue > 0
+    });
+    
+    if (originalPrice && discountValue && discountValue > 0) {
+      line += `\n  - Preço original: ${formatCurrency(originalPrice)}`;
+      line += `\n  (Desconto de: ${formatCurrency(discountValue)})`;
+    }
+    return line + '\n';
   };
 
   const divider = '-'.repeat(32);
+
+  // Calcular total de descontos usando dados persistidos nos itens
+  const totalDiscount = items.reduce((sum, item) => {
+    return sum + (item.discountValue && item.discountValue > 0 ? item.discountValue * (Number(item.quantity) || 1) : 0);
+  }, 0);
 
   return (
     <pre style={{
@@ -88,13 +121,17 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
         const unitPrice = Number(item.unitPrice) || 0;
         const totalPrice = Number(item.totalPrice) || 0;
         const productName = item.product_name || 'Produto não identificado';
-        return formatProductLine(productName, quantity, unitPrice, totalPrice) + (idx < items.length - 1 ? '\n' : '');
+        const originalPrice = item.originalPrice;
+        const discountValue = item.discountValue;
+        return formatProductLine(productName, quantity, unitPrice, totalPrice, originalPrice, discountValue) + (idx < items.length - 1 ? '\n' : '');
       }).join('')}
       {'\n'}
       {divider}
       {'\n'}
       {rightAlign('Subtotal:', formatCurrency(order.subtotal))}
       {'\n'}
+      {totalDiscount > 0 && rightAlign('Total descontos:', formatCurrency(totalDiscount))}
+      {totalDiscount > 0 && '\n'}
       {rightAlign('Taxa:', formatCurrency(order.tax))}
       {'\n'}
       {rightAlign('TOTAL:', formatCurrency(total))}

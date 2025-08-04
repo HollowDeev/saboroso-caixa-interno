@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog as PrintDialog, DialogContent as PrintDialogContent, DialogTrigger as PrintDialogTrigger } from '@/components/ui/dialog';
 import { OrderReceiptPrint } from './OrderReceiptPrint';
+import { useActiveDiscounts } from '@/hooks/useActiveDiscounts';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -31,6 +32,7 @@ interface OrderCardProps {
 export const OrderCard = ({ order }: OrderCardProps) => {
   const { products, externalProducts, addItemToOrder, closeOrder } = useApp();
   const { toast } = useToast();
+  const { discounts: activeDiscounts } = useActiveDiscounts();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isCloseOrderOpen, setIsCloseOrderOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | ExternalProduct | null>(null);
@@ -45,7 +47,19 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
   // Estados para novo modal de adição de itens
   const [addItemsSearch, setAddItemsSearch] = useState('');
-  const [addItemsSelected, setAddItemsSelected] = useState<any[]>([]);
+  const [addItemsSelected, setAddItemsSelected] = useState<Array<{
+    id: string;
+    productId: string;
+    product_name: string;
+    product: Product | ExternalProduct;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    product_type: 'food' | 'external_product';
+    originalPrice?: number;
+    discountValue?: number;
+    discountId?: string;
+  }>>([]);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
@@ -69,7 +83,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   // Formatar valor ao sair do campo (onBlur)
   const handlePaymentAmountBlur = (index: number) => {
     const newPayments = [...payments];
-    let value = newPayments[index].amount.replace(/,/g, '.');
+    const value = newPayments[index].amount.replace(/,/g, '.');
     let num = parseFloat(value);
     if (!isNaN(num)) {
       num = Math.round(num * 100) / 100;
@@ -107,27 +121,27 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
   };
 
-  const getPaymentStatusColor = (status: Order['payment_status']) => {
+  const getPaymentStatusColor = (status: string) => {
     switch (status) {
+      case 'paid':
+        return 'text-green-600';
       case 'pending':
-        return 'text-orange-500';
+        return 'text-yellow-600';
       case 'partial':
-        return 'text-blue-500';
-      case 'completed':
-        return 'text-green-500';
+        return 'text-orange-600';
       default:
-        return 'text-gray-500';
+        return 'text-gray-600';
     }
   };
 
-  const getPaymentStatusText = (status: Order['payment_status']) => {
+  const getPaymentStatusText = (status: string) => {
     switch (status) {
+      case 'paid':
+        return 'Pago';
       case 'pending':
-        return 'Pagamento Pendente';
+        return 'Pendente';
       case 'partial':
-        return 'Pagamento Parcial';
-      case 'completed':
-        return 'Pagamento Completo';
+        return 'Parcial';
       default:
         return status;
     }
@@ -144,22 +158,36 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
 
     try {
+      // Buscar desconto ativo para o produto
+      const discount = activeDiscounts.find(
+        d => d.productId === selectedProduct.id && d.active && d.productType === ('current_stock' in selectedProduct ? 'external_product' : 'food')
+      );
+      const priceToUse = discount ? discount.newPrice : selectedProduct.price;
+      
+      const isExternalProduct = 'current_stock' in selectedProduct;
       const newItem = {
         productId: selectedProduct.id,
         product: selectedProduct,
         quantity,
-        unitPrice: selectedProduct.price,
-        totalPrice: selectedProduct.price * quantity
+        unitPrice: priceToUse,
+        totalPrice: priceToUse * quantity,
+        product_name: selectedProduct.name,
+        product_type: isExternalProduct ? 'external_product' as const : 'food' as const,
+        // Dados de desconto
+        originalPrice: discount ? selectedProduct.price : undefined,
+        discountValue: discount ? selectedProduct.price - discount.newPrice : undefined,
+        discountId: discount?.id
       };
 
       await addItemToOrder(order.id, newItem);
       setIsAddItemOpen(false);
       setSelectedProduct(null);
       setQuantity(1);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível adicionar o item.";
       toast({
         title: "Erro ao adicionar item",
-        description: error.message || "Não foi possível adicionar o item.",
+        description: errorMessage,
         variant: "destructive"
       });
     }
@@ -229,10 +257,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         title: "Comanda fechada",
         description: "Comanda fechada com sucesso!"
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Não foi possível fechar a comanda.";
       toast({
         title: "Erro ao fechar comanda",
-        description: error.message || "Não foi possível fechar a comanda.",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -242,11 +271,23 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
   // Funções para adicionar/remover/alterar itens
   const addProductToSelection = (product: Product | ExternalProduct) => {
+    // Buscar desconto ativo para o produto
+    const discount = activeDiscounts.find(
+      d => d.productId === product.id && d.active && d.productType === ('current_stock' in product ? 'external_product' : 'food')
+    );
+    const priceToUse = discount ? discount.newPrice : product.price;
+    
     const exists = addItemsSelected.find(item => item.productId === product.id);
     if (exists) {
       setAddItemsSelected(prev => prev.map(item =>
         item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1, totalPrice: (item.quantity + 1) * product.price }
+          ? { 
+              ...item, 
+              quantity: item.quantity + 1, 
+              totalPrice: (item.quantity + 1) * priceToUse,
+              unitPrice: priceToUse
+              // Dados de desconto já estão preservados pelo spread operator (...item)
+            }
           : item
       ));
     } else {
@@ -257,9 +298,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         product_name: product.name,
         product,
         quantity: 1,
-        unitPrice: product.price,
-        totalPrice: product.price,
-        product_type: isExternalProduct ? 'external_product' : 'food'
+        unitPrice: priceToUse,
+        totalPrice: priceToUse,
+        product_type: isExternalProduct ? 'external_product' : 'food',
+        // Dados de desconto
+        originalPrice: discount ? product.price : undefined,
+        discountValue: discount ? product.price - discount.newPrice : undefined,
+        discountId: discount?.id
       }]);
     }
   };
@@ -273,7 +318,12 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
     setAddItemsSelected(prev => prev.map(item =>
       item.productId === productId
-        ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
+        ? { 
+            ...item, 
+            quantity, 
+            totalPrice: quantity * item.unitPrice
+            // Dados de desconto já estão preservados pelo spread operator (...item)
+          }
         : item
     ));
   };
@@ -295,7 +345,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         unitPrice: item.unitPrice,
         totalPrice: item.totalPrice,
         product_name: item.product_name,
-        product_type: item.product_type
+        product_type: item.product_type,
+        // Usar dados de desconto já calculados
+        originalPrice: item.originalPrice,
+        discountValue: item.discountValue,
+        discountId: item.discountId
       });
     }
     setAddItemsSelected([]);
@@ -350,8 +404,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
               <Badge variant={getStatusColor(order.status)}>
                 {getStatusText(order.status)}
               </Badge>
-              <span className={`text-xs ${getPaymentStatusColor(order.payment_status)}`}>
-                {getPaymentStatusText(order.payment_status)}
+              <span className="text-xs text-gray-600">
+                {order.status === 'closed' ? 'Fechada' : 'Aberta'}
               </span>
             </div>
           </div>

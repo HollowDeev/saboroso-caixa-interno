@@ -61,14 +61,18 @@ export interface ExternalProduct {
 }
 
 export interface OrderItem {
-  id?: string;
+  id: string;
   productId: string;
   product_name: string;
+  product?: Product | ExternalProduct;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
   product_type: 'food' | 'external_product';
-  product?: Product | ExternalProduct;
+  // Campos para desconto
+  originalPrice?: number;
+  discountValue?: number;
+  discountId?: string;
 }
 
 export interface NewOrderItem {
@@ -79,6 +83,10 @@ export interface NewOrderItem {
   totalPrice: number;
   product_type: 'food' | 'external_product';
   product: Product | ExternalProduct;
+  // Campos de desconto opcionais
+  originalPrice?: number;
+  discountValue?: number;
+  discountId?: string;
 }
 
 export interface Order {
@@ -188,7 +196,7 @@ export interface AppContextType {
   serviceTaxes: ServiceTax[];
   currentCashRegister: CashRegister | null;
   isLoading: boolean;
-  addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addOrder: (order: Omit<Order, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
   closeOrder: (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>) => Promise<void>;

@@ -162,7 +162,10 @@ export const useDataLoader = () => {
               quantity,
               unit_price,
               total_price,
-              product_type
+              product_type,
+              original_price,
+              discount_value,
+              discount_id
             )
           `)
           .eq('cash_register_id', cashRegisterData?.id)

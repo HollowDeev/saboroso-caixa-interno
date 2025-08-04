@@ -22,6 +22,10 @@ interface OrderItemData {
   total_price: number;
   product_type: 'food' | 'external_product';
   cash_register_id: string;
+  // Campos de desconto
+  original_price?: number;
+  discount_value?: number;
+  discount_id?: string;
 }
 
 interface CreatedOrder extends OrderData {
@@ -77,14 +81,21 @@ export const addOrder = async (
         unit_price: Number(item.unitPrice),
         total_price: Number(item.totalPrice),
         product_type: item.product_type,
-        cash_register_id: currentCashRegister.id
+        cash_register_id: currentCashRegister.id,
+        // Campos de desconto
+        original_price: item.originalPrice || null,
+        discount_value: item.discountValue || null,
+        discount_id: item.discountId || null
       }));
+
+      console.log('addOrder - itens para inserção:', orderItems);
 
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItems);
 
       if (itemsError) {
+        console.error('addOrder - erro ao inserir itens:', itemsError);
         // Se houver erro ao criar os itens, excluir a comanda para manter consistência
         await supabase.from('orders').delete().eq('id', createdOrder.id);
         throw itemsError;
@@ -105,14 +116,14 @@ export const addOrder = async (
 };
 
 export const updateOrder = async (id: string, updates: Partial<Order>) => {
-  const dbUpdates: any = {};
-  if (updates.customerName !== undefined) dbUpdates.customer_name = updates.customerName;
-  if (updates.tableNumber !== undefined) dbUpdates.table_number = updates.tableNumber;
+  const dbUpdates: Record<string, unknown> = {};
+  if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
+  if (updates.table_number !== undefined) dbUpdates.table_number = updates.table_number;
   if (updates.subtotal !== undefined) dbUpdates.subtotal = updates.subtotal;
   if (updates.tax !== undefined) dbUpdates.tax = updates.tax;
   if (updates.total !== undefined) dbUpdates.total = updates.total;
   if (updates.status !== undefined) dbUpdates.status = updates.status;
-  if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
+  if (updates.payment_method !== undefined) dbUpdates.payment_method = updates.payment_method;
   if (updates.cash_register_id !== undefined) dbUpdates.cash_register_id = updates.cash_register_id;
 
   dbUpdates.updated_at = new Date().toISOString();
@@ -130,26 +141,48 @@ export const addItemToOrder = async (
   item: NewOrderItem,
   currentCashRegister: CashRegister | null
 ) => {
+  // Debug: verificar dados recebidos
+  console.log('addItemToOrder - item recebido:', item);
+  console.log('addItemToOrder - dados de desconto:', {
+    originalPrice: item.originalPrice,
+    discountValue: item.discountValue,
+    discountId: item.discountId
+  });
+
   // Determinar o tipo de produto
   const isExternalProduct = 'current_stock' in item.product;
+
+  // Dados para inserção
+  const insertData = {
+    order_id: orderId,
+    product_id: item.productId,
+    product_name: item.product.name,
+    quantity: item.quantity,
+    unit_price: item.unitPrice,
+    total_price: item.totalPrice,
+    product_type: isExternalProduct ? 'external_product' : 'food',
+    cash_register_id: currentCashRegister?.id || '',
+    // Campos de desconto
+    original_price: item.originalPrice || null,
+    discount_value: item.discountValue || null,
+    discount_id: item.discountId || null
+  };
+
+  console.log('addItemToOrder - dados para inserção:', insertData);
 
   // Primeiro, adicionar o item
   const { data, error } = await supabase
     .from('order_items')
-    .insert([{
-      order_id: orderId,
-      product_id: item.productId,
-      product_name: item.product.name,
-      quantity: item.quantity,
-      unit_price: item.unitPrice,
-      total_price: item.totalPrice,
-      product_type: isExternalProduct ? 'external_product' : 'food',
-      cash_register_id: currentCashRegister?.id || ''
-    }])
+    .insert([insertData])
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('addItemToOrder - erro na inserção:', error);
+    throw error;
+  }
+
+  console.log('addItemToOrder - item inserido com sucesso:', data);
 
   // Buscar todos os itens da comanda para recalcular os totais
   const { data: orderItems, error: itemsError } = await supabase
@@ -198,7 +231,7 @@ export const closeOrder = async (
   // Processar o consumo de estoque
   const { processOrderItemsStockConsumption } = await import('@/utils/stockConsumption');
   const stockResult = await processOrderItemsStockConsumption(
-    order.order_items.map((item: any) => ({
+    order.order_items.map((item: { product_id: string; quantity: number; product_name: string; unit_price: number; product_type: string }) => ({
       productId: item.product_id,
       quantity: item.quantity,
       product: {
@@ -237,7 +270,7 @@ export const closeOrder = async (
       cash_register_id: currentCashRegister!.id,
       is_direct_sale: false,
       customer_name: order.customer_name,
-      items: order.order_items.map((item: any) => ({
+      items: order.order_items.map((item: { id: string; product_id: string; product_name: string; quantity: number; unit_price: number; total_price: number; product_type: string }) => ({
         id: item.id,
         product_id: item.product_id,
         product_name: item.product_name,
