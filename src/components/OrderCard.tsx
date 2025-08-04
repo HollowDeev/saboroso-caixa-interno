@@ -471,47 +471,63 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                           {filteredFoodProducts.length > 0 && (
                             <div>
                               <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Comidas ({filteredFoodProducts.length})</h4>
-                              {filteredFoodProducts.map(product => (
-                                <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-sm">{product.name}</p>
+                              {filteredFoodProducts.map(product => {
+                                const discount = activeDiscounts.find(
+                                  d => d.productId === product.id && d.active && d.productType === 'food'
+                                );
+                                return (
+                                  <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                                    <div className="flex-1 flex items-center gap-2">
+                                      <p className="font-medium text-sm">{product.name}</p>
+                                      {discount && (
+                                        <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-bold border border-green-300">Promoção</span>
+                                      )}
+                                    </div>
                                     <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
                                     {product.description && (
                                       <p className="text-xs text-gray-500 mt-1">{product.description}</p>
                                     )}
+                                    <Button
+                                      size="sm"
+                                      onClick={() => addProductToSelection(product)}
+                                      className="bg-green-500 hover:bg-green-600 ml-2"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => addProductToSelection(product)}
-                                    className="bg-green-500 hover:bg-green-600 ml-2"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                           {filteredExternalProducts.length > 0 && (
                             <div className={filteredFoodProducts.length > 0 ? 'mt-4' : ''}>
                               <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Produtos Externos ({filteredExternalProducts.length})</h4>
-                              {filteredExternalProducts.map(product => (
-                                <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
-                                  <div className="flex-1">
-                                    <p className="font-medium text-sm">{product.name}</p>
+                              {filteredExternalProducts.map(product => {
+                                const discount = activeDiscounts.find(
+                                  d => d.productId === product.id && d.active && d.productType === 'external_product'
+                                );
+                                return (
+                                  <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
+                                    <div className="flex-1 flex items-center gap-2">
+                                      <p className="font-medium text-sm">{product.name}</p>
+                                      {discount && (
+                                        <span className="ml-2 px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-bold border border-green-300">Promoção</span>
+                                      )}
+                                    </div>
                                     <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
                                     {product.description && (
                                       <p className="text-xs text-gray-500 mt-1">{product.description}</p>
                                     )}
+                                    <Button
+                                      size="sm"
+                                      onClick={() => addProductToSelection(product)}
+                                      className="bg-green-500 hover:bg-green-600 ml-2"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => addProductToSelection(product)}
-                                    className="bg-green-500 hover:bg-green-600 ml-2"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                           {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
@@ -531,7 +547,14 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                               <div>
                                 <p className="font-medium text-sm">{item.product_name}</p>
                                 <p className="text-xs text-gray-500">{item.product_type === 'food' ? 'Comida' : 'Produto Externo'}</p>
-                                <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} x </p>
+                                <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} x {item.quantity}</p>
+                                {item.discountValue && item.discountValue > 0 && (
+                                  <>
+                                    <p className="text-xs text-orange-700">Preço original: R$ {item.originalPrice?.toFixed(2)}</p>
+                                    <p className="text-xs text-green-700">Desconto: R$ {item.discountValue.toFixed(2)}</p>
+                                  </>
+                                )}
+                                <p className="text-xs font-semibold mt-1">Total: R$ {item.totalPrice.toFixed(2)}</p>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Input

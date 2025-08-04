@@ -21,12 +21,13 @@ interface Discount {
 }
 
 export default function DiscountsPage() {
-  const { products, externalProducts } = useAppContext();
+  const { products, externalProducts, currentCashRegister } = useAppContext();
 
   const [discounts, setDiscounts] = useState<Discount[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Discount | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toggleLoadingId, setToggleLoadingId] = useState<string | null>(null);
   // Carregar descontos do banco
   useEffect(() => {
     const fetchDiscounts = async () => {
@@ -63,6 +64,7 @@ export default function DiscountsPage() {
   };
   // Ativar/desativar desconto
   const handleToggle = async (id: string) => {
+    setToggleLoadingId(id);
     const discount = discounts.find((d) => d.id === id);
     if (!discount) return;
     const newActive = !discount.active;
@@ -74,6 +76,7 @@ export default function DiscountsPage() {
     } else {
       await supabase.from('external_products').update({ has_discount: newActive, active_discount_id: newActive ? id : null }).eq('id', discount.productId);
     }
+    setToggleLoadingId(null);
   };
 
   return (
@@ -116,9 +119,25 @@ export default function DiscountsPage() {
                       <div className="flex gap-2">
                         <Button variant="ghost" size="icon" onClick={() => { setEditing(discount); setModalOpen(true); }}><Edit size={18} /></Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(discount.id)}><Trash size={18} /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleToggle(discount.id)} title={discount.active ? "Desativar" : "Ativar"}>
-                          {discount.active ? <ToggleRight size={18} className="text-green-600" /> : <ToggleLeft size={18} className="text-gray-400" />}
-                        </Button>
+                        <div className="relative">
+                          <Button
+                            variant={discount.active ? "outline" : "default"}
+                            size="sm"
+                            disabled={!!currentCashRegister || toggleLoadingId === discount.id}
+                            onClick={() => handleToggle(discount.id)}
+                            className={discount.active ? "border-green-600 text-green-700" : "border-gray-400 text-gray-600"}
+                          >
+                            {toggleLoadingId === discount.id ? (
+                              <span className="animate-spin mr-2">◌</span>
+                            ) : null}
+                            {discount.active ? "Desativar" : "Ativar"}
+                          </Button>
+                          {!!currentCashRegister && (
+                            <div className="absolute left-0 top-full mt-1 w-max bg-yellow-100 text-yellow-800 text-xs rounded px-2 py-1 border border-yellow-300 shadow z-10">
+                              Não é possível ativar/desativar descontos com caixa aberto.
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="text-sm">Novo valor: <span className="font-mono">R$ {discount.newPrice.toFixed(2)}</span></div>
