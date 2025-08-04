@@ -554,12 +554,21 @@ export const Sales = () => {
                         <span>Subtotal:</span>
                         <span>R$ {Number(sale.subtotal).toFixed(2)}</span>
                       </div>
-                      {/* Total de descontos */}
+                      {/* Total de descontos de itens */}
                       {sale.items && sale.items.some(item => item.discount_value && item.discount_value > 0) && (
                         <div className="flex justify-between text-sm">
-                          <span>Total de Descontos:</span>
+                          <span>Total de Descontos (Itens):</span>
                           <span className="text-green-700">
                             - R$ {sale.items.reduce((acc, item) => acc + (item.discount_value && item.discount_value > 0 ? item.discount_value * (Number(item.quantity) || 1) : 0), 0).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      {/* Desconto direto */}
+                      {sale.total_discount && sale.total_discount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Desconto Total:</span>
+                          <span className="text-green-700">
+                            - R$ {Number(sale.total_discount).toFixed(2)}
                           </span>
                         </div>
                       )}

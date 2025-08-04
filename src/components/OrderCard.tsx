@@ -30,7 +30,7 @@ interface OrderCardProps {
 }
 
 export const OrderCard = ({ order }: OrderCardProps) => {
-  const { products, externalProducts, addItemToOrder, closeOrder } = useApp();
+  const { products, externalProducts, addItemToOrder, closeOrder, updateOrder } = useApp();
   const { toast } = useToast();
   const { discounts: activeDiscounts } = useActiveDiscounts();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -44,6 +44,10 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const [isClosingOrder, setIsClosingOrder] = useState(false);
   const [showPrintAlert, setShowPrintAlert] = useState(false);
   const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
+
+  // Estados para desconto manual
+  const [manualDiscounts, setManualDiscounts] = useState<number[]>([]);
+  const [discountInput, setDiscountInput] = useState('');
 
   // Estados para novo modal de adição de itens
   const [addItemsSearch, setAddItemsSearch] = useState('');
@@ -63,6 +67,31 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
 
+  // Funções para gerenciar descontos manuais
+  const addManualDiscount = () => {
+    const value = Number(discountInput.replace(',', '.'));
+    if (!isNaN(value) && value > 0) {
+      const newTotalDiscount = totalManualDiscount + value;
+      if (newTotalDiscount > order.total) {
+        toast({
+          title: "Erro",
+          description: "O desconto total não pode ser maior que o valor da comanda.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setManualDiscounts(prev => [...prev, value]);
+      setDiscountInput('');
+    }
+  };
+
+  const removeManualDiscount = (index: number) => {
+    setManualDiscounts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const totalManualDiscount = manualDiscounts.reduce((acc, d) => acc + d, 0);
+  const totalWithDiscount = Math.max(0, order.total - totalManualDiscount);
+
   // Controlar impressão
   useEffect(() => {
     if (orderToPrint) {
@@ -73,6 +102,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       return () => clearTimeout(timer);
     }
   }, [orderToPrint]);
+
+  // Atualizar valor inicial dos pagamentos quando desconto for aplicado
+  useEffect(() => {
+    if (payments.length === 1 && payments[0].amount === order.total.toFixed(2)) {
+      setPayments([{ method: 'cash', amount: totalWithDiscount.toFixed(2) }]);
+    }
+  }, [totalWithDiscount, order.total]);
 
   const handlePaymentAmountChange = (index: number, amount: string) => {
     // Trocar vírgula por ponto e remover caracteres não numéricos exceto ponto
@@ -108,7 +144,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const round2 = (num: number) => Math.round(num * 100) / 100;
 
   const totalPaid = payments.reduce((sum, payment) => sum + (round2(parseFloat(payment.amount)) || 0), 0);
-  const remainingAmount = round2(order.total) - round2(totalPaid);
+  const remainingAmount = round2(totalWithDiscount) - round2(totalPaid);
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
@@ -230,7 +266,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     if (Math.abs(remainingAmount) > 0.05) {
       toast({
         title: "Erro de validação",
-        description: `O total dos pagamentos deve ser igual ao valor da comanda. Falta pagar: R$ ${Math.abs(remainingAmount).toFixed(2)}`,
+        description: `O total dos pagamentos deve ser igual ao valor da comanda com desconto. Falta pagar: R$ ${Math.abs(remainingAmount).toFixed(2)}`,
         variant: "destructive"
       });
       return false;
@@ -261,9 +297,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         amount: parseFloat(payment.amount.replace(/,/g, '.'))
       }));
 
-      await closeOrder(order.id, processedPayments);
+      await closeOrder(order.id, processedPayments, totalManualDiscount);
 
       setIsCloseOrderOpen(false);
+      setManualDiscounts([]);
+      setDiscountInput('');
       toast({
         title: "Comanda fechada",
         description: "Comanda fechada com sucesso!"
@@ -614,6 +652,41 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       </div>
                     </div>
 
+                    {/* Campo para adicionar desconto manual */}
+                    <div className="space-y-2">
+                      <h3 className="font-medium text-sm text-gray-600">Desconto</h3>
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <Label htmlFor="manualDiscount">Adicionar Desconto (R$)</Label>
+                          <Input
+                            id="manualDiscount"
+                            type="text"
+                            inputMode="decimal"
+                            pattern="[0-9]*[.,]?[0-9]*"
+                            value={discountInput}
+                            onChange={e => setDiscountInput(e.target.value)}
+                            placeholder="Ex: 10,00"
+                            className="mt-1"
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManualDiscount(); } }}
+                          />
+                        </div>
+                        <Button type="button" onClick={addManualDiscount} className="h-10">
+                          Adicionar
+                        </Button>
+                      </div>
+                      {/* Lista de descontos aplicados */}
+                      {manualDiscounts.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {manualDiscounts.map((d, i) => (
+                            <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                              R$ {d.toFixed(2)}
+                              <Button size="icon" variant="ghost" onClick={() => removeManualDiscount(i)} className="ml-1 p-0 h-4 w-4">×</Button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Pagamentos */}
                     <div className="space-y-2">
                       <h3 className="font-medium text-sm text-gray-600">Pagamentos</h3>
@@ -664,11 +737,23 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       </Button>
                     </div>
 
+
+
                     {/* Totais */}
                     <div className="space-y-1 pt-2 border-t">
                       <div className="flex justify-between text-sm">
                         <span>Total da Venda:</span>
                         <span>R$ {order.total.toFixed(2)}</span>
+                      </div>
+                      {totalManualDiscount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>Descontos:</span>
+                          <span>- R$ {totalManualDiscount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-bold">
+                        <span>Total com Desconto:</span>
+                        <span>R$ {totalWithDiscount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Total Pago:</span>

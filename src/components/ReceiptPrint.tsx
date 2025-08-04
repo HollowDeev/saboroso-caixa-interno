@@ -60,10 +60,8 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
   // Função para criar linha divisória
   const divider = '-'.repeat(32);
 
-  // Calcular total de descontos usando dados persistidos nos itens
-  const totalDiscount = items.reduce((sum, item) => {
-    return sum + (item.discount_value && item.discount_value > 0 ? item.discount_value * (Number(item.quantity) || 1) : 0);
-  }, 0);
+  // Usar o total_discount da venda (inclui descontos manuais + descontos de itens)
+  const totalDiscount = sale.total_discount || 0;
 
   return (
     <pre style={{
@@ -116,7 +114,7 @@ export const ReceiptPrint = ({ sale }: ReceiptPrintProps) => {
       {'\n'}
       {rightAlign('Subtotal:', formatCurrency(sale.subtotal))}
       {'\n'}
-      {totalDiscount > 0 && rightAlign('Total descontos:', formatCurrency(totalDiscount))}
+      {totalDiscount > 0 && rightAlign('Total de descontos:', formatCurrency(totalDiscount))}
       {totalDiscount > 0 && '\n'}
       {rightAlign('Taxa:', formatCurrency(sale.tax))}
       {'\n'}

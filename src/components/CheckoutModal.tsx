@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, OrderItem, Product, ExternalProduct } from '@/types';
+import { Badge } from '@/components/ui/badge';
 
 import { toast } from '@/components/ui/use-toast';
 
@@ -24,11 +25,16 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
   const [amountPaid, setAmountPaid] = useState(0);
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  // Remover directDiscount do estado e do payload
+  // O input de desconto direto deve atualizar total_discount (já existente)
+  const [manualDiscounts, setManualDiscounts] = useState<number[]>([]);
+  const [discountInput, setDiscountInput] = useState('');
 
   React.useEffect(() => {
     if (isOpen && order) {
       setSelectedProducts(order.items);
       setCustomerName(order.customer_name || '');
+      // setDirectDiscount(order.direct_discount || 0); // Removido
     }
   }, [isOpen, order]);
 
@@ -77,12 +83,29 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
     ));
   };
 
-  const total = selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0);
+  const subtotal = useMemo(() => selectedProducts.reduce((sum, item) => sum + item.totalPrice, 0), [selectedProducts]);
+  const totalManualDiscount = useMemo(() => manualDiscounts.reduce((acc, d) => acc + d, 0), [manualDiscounts]);
+  const totalDiscount = useMemo(() =>
+    selectedProducts.reduce((acc, item) => acc + (item.discountValue ? item.discountValue * item.quantity : 0), 0) + totalManualDiscount,
+    [selectedProducts, totalManualDiscount]
+  );
+  const total = useMemo(() => subtotal - totalDiscount, [subtotal, totalDiscount]);
   const change = useMemo(() => amountPaid > total ? amountPaid - total : 0, [amountPaid, total]);
   const remainingAmount = useMemo(() => {
     const diff = total - amountPaid;
     return diff > 0 ? diff : 0;
   }, [total, amountPaid]);
+
+  const addManualDiscount = () => {
+    const value = Number(discountInput.replace(',', '.'));
+    if (!isNaN(value) && value > 0) {
+      setManualDiscounts(prev => [...prev, value]);
+      setDiscountInput('');
+    }
+  };
+  const removeManualDiscount = (index: number) => {
+    setManualDiscounts(prev => prev.filter((_, i) => i !== index));
+  };
 
   const finalizeSale = async () => {
     if (!order) return;
@@ -96,7 +119,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
       return;
     }
 
-    // Permitir finalizar mesmo com troco (amountPaid >= total)
+    // Permitir finalizar mesmo com troco (amountPaid >= totalWithDiscount) - Removido
     if (remainingAmount > 0) {
       toast({
         title: 'Erro',
@@ -111,9 +134,10 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
         status: 'closed' as const,
         payment_method: paymentMethod,
         customer_name: customerName,
-        subtotal: total,
+        subtotal,
         tax: 0,
         total,
+        total_discount: totalDiscount,
         items: selectedProducts
       };
 
@@ -124,6 +148,9 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
       setCustomerName('');
       setPaymentMethod('cash');
       setSearchTerm('');
+      // setDirectDiscount(0); // Removido
+      setManualDiscounts([]);
+      setDiscountInput('');
     } catch (error) {
       console.error('Erro ao finalizar venda:', error);
     }
@@ -174,13 +201,43 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
               <Label htmlFor="amountPaid">Valor Pago</Label>
               <Input
                 id="amountPaid"
-                type="number"
-                min={0}
-                value={amountPaid}
-                onChange={e => setAmountPaid(Number(e.target.value))}
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*[.,]?[0-9]*"
+                value={amountPaid === 0 ? '' : amountPaid}
+                onChange={e => setAmountPaid(Number(e.target.value.replace(',', '.')))}
                 placeholder="Digite o valor pago pelo cliente"
               />
             </div>
+            {/* Campo para adicionar desconto manual */}
+            <div className="flex items-end gap-2 mt-2 border border-red-500 p-2">
+              <div className="flex-1">
+                <Label htmlFor="manualDiscount">Adicionar Desconto (R$)</Label>
+                <Input
+                  id="manualDiscount"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.,]?[0-9]*"
+                  value={discountInput}
+                  onChange={e => setDiscountInput(e.target.value)}
+                  placeholder="Ex: 10,00"
+                  className="mt-1"
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManualDiscount(); } }}
+                />
+              </div>
+              <Button type="button" onClick={addManualDiscount} className="h-10">Adicionar</Button>
+            </div>
+            {/* Lista de descontos aplicados */}
+            {manualDiscounts.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2 border border-blue-500 p-2">
+                {manualDiscounts.map((d, i) => (
+                  <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                    R$ {d.toFixed(2)}
+                    <Button size="icon" variant="ghost" onClick={() => removeManualDiscount(i)} className="ml-1 p-0 h-4 w-4">×</Button>
+                  </Badge>
+                ))}
+              </div>
+            )}
 
             <div>
               <Label htmlFor="productSearch">Adicionar Produtos</Label>
@@ -284,6 +341,16 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
               </div>
 
               <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between font-bold text-lg">
+                  <span>Subtotal:</span>
+                  <span>R$ {subtotal.toFixed(2)}</span>
+                </div>
+                {totalDiscount > 0 && (
+                  <div className="flex justify-between text-base text-green-600">
+                    <span>Descontos:</span>
+                    <span>- R$ {totalDiscount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total:</span>
                   <span>R$ {total.toFixed(2)}</span>

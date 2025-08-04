@@ -49,8 +49,9 @@ export const addSale = async (
   }));
 
   // Calcular o total de desconto da venda
-  const totalDiscount = sale.items.reduce((acc, item) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
-
+  // Não some novamente descontos de itens, use apenas sale.total_discount
+  const totalDiscount = sale.total_discount || 0;
+  
   const formattedPayments: Payment[] = sale.payments.map(p => ({
     method: p.method,
     amount: Number(p.amount)
@@ -109,7 +110,7 @@ export const addSale = async (
       cash_register_id: cash_register_id,
       order_id: sale.order_id || null,
       is_direct_sale: sale.is_direct_sale,
-      total_discount: totalDiscount, // novo campo
+      total_discount: totalDiscount, // Total de descontos (item + direto)
     })
     .select()
     .single();

@@ -30,6 +30,8 @@ interface RawSale {
   cash_register_id: string;
   order_id?: string;
   is_direct_sale: boolean;
+  total_discount?: number | string;
+  // direct_discount removido - não existe mais na tabela sales
   created_at: string;
 }
 
@@ -124,6 +126,7 @@ export const formatSales = (salesData: RawSale[]): Sale[] => {
     cash_register_id: sale.cash_register_id,
     order_id: sale.order_id || '',
     is_direct_sale: sale.is_direct_sale,
+    total_discount: Number(sale.total_discount) || undefined,
     createdAt: sale.created_at
   }));
 };

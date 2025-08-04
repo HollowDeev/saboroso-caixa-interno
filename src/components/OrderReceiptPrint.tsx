@@ -54,10 +54,8 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
 
   const divider = '-'.repeat(32);
 
-  // Calcular total de descontos usando dados persistidos nos itens
-  const totalDiscount = items.reduce((sum, item) => {
-    return sum + (item.discountValue && item.discountValue > 0 ? item.discountValue * (Number(item.quantity) || 1) : 0);
-  }, 0);
+  // Usar o total_discount da comanda (inclui descontos manuais + descontos de itens)
+  const totalDiscount = order.total_discount || 0;
 
   return (
     <pre style={{
@@ -120,7 +118,7 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
       {'\n'}
       {rightAlign('Subtotal:', formatCurrency(order.subtotal))}
       {'\n'}
-      {totalDiscount > 0 && rightAlign('Total descontos:', formatCurrency(totalDiscount))}
+      {totalDiscount > 0 && rightAlign('Total de descontos:', formatCurrency(totalDiscount))}
       {totalDiscount > 0 && '\n'}
       {rightAlign('Taxa:', formatCurrency(order.tax))}
       {'\n'}

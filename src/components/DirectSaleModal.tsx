@@ -30,15 +30,22 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingSale, setIsCreatingSale] = useState(false);
   const { discounts: activeDiscounts } = useActiveDiscounts();
+  const [manualDiscounts, setManualDiscounts] = useState<number[]>([]);
+  const [discountInput, setDiscountInput] = useState('');
 
-  const total = useMemo(() => selectedItems.reduce((sum, item) => sum + item.totalPrice, 0), [selectedItems]);
+  const subtotal = useMemo(() => selectedItems.reduce((sum, item) => sum + item.totalPrice, 0), [selectedItems]);
+  const totalManualDiscount = useMemo(() => manualDiscounts.reduce((acc, d) => acc + d, 0), [manualDiscounts]);
+  const totalDiscount = useMemo(() => 
+    selectedItems.reduce((acc, item) => acc + (item.discountValue ? item.discountValue * item.quantity : 0), 0) + totalManualDiscount, 
+    [selectedItems, totalManualDiscount]
+  );
+  const total = useMemo(() => subtotal - totalDiscount, [subtotal, totalDiscount]);
   const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + payment.amount, 0), [payments]);
   const remainingAmount = useMemo(() => {
     const diff = total - totalPaid;
     return diff > 0 ? diff : 0;
   }, [total, totalPaid]);
   const change = useMemo(() => totalPaid > total ? totalPaid - total : 0, [total, totalPaid]);
-  const totalDiscount = selectedItems.reduce((acc, item) => acc + (item.discountValue ? item.discountValue * item.quantity : 0), 0);
 
   const addPayment = () => {
     setPayments([...payments, { method: 'cash', amount: 0 }]);
@@ -129,6 +136,17 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
     ));
   };
 
+  const addManualDiscount = () => {
+    const value = Number(discountInput.replace(',', '.'));
+    if (!isNaN(value) && value > 0) {
+      setManualDiscounts(prev => [...prev, value]);
+      setDiscountInput('');
+    }
+  };
+  const removeManualDiscount = (index: number) => {
+    setManualDiscounts(prev => prev.filter((_, i) => i !== index));
+  };
+
   const createDirectSale = async () => {
     if (!currentUser || !currentCashRegister) {
       toast({
@@ -167,7 +185,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
 
       await addSale({
         total,
-        subtotal: total,
+        subtotal,
         tax: 0,
         payments,
         user_id: currentUser.id,
@@ -175,7 +193,8 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         is_direct_sale: true,
         cash_register_id: currentCashRegister.id,
         items: formattedItems,
-        order_id: null
+        order_id: null,
+        total_discount: totalDiscount
       });
 
       toast({
@@ -433,14 +452,48 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                 ))}
               </div>
 
+              {/* Campo para adicionar desconto manual */}
+              <div className="flex items-end gap-2 mt-2">
+                <div className="flex-1">
+                  <Label htmlFor="manualDiscount">Adicionar Desconto (R$)</Label>
+                  <Input
+                    id="manualDiscount"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
+                    value={discountInput}
+                    onChange={e => setDiscountInput(e.target.value)}
+                    placeholder="Ex: 10,00"
+                    className="mt-1"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManualDiscount(); } }}
+                  />
+                </div>
+                <Button type="button" onClick={addManualDiscount} className="h-10">Adicionar</Button>
+              </div>
+              {/* Lista de descontos aplicados */}
+              {manualDiscounts.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {manualDiscounts.map((d, i) => (
+                    <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                      R$ {d.toFixed(2)}
+                      <Button size="icon" variant="ghost" onClick={() => removeManualDiscount(i)} className="ml-1 p-0 h-4 w-4">×</Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
               <div className="space-y-2 pt-4 border-t">
                 <div className="flex justify-between text-sm">
-                  <span>Total da Venda:</span>
-                  <span>R$ {total.toFixed(2)}</span>
+                  <span>Subtotal da Venda:</span>
+                  <span>R$ {subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span>Total de Descontos:</span>
+                  <span>Total de Descontos (Itens):</span>
                   <span className="text-green-700">- R$ {totalDiscount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold">
+                  <span>Total Final:</span>
+                  <span>R$ {total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Total Pago:</span>

@@ -193,12 +193,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const closeOrder = async (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>) => {
+  const closeOrder = async (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>, manualDiscount: number = 0) => {
     if (!currentUser || !currentCashRegister) {
       throw new Error('Usuário ou caixa não encontrado');
     }
 
-    await orderService.closeOrder(orderId, payments, currentUser, currentCashRegister);
+    await orderService.closeOrder(orderId, payments, currentUser, currentCashRegister, manualDiscount);
     await refreshData();
   };
 

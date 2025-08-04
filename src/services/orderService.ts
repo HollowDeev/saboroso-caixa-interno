@@ -214,7 +214,8 @@ export const closeOrder = async (
   orderId: string,
   payments: Array<{ method: PaymentMethod; amount: number }>,
   currentUser: User,
-  currentCashRegister: CashRegister
+  currentCashRegister: CashRegister,
+  manualDiscount: number = 0
 ) => {
   // Buscar a comanda e seus itens
   const { data: order, error: orderError } = await supabase
@@ -258,22 +259,28 @@ export const closeOrder = async (
   }
 
   // Calcular o total de desconto dos itens
-  const totalDiscount = order.order_items.reduce((acc, item) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
+  const totalItemDiscount = order.order_items.reduce((acc, item) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
+  
+  // Total de desconto (itens + manual)
+  const totalDiscount = totalItemDiscount + manualDiscount;
+  
+  // Total final com desconto
+  const totalWithDiscount = order.total - manualDiscount;
 
   // Criar a venda
   const { data: sale, error: saleError } = await supabase
     .from('sales')
     .insert({
       order_id: orderId,
-      total: order.total,
-      subtotal: order.total,
-      tax: 0,
+      total: totalWithDiscount, // Usar o total com desconto
+      subtotal: order.subtotal,
+      tax: order.tax,
       payments: payments,
       user_id: currentUser!.id,
       cash_register_id: currentCashRegister!.id,
       is_direct_sale: false,
       customer_name: order.customer_name,
-      total_discount: totalDiscount, // novo campo
+      total_discount: totalDiscount, // Total de descontos (itens + manual)
       items: order.order_items.map((item: any) => ({
         id: item.id,
         product_id: item.product_id,
@@ -293,11 +300,12 @@ export const closeOrder = async (
 
   if (saleError) throw saleError;
 
-  // Atualizar o status da comanda
+  // Atualizar o status da comanda e salvar o total_discount
   const { error: updateError } = await supabase
     .from('orders')
     .update({
       status: 'closed',
+      total_discount: totalDiscount,
       updated_at: new Date().toISOString()
     })
     .eq('id', orderId);

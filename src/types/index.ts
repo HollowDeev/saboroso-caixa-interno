@@ -97,8 +97,8 @@ export interface Order {
   subtotal: number;
   tax: number;
   total: number;
+  total_discount?: number;
   status: 'open' | 'closed';
-  payment_method?: PaymentMethod;
   user_id: string;
   cash_register_id: string;
   created_at: string;
@@ -203,7 +203,7 @@ export interface AppContextType {
   addOrder: (order: Omit<Order, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateOrder: (id: string, updates: Partial<Order>) => Promise<void>;
   addItemToOrder: (orderId: string, item: NewOrderItem) => Promise<void>;
-  closeOrder: (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>) => Promise<void>;
+  closeOrder: (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>, manualDiscount?: number) => Promise<void>;
   addIngredient: (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateIngredient: (id: string, updates: Partial<Ingredient>) => Promise<void>;
   deleteIngredient: (id: string) => Promise<void>;
