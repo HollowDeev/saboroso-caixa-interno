@@ -115,12 +115,19 @@ function DiscountModal({ open, onClose, onSave, editing, products, externalProdu
   const [name, setName] = useState(editing?.name || "");
   const [newPrice, setNewPrice] = useState(editing?.newPrice?.toString() || "");
   const [active, setActive] = useState(editing?.active ?? true);
+  const [search, setSearch] = useState("");
 
-  const item = productType === "food"
-    ? products.find((p) => p.id === productId)
-    : externalProducts.find((p) => p.id === productId);
-  const cost = item ? Number(item.cost) : 0;
-  const price = item ? Number(item.price) : 0;
+  // Unifica produtos e externos para exibir juntos
+  const allItems = [
+    ...products.map((p: any) => ({ ...p, type: "food" })),
+    ...externalProducts.map((p: any) => ({ ...p, type: "external_product" })),
+  ];
+  const filteredItems = allItems.filter((item) =>
+    item.name.toLowerCase().includes(search.toLowerCase())
+  );
+  const selectedItem = allItems.find((p) => p.id === productId && p.type === productType);
+  const cost = selectedItem ? Number(selectedItem.cost) : 0;
+  const price = selectedItem ? Number(selectedItem.price) : 0;
   const lucroAtual = price - cost;
   const lucroDesconto = newPrice ? Number(newPrice) - cost : 0;
 
@@ -150,10 +157,20 @@ function DiscountModal({ open, onClose, onSave, editing, products, externalProdu
       name,
       newPrice: Number(newPrice),
       active,
-      productName: item?.name || "",
+      productName: selectedItem?.name || "",
       createdAt: editing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+  };
+
+  // Seleção de item: só pode um
+  const handleSelectItem = (item: any) => {
+    setProductId(item.id);
+    setProductType(item.type);
+  };
+  const handleRemoveSelected = () => {
+    setProductId("");
+    setProductType("food");
   };
 
   return (
@@ -163,24 +180,47 @@ function DiscountModal({ open, onClose, onSave, editing, products, externalProdu
           <DialogTitle>{editing ? "Editar Desconto" : "Novo Desconto"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSave} className="space-y-3">
-          <div className="flex gap-2">
-            <Button type="button" variant={productType === "food" ? "default" : "outline"} onClick={() => setProductType("food")}>Comida</Button>
-            <Button type="button" variant={productType === "external_product" ? "default" : "outline"} onClick={() => setProductType("external_product")}>Produto Externo</Button>
+          <div>
+            <Input
+              placeholder="Pesquisar produto ou comida..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="mb-2"
+            />
+            <div className="h-48 overflow-y-auto grid grid-cols-1 gap-2 border rounded-lg p-2 bg-white">
+              {filteredItems.length === 0 && (
+                <div className="text-gray-400 text-center py-8">Nenhum item encontrado.</div>
+              )}
+              {filteredItems.map(item => (
+                <div
+                  key={item.id + item.type}
+                  className={`flex items-center justify-between p-2 border rounded cursor-pointer transition-all ${productId === item.id && productType === item.type ? 'bg-orange-50 border-orange-400' : 'opacity-60 hover:opacity-100 bg-white'}`}
+                  onClick={() => handleSelectItem(item)}
+                  style={{ opacity: productId === item.id && productType === item.type ? 1 : 0.6 }}
+                >
+                  <div>
+                    <span className="font-medium text-sm">{item.name}</span>
+                    <span className="ml-2 text-xs text-gray-500">{item.type === 'food' ? 'Comida' : 'Produto Externo'}</span>
+                  </div>
+                  <span className="text-sm font-mono">R$ {Number(item.price).toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <select
-            className="w-full border rounded p-2"
-            value={productId}
-            onChange={e => setProductId(e.target.value)}
-            required
-          >
-            <option value="">Selecione {productType === "food" ? "uma comida" : "um produto"}</option>
-            {(productType === "food" ? products : externalProducts).map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          {selectedItem && (
+            <div className="flex items-center justify-between bg-orange-100 border border-orange-300 rounded p-2 mt-2">
+              <div>
+                <span className="font-semibold text-orange-700">{selectedItem.name}</span>
+                <span className="ml-2 text-xs text-gray-500">{selectedItem.type === 'food' ? 'Comida' : 'Produto Externo'}</span>
+              </div>
+              <Button type="button" size="icon" variant="ghost" onClick={handleRemoveSelected} title="Remover seleção">
+                <span className="text-red-500">&times;</span>
+              </Button>
+            </div>
+          )}
           <Input placeholder="Nome do desconto" value={name} onChange={e => setName(e.target.value)} required className="w-full" />
           <Input placeholder="Novo valor" type="number" min={0} step={0.01} value={newPrice} onChange={e => setNewPrice(e.target.value)} required className="w-full" />
-          {item && (
+          {selectedItem && (
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>Custo: <span className="font-mono">R$ {cost.toFixed(2)}</span></div>
               <div>Preço atual: <span className="font-mono">R$ {price.toFixed(2)}</span></div>
@@ -194,7 +234,7 @@ function DiscountModal({ open, onClose, onSave, editing, products, externalProdu
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">{editing ? "Salvar" : "Adicionar"}</Button>
+            <Button type="submit" disabled={!productId}>{editing ? "Salvar" : "Adicionar"}</Button>
           </div>
         </form>
       </DialogContent>
