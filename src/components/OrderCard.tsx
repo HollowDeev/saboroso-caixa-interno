@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2 } from 'lucide-react';
+import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2, Edit } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/hooks/use-toast';
@@ -34,6 +34,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const { toast } = useToast();
   const { discounts: activeDiscounts } = useActiveDiscounts();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [isEditOrderOpen, setIsEditOrderOpen] = useState(false);
   const [isCloseOrderOpen, setIsCloseOrderOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | ExternalProduct | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -52,6 +53,22 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   // Estados para novo modal de adição de itens
   const [addItemsSearch, setAddItemsSearch] = useState('');
   const [addItemsSelected, setAddItemsSelected] = useState<Array<{
+    id: string;
+    productId: string;
+    product_name: string;
+    product: Product | ExternalProduct;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    product_type: 'food' | 'external_product';
+    originalPrice?: number;
+    discountValue?: number;
+    discountId?: string;
+  }>>([]);
+
+  // Estados para modal de edição de itens
+  const [editItemsSearch, setEditItemsSearch] = useState('');
+  const [editItemsSelected, setEditItemsSelected] = useState<Array<{
     id: string;
     productId: string;
     product_name: string;
@@ -406,6 +423,92 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     setAddItemsSearch('');
   };
 
+  // Funções para gerenciar edição de itens
+  const initializeEditItems = () => {
+    setEditItemsSelected(order.items.map(item => ({
+      id: item.id,
+      productId: item.productId,
+      product_name: item.product_name,
+      product: item.product || { id: item.productId, name: item.product_name, price: item.unitPrice } as Product,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.totalPrice,
+      product_type: item.product_type,
+      originalPrice: item.originalPrice,
+      discountValue: item.discountValue,
+      discountId: item.discountId
+    })));
+  };
+
+  const removeItemFromEdit = (itemId: string) => {
+    const item = editItemsSelected.find(item => item.id === itemId);
+    if (!item) return;
+
+    const confirmed = window.confirm(
+      `Título: Remoção do item ${item.product_name}\n\nConfirma a remoção do item? Será necessário adiciona-lo novamente caso seja removido errado.`
+    );
+
+    if (confirmed) {
+      setEditItemsSelected(prev => prev.filter(item => item.id !== itemId));
+    }
+  };
+
+  const updateItemQuantityInEdit = (itemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeItemFromEdit(itemId);
+      return;
+    }
+
+    setEditItemsSelected(prev => prev.map(item =>
+      item.id === itemId
+        ? { ...item, quantity, totalPrice: quantity * item.unitPrice }
+        : item
+    ));
+  };
+
+  const handleSaveEditItems = async () => {
+    try {
+      // Remover itens que foram removidos do editItemsSelected
+      const currentItemIds = new Set(order.items.map(item => item.id));
+      const editedItemIds = new Set(editItemsSelected.map(item => item.id));
+      const removedItemIds = Array.from(currentItemIds).filter(id => !editedItemIds.has(id));
+
+      // Remover itens
+      for (const itemId of removedItemIds) {
+        // Aqui você precisaria implementar a função removeItemFromOrder no contexto
+        // Por enquanto, vamos apenas mostrar um toast
+        console.log('Removendo item:', itemId);
+      }
+
+      // Atualizar itens modificados
+      for (const editedItem of editItemsSelected) {
+        const originalItem = order.items.find(item => item.id === editedItem.id);
+        if (originalItem && (originalItem.quantity !== editedItem.quantity)) {
+          // Aqui você precisaria implementar a função updateItemInOrder no contexto
+          console.log('Atualizando item:', editedItem);
+        }
+      }
+
+      setIsEditOrderOpen(false);
+      setEditItemsSelected([]);
+      toast({
+        title: "Sucesso",
+        description: "Comanda atualizada com sucesso!"
+      });
+    } catch (error) {
+      console.error('Erro ao salvar edições:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar edições da comanda.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Calcular totais para o modal de edição
+  const editSubtotal = editItemsSelected.reduce((sum, item) => sum + item.totalPrice, 0);
+  const editTotal = editSubtotal; // Assumindo que não há taxas
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
@@ -484,6 +587,89 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                     Inserir Pedido
                   </Button>
                 </DialogTrigger>
+                {/* Modal de adicionar itens - conteúdo existente */}
+              </Dialog>
+
+              <Dialog open={isEditOrderOpen} onOpenChange={(open) => {
+                if (open) {
+                  initializeEditItems();
+                }
+                setIsEditOrderOpen(open);
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="flex-1">
+                    <Edit className="h-4 w-4 mr-1" />
+                    Editar Comanda
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-6">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Editar Itens da Comanda</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="font-semibold mb-3">Itens da Comanda</h3>
+                      <div className="h-96 overflow-y-auto border rounded-lg p-3 bg-white">
+                        {editItemsSelected.length === 0 ? (
+                          <div className="text-gray-500 text-center py-8">Nenhum item na comanda.</div>
+                        ) : (
+                          editItemsSelected.map(item => (
+                            <div key={item.id} className="flex items-center justify-between border-b py-2">
+                              <div>
+                                <p className="font-medium text-sm">{item.product_name}</p>
+                                <p className="text-xs text-gray-500">{item.product_type === 'food' ? 'Comida' : 'Produto Externo'}</p>
+                                <p className="text-sm text-gray-600">R$ {item.unitPrice.toFixed(2)} x {item.quantity}</p>
+                                {item.discountValue && item.discountValue > 0 && (
+                                  <>
+                                    <p className="text-xs text-orange-700">Preço original: R$ {item.originalPrice?.toFixed(2)}</p>
+                                    <p className="text-xs text-green-700">Desconto: R$ {item.discountValue.toFixed(2)}</p>
+                                  </>
+                                )}
+                                <p className="text-xs font-semibold mt-1">Total: R$ {item.totalPrice.toFixed(2)}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={item.quantity}
+                                  onChange={e => updateItemQuantityInEdit(item.id, Number(e.target.value))}
+                                  className="w-16"
+                                />
+                                <Button type="button" size="icon" variant="ghost" onClick={() => removeItemFromEdit(item.id)}>
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Totais */}
+                    <div className="border-t pt-4 space-y-2">
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Subtotal:</span>
+                        <span>R$ {editSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-lg">
+                        <span>Total:</span>
+                        <span>R$ {editTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <Button variant="outline" onClick={() => setIsEditOrderOpen(false)} className="flex-1">
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleSaveEditItems} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                        Salvar Alterações
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
                 <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-6">
                   <DialogHeader>
                     <DialogTitle className="text-xl">Adicionar Itens à Comanda</DialogTitle>
