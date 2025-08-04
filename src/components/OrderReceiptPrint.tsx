@@ -15,17 +15,6 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
   const customerName = order.customer_name || 'Não informado';
     const tableNumber = order.table_number !== undefined && order.table_number !== null ? order.table_number : 'S/N';
 
-  // Debug: verificar dados de desconto
-  console.log('OrderReceiptPrint - Dados da comanda:', {
-    orderId: order.id,
-    itemsCount: items.length,
-    items: items.map(item => ({
-      productName: item.product_name,
-      originalPrice: item.originalPrice,
-      discountValue: item.discountValue,
-      discountId: item.discountId
-    }))
-  });
 
   
 
@@ -55,14 +44,7 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
     }
     let line = `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}`;
     
-    // Debug: verificar dados de desconto para este item
-    console.log('OrderReceiptPrint - formatProductLine:', {
-      name,
-      originalPrice,
-      discountValue,
-      hasDiscount: originalPrice && discountValue && discountValue > 0
-    });
-    
+
     if (originalPrice && discountValue && discountValue > 0) {
       line += `\n  - Preço original: ${formatCurrency(originalPrice)}`;
       line += `\n  (Desconto de: ${formatCurrency(discountValue)})`;
@@ -92,11 +74,19 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
           body * {
             visibility: hidden;
           }
+          #print-content-order {
+            visibility: visible !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           pre {
-            visibility: visible;
-            position: absolute;
-            left: 0;
-            top: 0;
+            visibility: visible !important;
+            position: relative !important;
+            margin: 0 !important;
+            padding: 0 5mm !important;
           }
           @page {
             margin: 0;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import { useApp } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import { useToast } from '@/components/ui/use-toast';
-import { Dialog as PrintDialog, DialogContent as PrintDialogContent, DialogTrigger as PrintDialogTrigger } from '@/components/ui/dialog';
+
 import { OrderReceiptPrint } from './OrderReceiptPrint';
 import { useActiveDiscounts } from '@/hooks/useActiveDiscounts';
 import {
@@ -42,8 +42,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     { method: 'cash', amount: order.total.toFixed(2) }
   ]);
   const [isClosingOrder, setIsClosingOrder] = useState(false);
-  const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [showPrintAlert, setShowPrintAlert] = useState(false);
+  const [orderToPrint, setOrderToPrint] = useState<Order | null>(null);
 
   // Estados para novo modal de adição de itens
   const [addItemsSearch, setAddItemsSearch] = useState('');
@@ -62,6 +62,17 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   }>>([]);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
+
+  // Controlar impressão
+  useEffect(() => {
+    if (orderToPrint) {
+      const timer = setTimeout(() => {
+        window.print();
+        setOrderToPrint(null);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [orderToPrint]);
 
   const handlePaymentAmountChange = (index: number, amount: string) => {
     // Trocar vírgula por ponto e remover caracteres não numéricos exceto ponto
@@ -386,21 +397,16 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           </div>
           <div className="flex flex-col items-end gap-1 min-w-fit">
             <div className="flex items-center gap-2">
-              <PrintDialog open={isPrintOpen} onOpenChange={setIsPrintOpen}>
-                <PrintDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setIsPrintOpen(true); }}>
-                    <Printer className="h-4 w-4" />
-                  </Button>
-                </PrintDialogTrigger>
-                <PrintDialogContent>
-                  <div id="print-content-order">
-                    <OrderReceiptPrint order={order} />
-                  </div>
-                  <Button className="mt-4 w-full" onClick={() => { window.print(); setIsPrintOpen(false); }}>
-                    Imprimir
-                  </Button>
-                </PrintDialogContent>
-              </PrintDialog>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={e => { 
+                  e.stopPropagation(); 
+                  setOrderToPrint(order);
+                }}
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
               <Badge variant={getStatusColor(order.status)}>
                 {getStatusText(order.status)}
               </Badge>
@@ -651,7 +657,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                       </div>
                     </div>
 
-                    {/* Botões alinhados: Cancelar | Fechar | Imprimir */}
+                    {/* Botões alinhados: Cancelar | Fechar */}
                     <div className="flex flex-row gap-2 pt-4">
                       <Button variant="outline" onClick={() => setIsCloseOrderOpen(false)} className="flex-1">
                         Cancelar
@@ -670,16 +676,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                           'Fechar Comanda'
                         )}
                       </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setIsCloseOrderOpen(false);
-                          setIsPrintOpen(true);
-                        }}
-                        className="flex-1"
-                      >
-                        Imprimir
-                      </Button>
+
                     </div>
                   </div>
                 </DialogContent>
@@ -719,6 +716,12 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {orderToPrint && (
+        <div id="print-content-order">
+          <OrderReceiptPrint order={orderToPrint} />
+        </div>
+      )}
     </Card>
   );
 };
