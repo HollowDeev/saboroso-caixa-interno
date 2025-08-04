@@ -210,6 +210,42 @@ export const addItemToOrder = async (
   if (updateError) throw updateError;
 };
 
+export const removeItemFromOrder = async (
+  orderId: string,
+  orderItemId: string
+) => {
+  // Remover o item da comanda
+  const { error: deleteError } = await supabase
+    .from('order_items')
+    .delete()
+    .eq('id', orderItemId)
+    .eq('order_id', orderId);
+  if (deleteError) throw deleteError;
+
+  // Buscar todos os itens restantes da comanda
+  const { data: orderItems, error: itemsError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId);
+  if (itemsError) throw itemsError;
+
+  // Calcular novos totais
+  const subtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+  const total = subtotal;
+
+  // Atualizar os totais da comanda
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({
+      subtotal,
+      tax: 0,
+      total,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', orderId);
+  if (updateError) throw updateError;
+};
+
 export const closeOrder = async (
   orderId: string,
   payments: Array<{ method: PaymentMethod; amount: number }>,

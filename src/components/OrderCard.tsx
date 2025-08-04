@@ -7,31 +7,43 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2, Edit, MoreVertical } from 'lucide-react';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from '@/components/ui/alert-dialog';
+import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2, Edit, MoreVertical, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { getOpenExpenseAccount, openExpenseAccount, addExpenseAccountItems, getExpenseAccountItems, contestExpenseAccountItem } from '@/services/expenseAccountService';
+import { removeItemFromOrder } from '@/services/orderService';
 import { toast } from '@/hooks/use-toast';
 import { useToast } from '@/components/ui/use-toast';
 
 import { OrderReceiptPrint } from './OrderReceiptPrint';
 import { useActiveDiscounts } from '@/hooks/useActiveDiscounts';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel
-} from '@/components/ui/alert-dialog';
 
 interface OrderCardProps {
   order: Order;
 }
 
+interface EmployeeProfile {
+  id: string;
+  name: string;
+  access_code: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 export const OrderCard = ({ order }: OrderCardProps) => {
-  const { products, externalProducts, addItemToOrder, closeOrder, updateOrder } = useApp();
+  const { products, externalProducts, addItemToOrder, closeOrder, updateOrder, currentUser } = useApp();
   const { toast } = useToast();
   const { discounts: activeDiscounts } = useActiveDiscounts();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
@@ -84,6 +96,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   }>>([]);
 
   const allProducts = [...products.filter(p => p.available), ...externalProducts.filter(p => p.current_stock > 0)];
+
+  // Estados para atribuir perda
+  const [isAssignLossOpen, setIsAssignLossOpen] = useState(false);
+  const [selectedItemForLoss, setSelectedItemForLoss] = useState<OrderItem | null>(null);
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeProfile | null>(null);
+  const [isConfirmLossOpen, setIsConfirmLossOpen] = useState(false);
 
   // Funções para gerenciar descontos manuais
   const addManualDiscount = () => {
@@ -534,6 +553,103 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
   };
 
+  // Função para buscar funcionários
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employee_profile')
+        .select('id, name, access_code, role, is_active, created_at')
+        .eq('user_id', currentUser?.id)
+        .eq('is_active', true)
+        .eq('role', 'Funcionario')
+        .order('name');
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (error) {
+      console.error('Erro ao buscar funcionários:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao carregar funcionários.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para abrir modal de atribuir perda
+  const openAssignLossModal = async (item: OrderItem) => {
+    setSelectedItemForLoss(item);
+    await fetchEmployees();
+    setIsAssignLossOpen(true);
+  };
+
+  // Função para selecionar funcionário
+  const selectEmployeeForLoss = (employee: EmployeeProfile) => {
+    setSelectedEmployee(employee);
+    setIsAssignLossOpen(false);
+    setIsConfirmLossOpen(true);
+  };
+
+  // Função para confirmar atribuição de perda
+  const confirmAssignLoss = async () => {
+    if (!selectedItemForLoss || !selectedEmployee || !currentUser) return;
+
+    try {
+      // 1. Verificar se existe conta de despesa aberta para o funcionário
+      let expenseAccount = await getOpenExpenseAccount(selectedEmployee.id);
+      
+      // 2. Se não existir, criar uma nova conta
+      if (!expenseAccount) {
+        expenseAccount = await openExpenseAccount(currentUser.id, selectedEmployee.id);
+      }
+
+      // 3. Adicionar o item à conta de despesa com contestação
+      await addExpenseAccountItems(
+        expenseAccount.id,
+        [{
+          product_id: selectedItemForLoss.productId,
+          product_type: selectedItemForLoss.product_type,
+          quantity: selectedItemForLoss.quantity,
+          unit_price: selectedItemForLoss.unitPrice,
+          product_name: selectedItemForLoss.product_name
+        }],
+        currentUser.id
+      );
+
+      // 4. Marcar o item como contestado
+      const items = await getExpenseAccountItems(expenseAccount.id);
+      const lastItem = items[0]; // O item mais recente
+      if (lastItem) {
+        await contestExpenseAccountItem(lastItem.id, "Item cadastrado como perda de uma comanda");
+      }
+
+      // 5. Remover o item da comanda (backend)
+      await removeItemFromOrder(order.id, selectedItemForLoss.id);
+
+      // 6. Atualizar o estado local removendo o item
+      if (order.items) {
+        order.items = order.items.filter(item => item.id !== selectedItemForLoss.id);
+      }
+
+      toast({
+        title: "Perda Atribuída",
+        description: `${selectedItemForLoss.product_name} foi atribuído como perda para ${selectedEmployee.name}`,
+      });
+
+      // Limpar estados
+      setSelectedItemForLoss(null);
+      setSelectedEmployee(null);
+      setIsConfirmLossOpen(false);
+
+    } catch (error) {
+      console.error('Erro ao atribuir perda:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atribuir perda ao funcionário.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
@@ -603,6 +719,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                         <DropdownMenuItem onClick={() => giveCourtesyDiscount(item.id)}>
                           <Edit className="h-4 w-4 mr-2" />
                           Dar de Cortesia
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => openAssignLossModal(item)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <AlertTriangleIcon className="h-4 w-4 mr-2" />
+                          Atribuir perda
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -887,6 +1010,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                                     <Edit className="h-4 w-4 mr-2" />
                                     Dar de Cortesia
                                   </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => openAssignLossModal(item)}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <AlertTriangleIcon className="h-4 w-4 mr-2" />
+                                    Atribuir perda
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -1079,6 +1209,66 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           <OrderReceiptPrint order={orderToPrint} />
         </div>
       )}
+
+      {/* Modal para selecionar funcionário para atribuir perda */}
+      <Dialog open={isAssignLossOpen} onOpenChange={setIsAssignLossOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecionar Funcionário</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Selecione o funcionário para atribuir a perda do item: <strong>{selectedItemForLoss?.product_name}</strong>
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {employees.map((employee) => (
+                <Button
+                  key={employee.id}
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => selectEmployeeForLoss(employee)}
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  {employee.name}
+                </Button>
+              ))}
+            </div>
+            {employees.length === 0 && (
+              <p className="text-center text-gray-500 py-4">
+                Nenhum funcionário encontrado.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alerta de confirmação para atribuir perda */}
+      <AlertDialog open={isConfirmLossOpen} onOpenChange={setIsConfirmLossOpen}>
+        <AlertDialogContent className="border-red-600">
+          <div className="flex flex-col items-center justify-center">
+            <AlertTriangleIcon className="text-red-600 mb-2" size={48} />
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl font-bold text-red-700 text-center">
+                Atribuir perda à {selectedEmployee?.name}?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-lg text-red-600 font-semibold text-center mt-2">
+                Ao confirmar, esse item irá entrar na conta despesa desse funcionário e será removido da comanda, <strong>NÃO SENDO REVERTÍVEL</strong>.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsConfirmLossOpen(false)} className="font-bold">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmAssignLoss}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };
