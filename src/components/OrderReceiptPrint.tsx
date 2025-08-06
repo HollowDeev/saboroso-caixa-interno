@@ -106,11 +106,11 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
       {'\n'}
       {items.map((item, idx) => {
         const quantity = Number(item.quantity) || 0;
-        const unitPrice = Number(item.unitPrice) || 0;
-        const totalPrice = Number(item.totalPrice) || 0;
+        const unitPrice = Number(item.unitPrice ?? item.unit_price) || 0;
+        const totalPrice = Number(item.totalPrice ?? item.total_price) || 0;
         const productName = item.product_name || 'Produto não identificado';
-        const originalPrice = item.originalPrice;
-        const discountValue = item.discountValue;
+        const originalPrice = item.originalPrice ?? item.original_price;
+        const discountValue = item.discountValue ?? item.discount_value;
         return formatProductLine(productName, quantity, unitPrice, totalPrice, originalPrice, discountValue) + (idx < items.length - 1 ? '\n' : '');
       }).join('')}
       {'\n'}

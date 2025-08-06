@@ -192,8 +192,24 @@ export const addItemToOrder = async (
 
   if (itemsError) throw itemsError;
 
+  // Mapeamento snake_case -> camelCase
+  const mappedOrderItems = (orderItems || []).map(item => ({
+    ...item,
+    id: item.id,
+    productId: item.product_id,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    unitPrice: item.unit_price,
+    totalPrice: item.total_price,
+    product_type: item.product_type,
+    originalPrice: item.original_price,
+    discountValue: item.discount_value,
+    discountId: item.discount_id,
+    // outros campos se necessário
+  }));
+
   // Calcular novos totais
-  const subtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+  const subtotal = mappedOrderItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const total = subtotal; // Removida a taxa automática
 
   // Atualizar os totais da comanda
@@ -229,8 +245,24 @@ export const removeItemFromOrder = async (
     .eq('order_id', orderId);
   if (itemsError) throw itemsError;
 
+  // Mapeamento snake_case -> camelCase
+  const mappedOrderItems = (orderItems || []).map(item => ({
+    ...item,
+    id: item.id,
+    productId: item.product_id,
+    product_name: item.product_name,
+    quantity: item.quantity,
+    unitPrice: item.unit_price,
+    totalPrice: item.total_price,
+    product_type: item.product_type,
+    originalPrice: item.original_price,
+    discountValue: item.discount_value,
+    discountId: item.discount_id,
+    // outros campos se necessário
+  }));
+
   // Calcular novos totais
-  const subtotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+  const subtotal = mappedOrderItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const total = subtotal;
 
   // Atualizar os totais da comanda
@@ -341,7 +373,6 @@ export const closeOrder = async (
     .from('orders')
     .update({
       status: 'closed',
-      total_discount: totalDiscount,
       updated_at: new Date().toISOString()
     })
     .eq('id', orderId);

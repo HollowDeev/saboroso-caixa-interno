@@ -493,21 +493,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       const editedItemIds = new Set(editItemsSelected.map(item => item.id));
       const removedItemIds = Array.from(currentItemIds).filter(id => !editedItemIds.has(id));
 
-      // Remover itens
+      // Remover itens no backend
       for (const itemId of removedItemIds) {
-        // Aqui você precisaria implementar a função removeItemFromOrder no contexto
-        // Por enquanto, vamos apenas mostrar um toast
-        console.log('Removendo item:', itemId);
+        await removeItemFromOrder(order.id, itemId);
       }
 
-      // Atualizar itens modificados
-      for (const editedItem of editItemsSelected) {
-        const originalItem = order.items.find(item => item.id === editedItem.id);
-        if (originalItem && (originalItem.quantity !== editedItem.quantity)) {
-          // Aqui você precisaria implementar a função updateItemInOrder no contexto
-          console.log('Atualizando item:', editedItem);
-        }
-      }
+      // Atualizar itens modificados (aqui pode-se implementar updateItemInOrder se necessário)
+      // ...
 
       setIsEditOrderOpen(false);
       setEditItemsSelected([]);
@@ -704,33 +696,47 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           {/* Lista de Itens */}
           <div className="space-y-2">
             {order.items.map((item, index) => (
-              <div key={index} className="flex justify-between items-center text-sm w-full">
-                <span className="break-all whitespace-normal">{item.quantity}x {item.product_name}</span>
-                <div className="flex items-center gap-2">
-                  <span className="whitespace-nowrap">R$ {item.totalPrice.toFixed(2)}</span>
-                  {order.status === 'open' && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-blue-500 hover:bg-blue-600 text-white">
-                          <MoreVertical className="h-3 w-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => giveCourtesyDiscount(item.id)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Dar de Cortesia
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => openAssignLossModal(item)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <AlertTriangleIcon className="h-4 w-4 mr-2" />
-                          Atribuir perda
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              <div key={index} className="flex justify-between items-center text-sm">
+                <div className="flex-1">
+                  <span className="font-medium">{item.product_name}</span>
+                  <span className="text-gray-500 ml-2">({item.quantity}x)</span>
+                  {(Number(item.discountValue ?? item.discount_value) > 0) && (
+                    <>
+                      <div className="text-xs text-orange-700">
+                        Preço original: R$ {(item.originalPrice ?? item.original_price)?.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-green-700">
+                        Desconto: R$ {(item.discountValue ?? item.discount_value)?.toFixed(2)}
+                      </div>
+                    </>
                   )}
                 </div>
+                <div className="text-right">
+                  <div className="text-gray-500">R$ {item.unitPrice?.toFixed(2) ?? item.unit_price?.toFixed(2)} cada</div>
+                  <div>R$ {item.totalPrice?.toFixed(2) ?? item.total_price?.toFixed(2)}</div>
+                </div>
+                {order.status === 'open' && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-blue-500 hover:bg-blue-600 text-white">
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => giveCourtesyDiscount(item.id)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Dar de Cortesia
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => openAssignLossModal(item)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <AlertTriangleIcon className="h-4 w-4 mr-2" />
+                        Atribuir perda
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             ))}
           </div>
@@ -994,11 +1000,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                               <span className="font-medium">{item.product_name}</span>
                               <span className="text-gray-500 ml-2">({item.quantity}x)</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="text-right">
-                                <div className="text-gray-500">R$ {item.unitPrice.toFixed(2)} cada</div>
-                                <div>R$ {item.totalPrice.toFixed(2)}</div>
-                              </div>
+                            <div className="text-right">
+                              <div className="text-gray-500">R$ {item.unitPrice.toFixed(2)} cada</div>
+                              <div>R$ {item.totalPrice.toFixed(2)}</div>
+                            </div>
+                            {order.status === 'open' && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 bg-blue-500 hover:bg-blue-600 text-white">
@@ -1019,7 +1025,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            </div>
+                            )}
                           </div>
                         ))}
                       </div>

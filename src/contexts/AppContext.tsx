@@ -194,10 +194,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const closeOrder = async (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>, manualDiscount: number = 0) => {
-    if (!currentUser || !currentCashRegister) {
-      throw new Error('Usuário ou caixa não encontrado');
+    if (!currentUser) {
+      throw new Error('Usuário não autenticado. Faça login novamente.');
     }
-
+    if (!currentCashRegister) {
+      throw new Error('Nenhum caixa aberto. Abra o caixa antes de fechar a comanda.');
+    }
     await orderService.closeOrder(orderId, payments, currentUser, currentCashRegister, manualDiscount);
     await refreshData();
   };
