@@ -1,4 +1,4 @@
-# TODO: Algoritmo de Descontos e Cortesia para Produtos, Comidas, Comandas e Vendas Diretas
+A# TODO: Algoritmo de Descontos e Cortesia para Produtos, Comidas, Comandas e Vendas Diretas
 
 ## 1. Listagem das Colunas Atuais
 
