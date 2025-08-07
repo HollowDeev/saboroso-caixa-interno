@@ -111,72 +111,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser({
         id: user.id,
         name: user.name || user.email || '',
-        email: user.email,
-        role: user.role || 'cashier'
+        email: user.email || '',
+        role: user.role || 'user',
+        owner_id: user.id
       });
       setProfileId(user.id);
-      setIsEmployee(user.role === 'employee');
+      setIsEmployee(false);
     }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && !storedEmployee) {
-        console.log('Got session:', session);
-        const userData = {
-          id: session.user.id,
-          name: session.user.user_metadata?.name || session.user.email || '',
-          email: session.user.email || '',
-          role: session.user.user_metadata?.role || 'cashier'
-        };
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        setCurrentUser(userData);
-        setProfileId(userData.id);
-        setIsEmployee(userData.role === 'employee');
-      }
-    });
-
-    supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user && !storedEmployee) {
-        console.log('Got session:', session);
-        const userData = {
-          id: session.user.id,
-          name: session.user.user_metadata?.name || session.user.email || '',
-          email: session.user.email || '',
-          role: session.user.user_metadata?.role || 'cashier'
-        };
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        setCurrentUser(userData);
-        setProfileId(userData.id);
-        setIsEmployee(userData.role === 'employee');
-      } else if (!session && !storedEmployee) {
-        console.log('No session:', session);
-        localStorage.removeItem('currentUser');
-        setCurrentUser(null);
-        setProfileId(null);
-        setIsEmployee(false);
-      }
-    });
   }, []);
 
   useEffect(() => {
-    if (currentUser?.id) {
+    if (currentUser) {
       refreshData();
     }
   }, [currentUser]);
 
   const addOrder = async (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      await orderService.addOrder(order, currentUser!, currentCashRegister);
-      await refreshData();
+      const newOrder = await orderService.addOrder(order, currentUser, currentCashRegister);
+      setOrders(prev => [...prev, newOrder]);
+      toast({
+        title: "Sucesso",
+        description: "Comanda criada com sucesso!",
+      });
+      return newOrder;
     } catch (error) {
-      console.error('Error adding order:', error);
+      console.error('Error creating order:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar comanda.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateOrder = async (id: string, updates: Partial<Order>) => {
     try {
-      await orderService.updateOrder(id, updates);
-      await refreshData();
+      const updatedOrder = await orderService.updateOrder(id, updates);
+      setOrders(prev => prev.map(order => order.id === id ? updatedOrder : order));
+      return updatedOrder;
     } catch (error) {
       console.error('Error updating order:', error);
       throw error;
@@ -185,8 +159,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addItemToOrder = async (orderId: string, item: NewOrderItem) => {
     try {
-      await orderService.addItemToOrder(orderId, item, currentCashRegister);
-      await refreshData();
+      const updatedOrder = await orderService.addItemToOrder(orderId, item, currentCashRegister);
+      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));
+      return updatedOrder;
     } catch (error) {
       console.error('Error adding item to order:', error);
       throw error;
@@ -194,30 +169,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const closeOrder = async (orderId: string, payments: Array<{ method: PaymentMethod; amount: number }>, manualDiscount: number = 0) => {
-    if (!currentUser) {
-      throw new Error('Usuário não autenticado. Faça login novamente.');
+    try {
+      const result = await orderService.closeOrder(orderId, payments, currentUser!, currentCashRegister!, manualDiscount);
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+      toast({
+        title: "Sucesso",
+        description: "Comanda fechada com sucesso!",
+      });
+      return result;
+    } catch (error) {
+      console.error('Error closing order:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao fechar comanda.",
+        variant: "destructive",
+      });
+      throw error;
     }
-    if (!currentCashRegister) {
-      throw new Error('Nenhum caixa aberto. Abra o caixa antes de fechar a comanda.');
-    }
-    await orderService.closeOrder(orderId, payments, currentUser, currentCashRegister, manualDiscount);
-    await refreshData();
   };
 
   const addIngredient = async (ingredient: Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      await productService.addIngredient(ingredient, currentUser!);
-      await refreshData();
+      const newIngredient = await productService.addIngredient(ingredient, currentUser!);
+      setIngredients(prev => [...prev, newIngredient]);
+      toast({
+        title: "Sucesso",
+        description: "Ingrediente adicionado com sucesso!",
+      });
+      return newIngredient;
     } catch (error) {
-      console.error('Error adding ingredient:', error);
+      console.error('Error creating ingredient:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar ingrediente.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
     try {
-      await productService.updateIngredient(id, updates);
-      await refreshData();
+      const updatedIngredient = await productService.updateIngredient(id, updates);
+      setIngredients(prev => prev.map(ingredient => ingredient.id === id ? updatedIngredient : ingredient));
+      return updatedIngredient;
     } catch (error) {
       console.error('Error updating ingredient:', error);
       throw error;
@@ -227,40 +222,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteIngredient = async (id: string) => {
     try {
       await productService.deleteIngredient(id);
-      await refreshData();
-    } catch (error: any) {
+      setIngredients(prev => prev.filter(ingredient => ingredient.id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Ingrediente removido com sucesso!",
+      });
+    } catch (error) {
       console.error('Error deleting ingredient:', error);
-      if (error.message && error.message.includes('usado em uma ou mais comidas')) {
-        toast({
-          title: 'Não é possível excluir',
-          description: 'Este ingrediente está sendo usado em uma ou mais comidas. Remova-o dos produtos antes de excluir.',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Erro ao excluir ingrediente',
-          description: error.message || 'Não foi possível excluir o ingrediente.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: "Erro",
+        description: "Erro ao remover ingrediente.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const addProduct = async (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      await productService.addProduct(product, currentUser!);
-      await refreshData();
+      const newProduct = await productService.addProduct(product);
+      setProducts(prev => [...prev, newProduct]);
+      toast({
+        title: "Sucesso",
+        description: "Produto adicionado com sucesso!",
+      });
+      return newProduct;
     } catch (error) {
-      console.error('Error adding product:', error);
+      console.error('Error creating product:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar produto.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     try {
-      await productService.updateProduct(id, updates);
-      await refreshData();
+      const updatedProduct = await productService.updateProduct(id, updates);
+      setProducts(prev => prev.map(product => product.id === id ? updatedProduct : product));
+      return updatedProduct;
     } catch (error) {
       console.error('Error updating product:', error);
       throw error;
@@ -270,27 +272,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteProduct = async (id: string) => {
     try {
       await productService.deleteProduct(id);
-      await refreshData();
+      setProducts(prev => prev.filter(product => product.id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Produto removido com sucesso!",
+      });
     } catch (error) {
       console.error('Error deleting product:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover produto.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const addExternalProduct = async (product: Omit<ExternalProduct, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      await productService.addExternalProduct(product, currentUser!);
-      await refreshData();
+      const newProduct = await productService.addExternalProduct(product, currentUser!);
+      setExternalProducts(prev => [...prev, newProduct]);
+      toast({
+        title: "Sucesso",
+        description: "Produto externo adicionado com sucesso!",
+      });
+      return newProduct;
     } catch (error) {
-      console.error('Error adding external product:', error);
+      console.error('Error creating external product:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar produto externo.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateExternalProduct = async (id: string, updates: Partial<ExternalProduct>) => {
     try {
-      await productService.updateExternalProduct(id, updates);
-      await refreshData();
+      const updatedProduct = await productService.updateExternalProduct(id, updates);
+      setExternalProducts(prev => prev.map(product => product.id === id ? updatedProduct : product));
+      return updatedProduct;
     } catch (error) {
       console.error('Error updating external product:', error);
       throw error;
@@ -300,57 +322,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteExternalProduct = async (id: string) => {
     try {
       await productService.deleteExternalProduct(id);
-      await refreshData();
+      setExternalProducts(prev => prev.filter(product => product.id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Produto externo removido com sucesso!",
+      });
     } catch (error) {
       console.error('Error deleting external product:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover produto externo.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const addSale = async (saleData: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
-      const result = await salesService.addSale(saleData, currentUser!, currentCashRegister!);
-      
-      // Formatar os dados da venda antes de adicionar ao estado
-      const newSale: Sale = {
-        id: result.id,
-        items: saleData.items.map(item => ({
-          id: item.id || '',
-          product_id: item.product_id,
-          product_name: item.product_name,
-          quantity: Number(item.quantity),
-          unit_price: Number(item.unit_price),
-          total_price: Number(item.total_price),
-          product_type: item.product_type
-        })),
-        total: Number(saleData.total),
-        subtotal: Number(saleData.subtotal),
-        tax: Number(saleData.tax),
-        payments: saleData.payments.map(p => ({
-          method: p.method,
-          amount: Number(p.amount)
-        })),
-        user_id: saleData.user_id,
-        cash_register_id: saleData.cash_register_id,
-        order_id: saleData.order_id || '',
-        is_direct_sale: saleData.is_direct_sale,
-        customer_name: saleData.customer_name,
-        createdAt: new Date().toISOString()
-      };
-
-      setSales(prev => [newSale, ...prev]);
-
-      return result;
+      const newSale = await salesService.addSale(saleData, currentUser!, currentCashRegister!);
+      setSales(prev => [...prev, newSale]);
+      toast({
+        title: "Sucesso",
+        description: "Venda registrada com sucesso!",
+      });
+      return newSale;
     } catch (error) {
-      console.error('Erro ao adicionar venda:', error);
+      console.error('Error creating sale:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao registrar venda.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateSale = async (id: string, updates: Partial<Sale>) => {
     try {
-      await salesService.updateSale(id, updates);
-      await refreshData();
+      const updatedSale = await salesService.updateSale(id, updates);
+      setSales(prev => prev.map(sale => sale.id === id ? updatedSale : sale));
+      return updatedSale;
     } catch (error) {
       console.error('Error updating sale:', error);
       throw error;
@@ -359,32 +371,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSale = async (id: string) => {
     try {
-      await salesService.deleteSale(id, currentUser!, currentCashRegister!, () => {
-        setSales(prevSales => prevSales.filter(s => s.id !== id));
+      await salesService.deleteSale(id);
+      setSales(prev => prev.filter(sale => sale.id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Venda removida com sucesso!",
       });
-      await refreshData();
     } catch (error) {
       console.error('Error deleting sale:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover venda.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const addExpense = async (expense: NewExpense) => {
-    if (!currentUser || !currentCashRegister) return;
-
     try {
-      await expenseService.addExpense(expense, currentUser, currentCashRegister, products, externalProducts);
-      await refreshData();
+      const newExpense = await expenseService.createExpense(expense);
+      setExpenses(prev => [...prev, newExpense]);
+      toast({
+        title: "Sucesso",
+        description: "Despesa registrada com sucesso!",
+      });
+      return newExpense;
     } catch (error) {
-      console.error('Error adding expense:', error);
+      console.error('Error creating expense:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao registrar despesa.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateExpense = async (id: string, updates: Partial<Expense>) => {
     try {
-      await expenseService.updateExpense(id, updates);
-      await refreshData();
+      const updatedExpense = await expenseService.updateExpense(id, updates);
+      setExpenses(prev => prev.map(expense => expense.id === id ? updatedExpense : expense));
+      return updatedExpense;
     } catch (error) {
       console.error('Error updating expense:', error);
       throw error;
@@ -392,40 +420,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteExpense = async (id: string) => {
-    if (!currentUser || !currentCashRegister) {
-      throw new Error('Usuário não autenticado ou caixa não está aberto');
-    }
-
     try {
-      await expenseService.deleteExpense(
-        id,
-        currentUser,
-        currentCashRegister,
-        () => {
-          setExpenses(prevExpenses => prevExpenses.filter(e => e.id !== id));
-        }
-      );
-      await refreshData();
+      await expenseService.deleteExpense(id);
+      setExpenses(prev => prev.filter(expense => expense.id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Despesa removida com sucesso!",
+      });
     } catch (error) {
       console.error('Error deleting expense:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover despesa.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const addServiceTax = async (serviceTax: Omit<ServiceTax, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      await cashRegisterService.addServiceTax(serviceTax);
-      await refreshData();
+      const newServiceTax = await salesService.createServiceTax(serviceTax);
+      setServiceTaxes(prev => [...prev, newServiceTax]);
+      toast({
+        title: "Sucesso",
+        description: "Taxa de serviço adicionada com sucesso!",
+      });
+      return newServiceTax;
     } catch (error) {
-      console.error('Error adding service tax:', error);
+      console.error('Error creating service tax:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar taxa de serviço.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const updateServiceTax = async (id: string, updates: Partial<ServiceTax>) => {
     try {
-      await cashRegisterService.updateServiceTax(id, updates);
-      await refreshData();
+      const updatedServiceTax = await salesService.updateServiceTax(id, updates);
+      setServiceTaxes(prev => prev.map(tax => tax.id === id ? updatedServiceTax : tax));
+      return updatedServiceTax;
     } catch (error) {
       console.error('Error updating service tax:', error);
       throw error;
@@ -434,18 +471,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteServiceTax = async (id: string) => {
     try {
-      await cashRegisterService.deleteServiceTax(id);
-      await refreshData();
+      await salesService.deleteServiceTax(id);
+      setServiceTaxes(prev => prev.filter(tax => tax.id !== id));
+      toast({
+        title: "Sucesso",
+        description: "Taxa de serviço removida com sucesso!",
+      });
     } catch (error) {
       console.error('Error deleting service tax:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover taxa de serviço.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const openCashRegister = async (amount: number) => {
     try {
-      await cashRegisterService.openCashRegister(amount, currentUser!);
-      await refreshData();
+      const cashRegister = await cashRegisterService.openCashRegister(amount);
+      setCurrentCashRegister(cashRegister);
+      toast({
+        title: "Sucesso",
+        description: "Caixa aberto com sucesso!",
+      });
+      return cashRegister;
     } catch (error) {
       console.error('Error opening cash register:', error);
       throw error;
@@ -454,8 +505,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const closeCashRegister = async (amount: number) => {
     try {
-      await cashRegisterService.closeCashRegister(amount, currentCashRegister!.id);
-      await refreshData();
+      const result = await cashRegisterService.closeCashRegister(amount);
+      setCurrentCashRegister(null);
+      toast({
+        title: "Sucesso",
+        description: "Caixa fechado com sucesso!",
+      });
+      return result;
     } catch (error) {
       console.error('Error closing cash register:', error);
       throw error;
@@ -464,29 +520,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateStock = async (itemType: 'ingredient' | 'external_product', itemId: string, quantity: number, reason: string) => {
     try {
-      await cashRegisterService.updateStock(itemType, itemId, quantity, reason, currentUser!);
-      await refreshData();
+      await productService.updateStock(itemType, itemId, quantity, reason);
+      refreshData();
+      toast({
+        title: "Sucesso",
+        description: "Estoque atualizado com sucesso!",
+      });
     } catch (error) {
       console.error('Error updating stock:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar estoque.",
+        variant: "destructive",
+      });
       throw error;
     }
   };
 
   const checkCashRegisterAccess = () => {
-    return cashRegisterService.checkCashRegisterAccess(currentUser);
+    return currentCashRegister !== null;
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('employee_data');
-    setCurrentUser(null);
-    setProfileId(null);
-    setIsEmployee(false);
-    window.location.reload();
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+      setProfileId(null);
+      setIsEmployee(false);
+      setIngredients([]);
+      setProducts([]);
+      setExternalProducts([]);
+      setOrders([]);
+      setSales([]);
+      setServiceTaxes([]);
+      setCurrentCashRegister(null);
+      setExpenses([]);
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('employee_data');
+      toast({
+        title: "Logout",
+        description: "Logout realizado com sucesso!",
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      toast({
+        title: "Erro",
+        description: "Erro durante o logout.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const value: AppContextType = {
+  const contextValue = useMemo(() => ({
     currentUser,
     profileId,
     isEmployee,
@@ -495,9 +580,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     externalProducts,
     orders,
     sales,
-    expenses,
     serviceTaxes,
     currentCashRegister,
+    expenses,
     isLoading,
     addOrder,
     updateOrder,
@@ -523,13 +608,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteServiceTax,
     openCashRegister,
     closeCashRegister,
-    checkCashRegisterAccess,
     updateStock,
+    checkCashRegisterAccess,
+    logout,
     refreshData,
-    logout
-  };
+  }), [
+    currentUser,
+    profileId,
+    isEmployee,
+    ingredients,
+    products,
+    externalProducts,
+    orders,
+    sales,
+    serviceTaxes,
+    currentCashRegister,
+    expenses,
+    isLoading,
+  ]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={contextValue}>
+      {children}
+    </AppContext.Provider>
+  );
 };
 
 export const useAppContext = () => {
@@ -540,5 +642,4 @@ export const useAppContext = () => {
   return context;
 };
 
-// Manter compatibilidade com o hook useApp
 export const useApp = useAppContext;

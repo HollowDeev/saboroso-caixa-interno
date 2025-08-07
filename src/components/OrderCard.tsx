@@ -493,6 +493,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       const editedItemIds = new Set(editItemsSelected.map(item => item.id));
       const removedItemIds = Array.from(currentItemIds).filter(id => !editedItemIds.has(id));
 
+<<<<<<< HEAD
       // Remover itens no backend
       for (const itemId of removedItemIds) {
         await removeItemFromOrder(order.id, itemId);
@@ -500,6 +501,23 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
       // Atualizar itens modificados (aqui pode-se implementar updateItemInOrder se necessário)
       // ...
+=======
+      // Remover itens
+      for (const itemId of removedItemIds) {
+        // Aqui você precisaria implementar a função removeItemFromOrder no contexto
+        // Por enquanto, vamos apenas mostrar um toast
+        console.log('Removendo item:', itemId);
+      }
+
+      // Atualizar itens modificados
+      for (const editedItem of editItemsSelected) {
+        const originalItem = order.items.find(item => item.id === editedItem.id);
+        if (originalItem && (originalItem.quantity !== editedItem.quantity)) {
+          // Aqui você precisaria implementar a função updateItemInOrder no contexto
+          console.log('Atualizando item:', editedItem);
+        }
+      }
+>>>>>>> 2f035e398100f83d2ed93084b29d5b31c7be0edf
 
       setIsEditOrderOpen(false);
       setEditItemsSelected([]);
@@ -521,6 +539,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const editSubtotal = editItemsSelected.reduce((sum, item) => sum + item.totalPrice, 0);
   const editTotal = editSubtotal; // Assumindo que não há taxas
 
+<<<<<<< HEAD
   // Função para dar desconto de cortesia
   const giveCourtesyDiscount = async (itemId: string) => {
     try {
@@ -642,6 +661,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
   };
 
+=======
+>>>>>>> 2f035e398100f83d2ed93084b29d5b31c7be0edf
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader className="pb-3">
