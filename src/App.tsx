@@ -14,6 +14,7 @@ import { Users } from "./pages/Users";
 import { Settings } from "./pages/Settings";
 import { ProfitCalculator } from "./pages/ProfitCalculator";
 import { CashRegisters } from "./pages/CashRegisters";
+  import { Billing } from "./pages/Billing";
 import { Login } from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { useState, useEffect } from "react";
@@ -194,6 +195,7 @@ const App = () => {
                         {isEmployeeAdmin && (
                           <>
                             <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/billing" element={<Billing />} />
                             <Route path="/users" element={<Users />} />
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/calculator" element={<ProfitCalculator />} />

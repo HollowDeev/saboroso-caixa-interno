@@ -5,6 +5,7 @@ import {
   ShoppingCart,
   Package,
   BarChart3,
+    BarChart2,
   Users,
   Settings,
   Calculator,
@@ -27,6 +28,7 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
     ...((isAdmin || !isEmployee) ? [
       { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
+        { icon: BarChart2, label: 'Faturamento', path: '/billing' },
       { icon: Package, label: 'Estoque', path: '/stock' },
       { icon: Users, label: 'Funcionários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
