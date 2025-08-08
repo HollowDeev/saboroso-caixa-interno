@@ -490,7 +490,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const openCashRegister = async (amount: number) => {
     try {
-      const cashRegister = await cashRegisterService.openCashRegister(amount);
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+      const cashRegister = await cashRegisterService.openCashRegister(amount, currentUser);
       setCurrentCashRegister(cashRegister);
       toast({
         title: "Sucesso",
@@ -641,5 +644,3 @@ export const useAppContext = () => {
   }
   return context;
 };
-
-export const useApp = useAppContext;

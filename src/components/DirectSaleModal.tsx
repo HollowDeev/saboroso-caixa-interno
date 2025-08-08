@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Search } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { OrderItem, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,7 @@ interface Payment {
 }
 
 export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClose }) => {
-  const { products, externalProducts, currentUser, addSale, currentCashRegister } = useApp();
+  const { products, externalProducts, currentUser, addSale, currentCashRegister } = useAppContext();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
   const [payments, setPayments] = useState<Payment[]>([{ method: 'cash', amount: 0 }]);
   const [customerName, setCustomerName] = useState('');

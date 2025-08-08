@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Plus, Trash2 } from 'lucide-react';
 import { convertValue, getAvailableSubunits, Unit } from '@/utils/unitConversion';
 import { ProductFormData, ProductIngredient, ExternalProduct, Ingredient } from '@/types';
@@ -26,7 +26,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
   submitLabel
 }) => {
-  const { ingredients, externalProducts } = useApp();
+  const { ingredients, externalProducts } = useAppContext();
   const [calculatedCost, setCalculatedCost] = useState(0);
 
   // Memoize os ingredientes e unidades disponíveis para cada ingrediente do produto

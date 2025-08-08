@@ -4,7 +4,7 @@ import AddExpenseItemModal from '../components/expense-account/AddExpenseItemMod
 import { Button } from '../components/ui/button';
 import { Plus } from 'lucide-react';
 import { useExpenseAccount } from '../hooks/useExpenseAccount';
-import { useApp } from '../contexts/AppContext';
+import { useAppContext } from '../contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
@@ -20,7 +20,7 @@ type ExpenseAccountItem = Database['public']['Tables']['expense_account_items'][
 const ExpenseAccount: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { account, items, loading, error, openAccount, addItems, reload } = useExpenseAccount();
-  const { currentUser } = useApp();
+  const { currentUser } = useAppContext();
   const profileId = (currentUser as any)?.owner_id ? (localStorage.getItem('employee_data') ? JSON.parse(localStorage.getItem('employee_data')!).id : undefined) : currentUser?.id;
   console.log('ID do perfil (profileId):', profileId);
 

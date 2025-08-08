@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { ServiceTax } from '@/types';
 import { Pencil, Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 
 export const Settings = () => {
-    const { serviceTaxes, addServiceTax, updateServiceTax, deleteServiceTax, currentUser, profileId, isEmployee } = useApp();
+    const { serviceTaxes, addServiceTax, updateServiceTax, deleteServiceTax, currentUser, profileId, isEmployee } = useAppContext();
     const [isAddTaxOpen, setIsAddTaxOpen] = useState(false);
     const [editingTax, setEditingTax] = useState<ServiceTax | null>(null);
     const [newTax, setNewTax] = useState({

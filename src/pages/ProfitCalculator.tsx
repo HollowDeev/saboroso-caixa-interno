@@ -4,12 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Product } from '@/types';
 import { convertToBaseUnit, convertValue } from '@/utils/unitConversion';
 
 export const ProfitCalculator = () => {
-    const { products, ingredients, serviceTaxes } = useApp();
+    const { products, ingredients, serviceTaxes } = useAppContext();
     const [selectedProductId, setSelectedProductId] = useState<string>('');
     const [customPrice, setCustomPrice] = useState<number>(0);
     const [selectedTaxes, setSelectedTaxes] = useState<string[]>(

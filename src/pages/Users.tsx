@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users as UsersIcon } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { EmployeeManagement } from '@/components/EmployeeManagement';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import AdminExpenseAccounts from '../components/expense-account/AdminExpenseAccounts';
 
 export const Users = () => {
-  const { currentUser } = useApp();
+  const { currentUser } = useAppContext();
   const [tab, setTab] = useState('contas');
   const [totalEmployees, setTotalEmployees] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);

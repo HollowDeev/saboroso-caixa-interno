@@ -13,10 +13,10 @@ import {
   User,
   Hash
 } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 
 export const Dashboard = () => {
-  const { orders, sales, ingredients, products, externalProducts, currentCashRegister } = useApp();
+  const { orders, sales, ingredients, products, externalProducts, currentCashRegister } = useAppContext();
 
   // Calculate metrics
   const todaysSales = sales.filter(sale => {

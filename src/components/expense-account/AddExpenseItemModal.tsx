@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Plus, Search, Trash2 } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 
 interface AddExpenseItemModalProps {
   isOpen: boolean;
@@ -20,7 +20,7 @@ interface SelectedItem {
 }
 
 const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClose, onAddItems }) => {
-  const { products, externalProducts } = useApp();
+  const { products, externalProducts } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
 

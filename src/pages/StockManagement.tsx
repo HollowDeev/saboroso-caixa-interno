@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -41,7 +41,7 @@ export const StockManagement = () => {
     updateProduct,
     deleteProduct,
     updateStock,
-  } = useApp();
+  } = useAppContext();
 
   const [activeTab, setActiveTab] = useState('ingredients');
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);

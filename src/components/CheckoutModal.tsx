@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Order, OrderItem, Product, ExternalProduct } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
@@ -19,7 +19,7 @@ interface CheckoutModalProps {
 }
 
 export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) => {
-  const { products, externalProducts, updateOrder } = useApp();
+  const { products, externalProducts, updateOrder } = useAppContext();
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [amountPaid, setAmountPaid] = useState(0);

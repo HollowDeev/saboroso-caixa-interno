@@ -18,7 +18,7 @@ import {
   AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
 import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2, Edit, MoreVertical, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getOpenExpenseAccount, openExpenseAccount, addExpenseAccountItems, getExpenseAccountItems, contestExpenseAccountItem } from '@/services/expenseAccountService';
@@ -43,7 +43,7 @@ interface EmployeeProfile {
 }
 
 export const OrderCard = ({ order }: OrderCardProps) => {
-  const { products, externalProducts, addItemToOrder, closeOrder, updateOrder, currentUser } = useApp();
+  const { products, externalProducts, addItemToOrder, closeOrder, updateOrder, currentUser } = useAppContext();
   const { toast } = useToast();
   const { discounts: activeDiscounts } = useActiveDiscounts();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);

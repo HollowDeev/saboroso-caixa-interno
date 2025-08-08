@@ -10,7 +10,7 @@ import AddExpenseItemModal from './AddExpenseItemModal';
 import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems } from '../../services/expenseAccountService';
 import { Switch } from '../ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { processOrderItemsStockConsumption } from '../../utils/stockConsumption';
 
 interface EmployeeAccountCard {
@@ -47,7 +47,7 @@ const AdminExpenseAccounts: React.FC = () => {
   const [confirmClose, setConfirmClose] = useState(false);
   const [afterClose, setAfterClose] = useState(false);
   const { toast } = useToast();
-  const { currentUser } = useApp();
+  const { currentUser } = useAppContext();
 
   useEffect(() => {
     fetchAccounts();

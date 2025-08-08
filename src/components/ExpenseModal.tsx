@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { useApp } from '@/contexts/AppContext';
+import { useAppContext } from '@/contexts/AppContext';
 import { NewExpense } from '@/types';
 import { toast } from '@/components/ui/use-toast';
 import { Search } from 'lucide-react';
@@ -17,7 +17,7 @@ interface ExpenseModalProps {
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) => {
-  const { products, externalProducts, addExpense, currentCashRegister, currentUser } = useApp();
+  const { products, externalProducts, addExpense, currentCashRegister, currentUser } = useAppContext();
   const [selectedTab, setSelectedTab] = useState('product_loss');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedFood, setSelectedFood] = useState('');

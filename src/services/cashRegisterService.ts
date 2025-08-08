@@ -50,6 +50,7 @@ export const openCashRegister = async (amount: number, currentUser: User) => {
     .single();
 
   if (error) throw error;
+  return data;
 };
 
 export const closeCashRegister = async (amount: number, currentCashRegisterId: string) => {

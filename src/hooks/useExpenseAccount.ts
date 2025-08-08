@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getOpenExpenseAccount, openExpenseAccount, getExpenseAccountItems, addExpenseAccountItems } from '../services/expenseAccountService';
-import { useApp } from '../contexts/AppContext';
+import { useAppContext } from '../contexts/AppContext';
 
 export function useExpenseAccount() {
-  const { currentUser, profileId } = useApp();
+  const { currentUser, profileId } = useAppContext();
   const [account, setAccount] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
