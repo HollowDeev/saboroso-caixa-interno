@@ -115,79 +115,23 @@ export const processOrderItemsStockConsumption = async (
       });
 
       if (isExternalProduct) {
-        // Processar produto externo
-        console.log('Processando produto externo:', item.product.name);
-        const { data: productData, error: productError } = await supabase
-          .from('external_products')
-          .select('current_stock, name')
-          .eq('id', item.productId)
-          .single();
-
-        if (productError) {
-          console.error('Erro ao buscar produto externo:', productError);
-          errors.push(`Erro ao verificar estoque de ${item.product.name}: ${productError.message}`);
+        // Processar produto externo via RPC para respeitar RLS e triggers
+        console.log('Processando produto externo via RPC:', item.product.name);
+        const { error: rpcError } = await supabase.rpc(
+          item.quantity > 0 ? 'remove_stock' : 'add_stock',
+          {
+            p_item_type: 'external_product',
+            p_item_id: item.productId,
+            p_quantity: Math.abs(item.quantity),
+            p_reason: description,
+            p_user_id: userId,
+          }
+        );
+        if (rpcError) {
+          console.error('Erro RPC em produto externo:', rpcError);
+          errors.push(`Erro ao atualizar estoque de ${item.product.name}: ${rpcError.message}`);
           success = false;
           continue;
-        }
-
-        console.log('Dados do produto externo:', productData);
-
-        if (!productData) {
-          errors.push(`Produto ${item.product.name} não encontrado`);
-          success = false;
-          continue;
-        }
-
-        const quantity = item.quantity;
-        const quantityToUpdate = quantity;
-
-        if (item.quantity > 0 && productData.current_stock < quantity) {
-          errors.push(`Estoque insuficiente para ${productData.name}. Disponível: ${productData.current_stock}, Necessário: ${quantity}`);
-          success = false;
-          continue;
-        }
-
-        // Atualizar estoque do produto externo
-        const newStock = productData.current_stock - quantityToUpdate;
-        console.log('Atualizando estoque do produto externo:', {
-          produto: item.product.name,
-          estoqueAtual: productData.current_stock,
-          quantidade: quantityToUpdate,
-          novoEstoque: newStock,
-          operacao: item.quantity > 0 ? 'consumo' : 'reversão'
-        });
-
-        const { error: updateError } = await supabase
-          .from('external_products')
-          .update({
-            current_stock: newStock,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.productId);
-
-        if (updateError) {
-          console.error('Erro ao atualizar estoque do produto externo:', updateError);
-          errors.push(`Erro ao atualizar estoque de ${item.product.name}: ${updateError.message}`);
-          success = false;
-          continue;
-        }
-
-        // Registrar movimento
-        const { error: movementError } = await supabase
-          .from('stock_movements')
-          .insert({
-            item_type: 'external_product',
-            item_id: item.productId,
-            movement_type: item.quantity > 0 ? 'remove' : 'add',
-            quantity: Math.abs(quantity),
-            previous_stock: productData.current_stock,
-            new_stock: newStock,
-            reason: description,
-            user_id: userId
-          });
-
-        if (movementError) {
-          console.error(`Erro ao registrar movimento para ${item.product.name}:`, movementError);
         }
       } else {
         // Processar comida (consumir ingredientes)
@@ -222,7 +166,7 @@ export const processOrderItemsStockConsumption = async (
           continue;
         }
 
-        // Verificar e consumir cada ingrediente
+        // Verificar e consumir cada ingrediente via RPC
         for (const foodIngredient of foodIngredients) {
           console.log('Processando ingrediente:', foodIngredient);
           
@@ -246,52 +190,21 @@ export const processOrderItemsStockConsumption = async (
             success = false;
             continue;
           }
-
-          if (item.quantity > 0 && foodIngredient.ingredients.current_stock < totalQuantity) {
-            errors.push(`Estoque insuficiente para ${foodIngredient.ingredients.name}. Disponível: ${foodIngredient.ingredients.current_stock}${foodIngredient.ingredients.unit}, Necessário: ${totalQuantity}${foodIngredient.ingredients.unit}`);
+          const { error: rpcError } = await supabase.rpc(
+            item.quantity > 0 ? 'remove_stock' : 'add_stock',
+            {
+              p_item_type: 'ingredient',
+              p_item_id: foodIngredient.ingredient_id,
+              p_quantity: totalQuantity,
+              p_reason: description,
+              p_user_id: userId,
+            }
+          );
+          if (rpcError) {
+            console.error('Erro RPC no ingrediente:', rpcError);
+            errors.push(`Erro ao atualizar estoque de ${foodIngredient.ingredients.name}: ${rpcError.message}`);
             success = false;
             continue;
-          }
-
-          // Atualizar estoque do ingrediente
-          const newStock = foodIngredient.ingredients.current_stock - (item.quantity > 0 ? totalQuantity : -totalQuantity);
-          console.log('Atualizando estoque:', {
-            ingrediente: foodIngredient.ingredients.name,
-            estoqueAtual: foodIngredient.ingredients.current_stock,
-            novoEstoque: newStock
-          });
-
-          const { error: updateError } = await supabase
-            .from('ingredients')
-            .update({
-              current_stock: newStock,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', foodIngredient.ingredient_id);
-
-          if (updateError) {
-            console.error('Erro ao atualizar estoque do ingrediente:', updateError);
-            errors.push(`Erro ao atualizar estoque de ${foodIngredient.ingredients.name}: ${updateError.message}`);
-            success = false;
-            continue;
-          }
-
-          // Registrar movimento
-          const { error: movementError } = await supabase
-            .from('stock_movements')
-            .insert({
-              item_type: 'ingredient',
-              item_id: foodIngredient.ingredient_id,
-              movement_type: item.quantity > 0 ? 'remove' : 'add',
-              quantity: Math.abs(totalQuantity),
-              previous_stock: foodIngredient.ingredients.current_stock,
-              new_stock: newStock,
-              reason: description,
-              user_id: userId
-            });
-
-          if (movementError) {
-            console.error(`Erro ao registrar movimento para ${foodIngredient.ingredients.name}:`, movementError);
           }
         }
       }
