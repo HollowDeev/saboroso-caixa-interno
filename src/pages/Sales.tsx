@@ -197,7 +197,7 @@ export const Sales = () => {
     const csvContent = [
       'Data,Cliente,Total,Taxa,Subtotal,Método de Pagamento,Tipo',
       ...currentSales.map(sale => [
-        format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+        (() => { const d = new Date(sale.createdAt as any); return isNaN(d.getTime()) ? '' : format(d, 'dd/MM/yyyy HH:mm', { locale: ptBR }); })(),
         sale.customer_name || 'Cliente não informado',
         sale.total.toFixed(2),
         sale.tax.toFixed(2),
@@ -486,7 +486,10 @@ export const Sales = () => {
                       <span className="font-bold">R$ {sale.total.toFixed(2)}</span>
                       <span>{sale.customer_name || 'Cliente não informado'}</span>
                       <span className="text-sm text-gray-500">
-                        {format(new Date(sale.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                        {(() => {
+                          const d = new Date(sale.createdAt as any);
+                          return isNaN(d.getTime()) ? '-' : format(d, 'dd/MM/yyyy HH:mm', { locale: ptBR });
+                        })()}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

@@ -11,6 +11,7 @@ import { useDataLoader } from '@/hooks/useDataLoader';
 import * as orderService from '@/services/orderService';
 import * as productService from '@/services/productService';
 import * as salesService from '@/services/salesService';
+import { formatSales } from '@/utils/dataFormatters';
 import * as cashRegisterService from '@/services/cashRegisterService';
 import * as expenseService from '@/services/expenseService';
 import { useToast } from '@/components/ui/use-toast';
@@ -341,7 +342,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addSale = async (saleData: Omit<Sale, 'id' | 'createdAt'>) => {
     try {
       const newSale = await salesService.addSale(saleData, currentUser!, currentCashRegister!);
-      setSales(prev => [...prev, newSale]);
+      // Garantir consistência do tipo Sale (createdAt, items/payments normalizados)
+      const formatted = formatSales([{ ...newSale }])[0];
+      setSales(prev => [formatted, ...prev]);
       toast({
         title: "Sucesso",
         description: "Venda registrada com sucesso!",
