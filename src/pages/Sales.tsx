@@ -492,38 +492,32 @@ export const Sales = () => {
                         })()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSaleToPrint(sale);
-                        }}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      {(isOwner || (currentUser && currentUser.role === 'employee')) && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSaleToDelete(sale);
-                            }}
-                            disabled={isDeletingSale}
-                            className={cn(isDeletingSale && "opacity-50 cursor-not-allowed")}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-4 pb-2">
                   <div className="space-y-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setSaleToPrint(sale)}
+                        title="Imprimir"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      {(isOwner || (currentUser && currentUser.role === 'employee')) && (
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => setSaleToDelete(sale)}
+                          disabled={isDeletingSale}
+                          className={cn(isDeletingSale && "opacity-50 cursor-not-allowed")}
+                          title="Excluir"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {sale.payments.map((payment, index) => (
                         <Badge key={index} variant="secondary" className={cn("text-white", getPaymentMethodColor(payment.method))}>

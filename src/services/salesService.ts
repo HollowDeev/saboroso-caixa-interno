@@ -155,32 +155,42 @@ export const updateSale = async (id: string, updates: Partial<Sale>) => {
 export const deleteSale = async (
   id: string,
   currentUser: User,
-  currentCashRegister: CashRegister,
+  _currentCashRegister: CashRegister | null,
   onSuccess: () => void
 ) => {
-  if (!currentUser || !currentCashRegister) {
-    throw new Error('Usuário não autenticado ou caixa não está aberto');
+  if (!currentUser) {
+    throw new Error('Usuário não autenticado');
   }
 
-  // Primeiro, buscar os dados da venda antes de excluir
+  // Buscar a venda
   const { data: sale, error: fetchError } = await supabase
     .from('sales')
     .select('*')
     .eq('id', id)
     .single();
-
   if (fetchError) throw fetchError;
 
-  // Atualizar o caixa (subtrair o valor da venda)
+  // Buscar o caixa da venda para atualizar totais de forma consistente
+  const { data: cashReg, error: regErr } = await supabase
+    .from('cash_registers')
+    .select('id,total_sales,total_orders')
+    .eq('id', sale.cash_register_id)
+    .single();
+  if (regErr) throw regErr;
+
+  const currentTotalSales = Number(cashReg?.total_sales) || 0;
+  const currentTotalOrders = Number(cashReg?.total_orders) || 0;
+  const newTotalSales = Math.max(currentTotalSales - Number(sale.total || 0), 0);
+  const newTotalOrders = Math.max(currentTotalOrders - 1, 0);
+
   const { error: updateCashError } = await supabase
     .from('cash_registers')
     .update({
-      total_sales: currentCashRegister.total_sales - sale.total,
-      total_orders: currentCashRegister.total_orders - 1,
+      total_sales: newTotalSales,
+      total_orders: newTotalOrders,
       updated_at: new Date().toISOString()
     })
     .eq('id', sale.cash_register_id);
-
   if (updateCashError) throw updateCashError;
 
   // Reverter o consumo de estoque
@@ -216,7 +226,7 @@ export const deleteSale = async (
     .from('sales')
     .delete()
     .eq('id', id)
-    .eq('cash_register_id', currentCashRegister.id);
+    .eq('cash_register_id', sale.cash_register_id);
 
   if (deleteError) throw deleteError;
 

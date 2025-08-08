@@ -374,8 +374,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSale = async (id: string) => {
     try {
-      await salesService.deleteSale(id);
-      setSales(prev => prev.filter(sale => sale.id !== id));
+      await salesService.deleteSale(
+        id,
+        currentUser!,
+        currentCashRegister!,
+        () => {
+          setSales(prev => prev.filter(sale => sale.id !== id));
+        }
+      );
       toast({
         title: "Sucesso",
         description: "Venda removida com sucesso!",
