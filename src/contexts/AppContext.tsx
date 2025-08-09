@@ -517,15 +517,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const closeCashRegister = async (amount: number) => {
     try {
-      const result = await cashRegisterService.closeCashRegister(amount);
+      console.log('=== FECHANDO CAIXA ===');
+      
+      if (!currentCashRegister) {
+        throw new Error('Nenhum caixa aberto para fechar');
+      }
+      
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+      
+      // Verificar permissões do usuário
+      if (!cashRegisterService.checkCashRegisterAccess(currentUser)) {
+        throw new Error('Sem permissão para fechar caixa');
+      }
+      
+      console.log('Fechando caixa ID:', currentCashRegister.id, 'com valor final:', amount);
+      
+      const result = await cashRegisterService.closeCashRegister(amount, currentCashRegister.id);
+      
+      console.log('Caixa fechado com sucesso, atualizando estado...');
       setCurrentCashRegister(null);
+      
       toast({
         title: "Sucesso",
-        description: "Caixa fechado com sucesso!",
+        description: `Caixa fechado com sucesso! Valor final: R$ ${amount.toFixed(2)}`,
       });
+      
+      // Recarregar dados para garantir consistência
+      await refreshData();
+      
       return result;
-    } catch (error) {
-      console.error('Error closing cash register:', error);
+    } catch (error: any) {
+      console.error('Erro ao fechar caixa:', error);
+      toast({
+        title: "Erro ao fechar caixa",
+        description: error.message || "Tente novamente",
+        variant: "destructive",
+      });
       throw error;
     }
   };

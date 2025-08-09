@@ -89,5 +89,6 @@ export const updateStock = async (
 
 export const checkCashRegisterAccess = (currentUser: User | null) => {
   if (!currentUser) return false;
-  return ['admin', 'manager', 'cashier'].includes(currentUser.role);
+  // Permitir que qualquer usuário autenticado possa fechar o caixa
+  return true;
 };
