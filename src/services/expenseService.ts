@@ -33,7 +33,7 @@ export const addExpense = async (
     }
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('expenses')
     .insert({
       user_id: userIdForExpense,
@@ -45,7 +45,9 @@ export const addExpense = async (
       amount: calculatedAmount,
       quantity: expense.quantity,
       reason: expense.reason
-    });
+    })
+    .select()
+    .single();
 
   if (error) throw error;
 
@@ -69,6 +71,8 @@ export const addExpense = async (
       `Perda/Consumo: ${expense.reason || expense.description}`
     );
   }
+
+  return data;
 };
 
 export const updateExpense = async (id: string, updates: Partial<Expense>) => {

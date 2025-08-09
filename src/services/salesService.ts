@@ -233,3 +233,35 @@ export const deleteSale = async (
   // Chamar callback de sucesso
   onSuccess();
 };
+
+export const createServiceTax = async (serviceTax: any) => {
+  const { data, error } = await supabase
+    .from('service_taxes')
+    .insert([serviceTax])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateServiceTax = async (id: string, updates: any) => {
+  const { data, error } = await supabase
+    .from('service_taxes')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteServiceTax = async (id: string) => {
+  const { error } = await supabase
+    .from('service_taxes')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+};

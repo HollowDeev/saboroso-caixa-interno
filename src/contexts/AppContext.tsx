@@ -399,7 +399,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addExpense = async (expense: NewExpense) => {
     try {
-      const newExpense = await expenseService.createExpense(expense);
+      const newExpense = await expenseService.addExpense(expense, currentUser!, currentCashRegister!, products, externalProducts);
       setExpenses(prev => [...prev, newExpense]);
       toast({
         title: "Sucesso",

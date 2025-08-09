@@ -129,6 +129,7 @@ export const addExternalProduct = async (
     .single();
 
   if (error) throw error;
+  return data;
 };
 
 export const updateExternalProduct = async (id: string, updates: Partial<ExternalProduct>) => {
@@ -164,6 +165,7 @@ export const addIngredient = async (
     .single();
 
   if (error) throw error;
+  return data;
 };
 
 export const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
@@ -251,4 +253,24 @@ export const getProducts = async (supabase: SupabaseClient): Promise<Product[]> 
 
   console.log('Produtos transformados:', JSON.stringify(transformedProducts, null, 2));
   return transformedProducts;
+};
+
+export const updateStock = async (
+  itemType: 'ingredient' | 'external_product',
+  itemId: string,
+  quantity: number,
+  reason: string
+) => {
+  const { data, error } = await supabase.rpc(
+    quantity > 0 ? 'add_stock' : 'remove_stock',
+    {
+      p_item_type: itemType,
+      p_item_id: itemId,
+      p_quantity: Math.abs(quantity),
+      p_reason: reason
+    }
+  );
+
+  if (error) throw error;
+  return data;
 };
