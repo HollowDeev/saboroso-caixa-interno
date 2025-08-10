@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2, Edit, MoreVertical, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Order, Product, ExternalProduct, PaymentMethod } from '@/types';
+import { Order, Product, ExternalProduct, PaymentMethod, OrderItem } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getOpenExpenseAccount, openExpenseAccount, addExpenseAccountItems, getExpenseAccountItems, contestExpenseAccountItem } from '@/services/expenseAccountService';
 import { removeItemFromOrder } from '@/services/orderService';
-import { toast } from '@/hooks/use-toast';
+// toast is provided via useToast below
 import { useToast } from '@/components/ui/use-toast';
 
 import { OrderReceiptPrint } from './OrderReceiptPrint';
@@ -549,14 +549,13 @@ export const OrderCard = ({ order }: OrderCardProps) => {
   const fetchEmployees = async () => {
     try {
       const { data, error } = await supabase
-        .from('employee_profile')
-        .select('id, name, access_code, role, is_active, created_at')
-        .eq('user_id', currentUser?.id)
+        .from('employees')
+        .select('id, name, access_key, is_active, created_at, owner_id')
+        .eq('owner_id', currentUser?.id)
         .eq('is_active', true)
-        .eq('role', 'Funcionario')
         .order('name');
       if (error) throw error;
-      setEmployees(data || []);
+      setEmployees((data as any[]) as EmployeeProfile[] || []);
     } catch (error) {
       console.error('Erro ao buscar funcionários:', error);
       toast({
@@ -695,24 +694,24 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           {/* Lista de Itens */}
           <div className="space-y-2">
             {order.items.map((item, index) => (
-              <div key={index} className="flex justify-between items-center text-sm">
+              <div key={index} className="flex justify-between items-center text-sm gap-2">
                 <div className="flex-1">
                   <span className="font-medium">{item.product_name}</span>
                   <span className="text-gray-500 ml-2">({item.quantity}x)</span>
-                  {(Number(item.discountValue ?? item.discount_value) > 0) && (
+                  {(Number(item.discountValue) > 0) && (
                     <>
                       <div className="text-xs text-orange-700">
-                        Preço original: R$ {(item.originalPrice ?? item.original_price)?.toFixed(2)}
+                        Preço original: R$ {item.originalPrice?.toFixed(2)}
                       </div>
                       <div className="text-xs text-green-700">
-                        Desconto: R$ {(item.discountValue ?? item.discount_value)?.toFixed(2)}
+                        Desconto: R$ {item.discountValue?.toFixed(2)}
                       </div>
                     </>
                   )}
                 </div>
-                <div className="text-right">
-                  <div className="text-gray-500">R$ {item.unitPrice?.toFixed(2) ?? item.unit_price?.toFixed(2)} cada</div>
-                  <div>R$ {item.totalPrice?.toFixed(2) ?? item.total_price?.toFixed(2)}</div>
+                <div className="text-right mr-2">
+                   <div className="text-gray-500">R$ {item.unitPrice.toFixed(2)} cada</div>
+                   <div>R$ {item.totalPrice.toFixed(2)}</div>
                 </div>
                 {order.status === 'open' && (
                   <DropdownMenu>
@@ -749,10 +748,10 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           </div>
 
           {order.status === 'open' && (
-            <div className="flex space-x-2 mt-4">
+            <div className="flex flex-col gap-2 mt-4">
               <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="flex-1">
+                  <Button variant="outline" className="w-full">
                     <Plus className="h-4 w-4 mr-1" />
                     Inserir Pedido
                   </Button>
@@ -767,7 +766,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                 setIsEditOrderOpen(open);
               }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="flex-1">
+                  <Button variant="outline" className="w-full">
                     <Edit className="h-4 w-4 mr-1" />
                     Editar Comanda
                   </Button>
@@ -979,7 +978,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                 setIsCloseOrderOpen(open);
               }}>
                 <DialogTrigger asChild>
-                  <Button className="flex-1 bg-green-500 hover:bg-green-600 relative z-10">
+                  <Button className="w-full bg-green-500 hover:bg-green-600 relative z-10">
                     <CreditCard className="h-4 w-4 mr-1" />
                     Fechar Comanda
                   </Button>
