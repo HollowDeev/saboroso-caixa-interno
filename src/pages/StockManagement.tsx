@@ -1,3 +1,6 @@
+import { Navigate } from 'react-router-dom';
+
+
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,9 +26,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { convertValue } from '@/utils/unitConversion';
 import { Unit } from '@/utils/unitConversion';
-import { Navigate } from 'react-router-dom';
 
 export const StockManagement = () => {
+
   const {
     currentUser,
     ingredients,
@@ -42,6 +45,101 @@ export const StockManagement = () => {
     deleteProduct,
     updateStock,
   } = useAppContext();
+
+  // Itens com estoque baixo ou zerado
+  const lowOrNoStockItems = useMemo(() => {
+    return [
+      ...ingredients.filter(item => item.current_stock <= (item.min_stock || 0)),
+      ...externalProducts.filter(item => item.current_stock <= (item.min_stock || 0)),
+    ];
+  }, [ingredients, externalProducts]);
+
+  // Exportar apenas itens com estoque baixo/zerado (CSV)
+  const exportLowStockCSV = () => {
+    const allItems = [
+      ...ingredients.filter(item => item.current_stock <= (item.min_stock || 0)).map(item => ({
+        tipo: 'Ingrediente',
+        nome: item.name,
+        estoque: item.current_stock,
+        unidade: item.unit,
+        custo: item.cost,
+        estoque_minimo: item.min_stock,
+        fornecedor: item.supplier || ''
+      })),
+      ...externalProducts.filter(item => item.current_stock <= (item.min_stock || 0)).map(item => ({
+        tipo: 'Produto Externo',
+        nome: item.name,
+        estoque: item.current_stock,
+        unidade: 'unidade',
+        custo: item.cost,
+        estoque_minimo: item.min_stock,
+        fornecedor: item.brand || ''
+      }))
+    ];
+    const csvContent = [
+      'Tipo,Nome,Estoque,Unidade,Custo,Estoque Mínimo,Fornecedor',
+      ...allItems.map(item =>
+        `${item.tipo},${item.nome},${item.estoque},${item.unidade},${item.custo},${item.estoque_minimo},${item.fornecedor}`
+      )
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `estoque_baixo_${format(new Date(), 'dd-MM-yyyy')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Copiar apenas itens com estoque baixo/zerado, formatado conforme especificação
+  const copyLowStockData = () => {
+    // Separar ingredientes e produtos externos
+    const lowStockIngredients = ingredients.filter(item => item.current_stock > 0 && item.current_stock <= (item.min_stock || 0));
+    const noStockIngredients = ingredients.filter(item => item.current_stock === 0);
+    const lowStockExternal = externalProducts.filter(item => item.current_stock > 0 && item.current_stock <= (item.min_stock || 0));
+    const noStockExternal = externalProducts.filter(item => item.current_stock === 0);
+
+    // Montar linhas formatadas
+    const formatLine = (item, type) => {
+      const unidade = type === 'external' ? 'unidades' : item.unit;
+      const brand = type === 'external' && item.brand ? ` (${item.brand})` : '';
+      const quantidade = `${item.current_stock} ${unidade}`;
+      let status = '';
+      if (item.current_stock === 0) status = '🔴';
+      else status = '🟠';
+      return `• ${item.name}${brand} — ${quantidade} ${status}`;
+    };
+
+    // Ordenar por nome
+    const sortByName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
+
+    // Linhas
+    const lines = [
+      ...noStockExternal.sort(sortByName).map(item => formatLine(item, 'external')),
+      ...noStockIngredients.sort(sortByName).map(item => formatLine(item, 'ingredient')),
+      ...lowStockExternal.sort(sortByName).map(item => formatLine(item, 'external')),
+      ...lowStockIngredients.sort(sortByName).map(item => formatLine(item, 'ingredient')),
+    ];
+
+    // Contagem
+    const total = noStockExternal.length + noStockIngredients.length + lowStockExternal.length + lowStockIngredients.length;
+    const totalNoStock = noStockExternal.length + noStockIngredients.length;
+    const totalLowStock = lowStockExternal.length + lowStockIngredients.length;
+
+    // Data
+    const today = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    const dataStr = `${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()}`;
+
+  const text = `*Relatório*\n*Estoque baixo / Sem estoque*\nData: ${dataStr}\n\n*Total*: ${total} itens \n*Sem estoque:* ${totalNoStock} 🔴 \n*Estoque baixo:* ${totalLowStock} 🟠\n\n${lines.join('\n\n')}`;
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Dados de estoque baixo copiados!');
+    }).catch(() => {
+      toast.error('Não foi possível copiar os dados.');
+    });
+  };
 
   const [activeTab, setActiveTab] = useState('ingredients');
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
@@ -360,11 +458,19 @@ export const StockManagement = () => {
             <DropdownMenuContent>
               <DropdownMenuItem onClick={exportStockCSV}>
                 <FileDown className="h-4 w-4 mr-2" />
-                Exportar CSV
+                Exportar CSV (Tudo)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={copyStockData}>
                 <Copy className="h-4 w-4 mr-2" />
-                Copiar Dados
+                Copiar Dados (Tudo)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportLowStockCSV}>
+                <FileDown className="h-4 w-4 mr-2 text-yellow-600" />
+                Exportar CSV (Baixo/Sem Estoque)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyLowStockData}>
+                <Copy className="h-4 w-4 mr-2 text-yellow-600" />
+                Copiar Dados (Baixo/Sem Estoque)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

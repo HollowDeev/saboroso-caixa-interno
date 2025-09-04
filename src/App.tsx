@@ -16,6 +16,7 @@ import { ProfitCalculator } from "./pages/ProfitCalculator";
 import { CashRegisters } from "./pages/CashRegisters";
   import { Billing } from "./pages/Billing";
 import { Login } from "./pages/Login";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -231,10 +232,12 @@ const App = () => {
             <Route
               path="*"
               element={
-                <Login
-                  onAdminLogin={handleAdminLogin}
-                  onEmployeeLogin={handleEmployeeLogin}
-                />
+                <ErrorBoundary>
+                  <Login
+                    onAdminLogin={handleAdminLogin}
+                    onEmployeeLogin={handleEmployeeLogin}
+                  />
+                </ErrorBoundary>
               }
             />
           </Routes>
