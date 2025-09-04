@@ -22,7 +22,8 @@ export const Orders = () => {
     addOrder,
     currentCashRegister,
     checkCashRegisterAccess,
-    isLoading
+    isLoading,
+    refreshData
   } = useAppContext();
 
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
@@ -169,13 +170,9 @@ export const Orders = () => {
 
       console.log('Orders - nova comanda a ser criada:', newOrder);
 
-      await addOrder(newOrder);
-
-      setSelectedProducts([]);
-      setCustomerName('');
-      setTableNumber(undefined);
-      setSearchTerm('');
-      setIsNewOrderOpen(false);
+  await addOrder(newOrder);
+  // Recarregar a página inteira após a alteração
+  window.location.reload();
 
       toast({
         title: "Sucesso",
@@ -201,7 +198,8 @@ export const Orders = () => {
     externalProductsCount: externalProducts?.length || 0
   });
 
-  const filteredOrders = orders.filter(order => {
+  const filteredOrders = (orders || []).filter(order => {
+    if (!order || !order.cash_register_id) return false;
     if (!currentCashRegister || order.cash_register_id !== currentCashRegister.id) return false;
 
     if (activeTab === 'open') return order.status === 'open';

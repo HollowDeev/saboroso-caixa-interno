@@ -23,18 +23,23 @@ interface OrderItemData {
   product_type: 'food' | 'external_product';
   cash_register_id: string;
   // Campos de desconto
-  original_price?: number;
-  discount_value?: number;
-  discount_id?: string;
+  original_price?: number | null;
+  discount_value?: number | null;
+  discount_id?: string | null;
+  updated_at?: string;
+}
+
+interface CreatedOrderItemData extends OrderItemData {
+  id: string;
+  created_at: string;
 }
 
 interface CreatedOrder extends OrderData {
   id: string;
   created_at: string;
   updated_at: string;
-}
-
-export const addOrder = async (
+  order_items?: CreatedOrderItemData[];
+}export const addOrder = async (
   order: Omit<Order, 'id' | 'created_at' | 'updated_at'>,
   currentUser: User | null,
   currentCashRegister: CashRegister | null
@@ -115,6 +120,60 @@ export const addOrder = async (
   }
 };
 
+export const updateOrderItem = async (orderItemId: string, quantity: number, orderId: string) => {
+  // Buscar o item atual para calcular o novo preço total
+  const { data: item, error: getError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('id', orderItemId)
+    .single();
+
+  if (getError) throw getError;
+  if (!item) throw new Error('Item não encontrado');
+
+  // Atualizar o item
+  const { error: updateError } = await supabase
+    .from('order_items')
+    .update({
+      quantity,
+      total_price: quantity * item.unit_price
+    })
+    .eq('id', orderItemId);
+
+  if (updateError) throw updateError;
+
+  // Buscar todos os itens da comanda para recalcular os totais
+  const { data: orderItems, error: itemsError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId);
+
+  if (itemsError) throw itemsError;
+
+  // Calcular novos totais para a comanda
+  const subtotal = (orderItems || []).reduce((sum, item) => sum + Number(item.total_price), 0);
+  const total = subtotal;
+
+  // Atualizar os totais da comanda
+  const { error: orderUpdateError } = await supabase
+    .from('orders')
+    .update({
+      subtotal,
+      tax: 0,
+      total,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', orderId);
+
+  if (orderUpdateError) throw orderUpdateError;
+
+  return {
+    ...item,
+    quantity,
+    total_price: quantity * item.unit_price
+  };
+};
+
 export const updateOrder = async (id: string, updates: Partial<Order>) => {
   const dbUpdates: Record<string, unknown> = {};
   if (updates.customer_name !== undefined) dbUpdates.customer_name = updates.customer_name;
@@ -192,9 +251,8 @@ export const addItemToOrder = async (
 
   if (itemsError) throw itemsError;
 
-  // Mapeamento snake_case -> camelCase
-  const mappedOrderItems = (orderItems || []).map(item => ({
-    ...item,
+  // Mapeamento snake_case -> camelCase com tratamento de tipos seguro
+  const mappedOrderItems = (orderItems || []).map((item: any) => ({
     id: item.id,
     productId: item.product_id,
     product_name: item.product_name,
@@ -202,10 +260,10 @@ export const addItemToOrder = async (
     unitPrice: item.unit_price,
     totalPrice: item.total_price,
     product_type: item.product_type,
-    originalPrice: item.original_price,
-    discountValue: item.discount_value,
-    discountId: item.discount_id,
-    // outros campos se necessário
+    // Campos de desconto opcionais
+    originalPrice: item.original_price || undefined,
+    discountValue: item.discount_value || undefined,
+    discountId: item.discount_id || undefined
   }));
 
   // Calcular novos totais
@@ -255,9 +313,9 @@ export const removeItemFromOrder = async (
     unitPrice: item.unit_price,
     totalPrice: item.total_price,
     product_type: item.product_type,
-    originalPrice: item.original_price,
-    discountValue: item.discount_value,
-    discountId: item.discount_id,
+    originalPrice: item.original_price ?? undefined,
+    discountValue: item.discount_value ?? undefined,
+    discountId: item.discount_id ?? undefined
     // outros campos se necessário
   }));
 
@@ -276,6 +334,57 @@ export const removeItemFromOrder = async (
     })
     .eq('id', orderId);
   if (updateError) throw updateError;
+};
+
+// Função para atualizar um item da comanda (deprecated - use a versão com orderId)
+
+// Atualizar quantidade de um item na comanda
+export const updateOrderItemQuantity = async (orderItemId: string, quantity: number, orderId: string) => {
+  // Buscar o item atual para calcular o novo preço total
+  const { data: item, error: getError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('id', orderItemId)
+    .single();
+
+  if (getError) throw getError;
+  if (!item) throw new Error('Item não encontrado');
+
+  // Atualizar o item
+  const { error: updateError } = await supabase
+    .from('order_items')
+    .update({
+      quantity,
+      total_price: quantity * item.unit_price
+    })
+    .eq('id', orderItemId);
+
+  if (updateError) throw updateError;
+
+  // Buscar todos os itens da comanda para recalcular os totais
+  const { data: orderItems, error: itemsError } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId);
+
+  if (itemsError) throw itemsError;
+
+  // Calcular novos totais
+  const subtotal = (orderItems || []).reduce((sum, item) => sum + Number(item.total_price), 0);
+  const total = subtotal;
+
+  // Atualizar os totais da comanda
+  const { error: orderUpdateError } = await supabase
+    .from('orders')
+    .update({
+      subtotal,
+      tax: 0,
+      total,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', orderId);
+
+  if (orderUpdateError) throw orderUpdateError;
 };
 
 export const closeOrder = async (
@@ -327,7 +436,7 @@ export const closeOrder = async (
   }
 
   // Calcular o total de desconto dos itens
-  const totalItemDiscount = order.order_items.reduce((acc, item) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
+  const totalItemDiscount = order.order_items.reduce((acc, item: any) => acc + (item.discount_value ? Number(item.discount_value) : 0), 0);
   
   // Total de desconto (itens + manual)
   const totalDiscount = totalItemDiscount + manualDiscount;

@@ -22,7 +22,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { Order, Product, ExternalProduct, PaymentMethod, OrderItem } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { getOpenExpenseAccount, openExpenseAccount, addExpenseAccountItems, getExpenseAccountItems, contestExpenseAccountItem } from '@/services/expenseAccountService';
-import { removeItemFromOrder } from '@/services/orderService';
+import { removeItemFromOrder, updateOrderItem } from '@/services/orderService';
 // toast is provided via useToast below
 import { useToast } from '@/components/ui/use-toast';
 
@@ -423,6 +423,22 @@ export const OrderCard = ({ order }: OrderCardProps) => {
 
   // Função para confirmar adição dos itens
   const handleAddItemsToOrder = async () => {
+    // Atualizar quantidades dos itens existentes, se houver
+    for (const item of editItemsSelected) {
+      try {
+        await orderService.updateOrderItemQuantity(item.id, item.quantity, order.id);
+      } catch (error) {
+        console.error('Erro ao atualizar quantidade do item:', error);
+        // Mostrar erro ao usuário
+        toast({
+          title: "Erro ao atualizar item",
+          description: "Não foi possível atualizar a quantidade do item.",
+          variant: "destructive"
+        });
+      }
+    }
+
+    // Adicionar novos itens à comanda
     for (const item of addItemsSelected) {
       await addItemToOrder(order.id, {
         productId: item.productId,
@@ -498,9 +514,16 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         await removeItemFromOrder(order.id, itemId);
       }
 
-      // Atualizar itens modificados (aqui pode-se implementar updateItemInOrder se necessário)
-      // ...
+      // Atualizar itens modificados
+      for (const editedItem of editItemsSelected) {
+        const originalItem = order.items.find(item => item.id === editedItem.id);
+        if (originalItem && originalItem.quantity !== editedItem.quantity) {
+          await updateOrderItem(editedItem.id, editedItem.quantity, order.id);
+        }
+      }
 
+      // Atualizar o estado local
+      window.location.reload(); // Atualizar a página para refletir as mudanças
       setIsEditOrderOpen(false);
       setEditItemsSelected([]);
       toast({

@@ -150,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateOrder = async (id: string, updates: Partial<Order>) => {
     try {
       const updatedOrder = await orderService.updateOrder(id, updates);
-      setOrders(prev => prev.map(order => order.id === id ? updatedOrder : order));
+      await refreshData(); // Recarregar dados após atualização
       return updatedOrder;
     } catch (error) {
       console.error('Error updating order:', error);
@@ -161,7 +161,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addItemToOrder = async (orderId: string, item: NewOrderItem) => {
     try {
       const updatedOrder = await orderService.addItemToOrder(orderId, item, currentCashRegister);
-      setOrders(prev => prev.map(order => order.id === orderId ? updatedOrder : order));
+      await refreshData(); // Recarregar dados após adicionar item
       return updatedOrder;
     } catch (error) {
       console.error('Error adding item to order:', error);
