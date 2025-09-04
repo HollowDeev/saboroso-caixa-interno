@@ -133,6 +133,16 @@ export const Orders = () => {
   };
 
   const createOrder = async () => {
+
+    if (!customerName.trim()) {
+      toast({
+        title: "Erro",
+        description: "O nome do cliente é obrigatório para criar a comanda.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (selectedProducts.length === 0) {
       toast({
         title: "Erro",
@@ -156,8 +166,20 @@ export const Orders = () => {
       })));
 
       // Ajuste para aceitar tanto created_at quanto createdAt
+
+      // Não permitir criar comanda sem nome do cliente
+      if (!customerName.trim()) {
+        toast({
+          title: "Erro",
+          description: "O nome do cliente é obrigatório para criar a comanda.",
+          variant: "destructive"
+        });
+        setIsCreatingOrder(false);
+        return;
+      }
+
       const newOrder: Omit<Order, 'id' | 'created_at' | 'updated_at'> = {
-        customer_name: customerName || undefined,
+        customer_name: customerName,
         table_number: tableNumber !== undefined && tableNumber !== null ? Number(tableNumber) : undefined,
         items: selectedProducts,
         subtotal,
@@ -170,9 +192,9 @@ export const Orders = () => {
 
       console.log('Orders - nova comanda a ser criada:', newOrder);
 
-  await addOrder(newOrder);
-  // Recarregar a página inteira após a alteração
-  window.location.reload();
+      await addOrder(newOrder);
+      // Recarregar a página inteira após a alteração
+      window.location.reload();
 
       toast({
         title: "Sucesso",
