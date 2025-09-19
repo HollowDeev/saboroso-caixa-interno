@@ -252,15 +252,19 @@ const AdminExpenseAccounts: React.FC = () => {
 
   // Função para copiar dados formatados para a área de transferência (pode ser usada no fechamento)
   const copyData = () => {
-    if (!selected) return;
+    if (!selected || !accountData) return;
     const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
     const itemsByDate = groupByDate(filteredItems);
     const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
-    const valorTotal = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const valorTotalItens = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const totalPago = calculateTotalPaid(accountData.partial_payments || []);
+    const valorRestante = calculateRemainingAmount(valorTotalItens, totalPago);
     const nome = selected.employeeName;
     const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
+    
     let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
+    
     Object.entries(itemsByDate).forEach(([date, its]) => {
       texto += `📅 ${date}\n\n`;
       its.forEach(item => {
@@ -268,8 +272,21 @@ const AdminExpenseAccounts: React.FC = () => {
       });
       texto += '\n';
     });
+    
     texto += `🧾 Total de itens consumidos: ${totalItens}\n`;
-    texto += `💸 Valor total a descontar: R$ ${valorTotal.toFixed(2)}\n\n=============================`;
+    texto += `💰 Valor total dos itens: R$ ${valorTotalItens.toFixed(2)}\n`;
+    
+    // Adicionar seção de pagamentos parciais se houver
+    if (accountData.partial_payments && accountData.partial_payments.length > 0) {
+      texto += `\n💳 Pagamentos realizados:\n`;
+      accountData.partial_payments.forEach((payment: any) => {
+        const dataPagamento = format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+        texto += `   • ${dataPagamento} - R$ ${payment.amount.toFixed(2)}\n`;
+      });
+      texto += `   Total pago: R$ ${totalPago.toFixed(2)}\n`;
+    }
+    
+    texto += `\n💸 Valor restante a descontar: R$ ${valorRestante.toFixed(2)}\n\n=============================`;
     navigator.clipboard.writeText(texto);
   };
 
@@ -356,15 +373,19 @@ const AdminExpenseAccounts: React.FC = () => {
 
   // Função para copiar dados formatados para a área de transferência
   const handleCopy = () => {
-    if (!selected) return;
+    if (!selected || !accountData) return;
     const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
     const itemsByDate = groupByDate(filteredItems);
     const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
-    const valorTotal = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const valorTotalItens = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
+    const totalPago = calculateTotalPaid(accountData.partial_payments || []);
+    const valorRestante = calculateRemainingAmount(valorTotalItens, totalPago);
     const nome = selected.employeeName;
     const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
+    
     let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
+    
     Object.entries(itemsByDate).forEach(([date, its]) => {
       texto += `📅 ${date}\n\n`;
       its.forEach(item => {
@@ -372,8 +393,21 @@ const AdminExpenseAccounts: React.FC = () => {
       });
       texto += '\n';
     });
+    
     texto += `🧾 Total de itens consumidos: ${totalItens}\n`;
-    texto += `💸 Valor total a descontar: R$ ${valorTotal.toFixed(2)}\n\n=============================`;
+    texto += `💰 Valor total dos itens: R$ ${valorTotalItens.toFixed(2)}\n`;
+    
+    // Adicionar seção de pagamentos parciais se houver
+    if (accountData.partial_payments && accountData.partial_payments.length > 0) {
+      texto += `\n💳 Pagamentos realizados:\n`;
+      accountData.partial_payments.forEach((payment: any) => {
+        const dataPagamento = format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+        texto += `   • ${dataPagamento} - R$ ${payment.amount.toFixed(2)}\n`;
+      });
+      texto += `   Total pago: R$ ${totalPago.toFixed(2)}\n`;
+    }
+    
+    texto += `\n💸 Valor restante a descontar: R$ ${valorRestante.toFixed(2)}\n\n=============================`;
     navigator.clipboard.writeText(texto);
     toast({ title: 'Dados copiados!', description: 'Os dados foram copiados para a área de transferência.' });
   };
