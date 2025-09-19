@@ -5,8 +5,9 @@ import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
-import { contestExpenseAccountItem } from '../../services/expenseAccountService';
-import { Trash2, Undo2 } from 'lucide-react';
+import { contestExpenseAccountItem, calculateTotalPaid, calculateRemainingAmount } from '../../services/expenseAccountService';
+import { Trash2, Undo2, CreditCard } from 'lucide-react';
+import { PartialPaymentModal } from './PartialPaymentModal';
 
 interface Item {
   id: string;
@@ -24,6 +25,9 @@ interface Item {
 interface Props {
   items: Item[];
   reload?: () => void;
+  accountId?: string;
+  partialPayments?: any[];
+  onAddPayment?: (amount: number) => Promise<void>;
 }
 
 const groupByDate = (items: Item[]) => {
@@ -38,11 +42,12 @@ const groupByDate = (items: Item[]) => {
   }, {} as Record<string, Item[]>);
 };
 
-const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload }) => {
+const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, partialPayments = [], onAddPayment }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const handleOpenModal = (item: Item) => {
     setSelectedItem(item);
@@ -83,12 +88,61 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload }) => {
     }
   };
 
+  // Calcular totais
+  const totalItems = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+  const totalPaid = calculateTotalPaid(partialPayments);
+  const remainingAmount = calculateRemainingAmount(totalItems, totalPaid);
+
   if (!items || items.length === 0) {
     return <div className="bg-white rounded shadow p-4 text-center text-gray-500">Nenhum item marcado ainda.</div>;
   }
   const grouped = groupByDate(items);
   return (
     <div className="space-y-6">
+      {/* Resumo Financeiro */}
+      <div className="bg-white rounded shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Resumo da Conta</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-600 mb-1">Total dos Itens</div>
+            <div className="text-xl font-bold">R$ {totalItems.toFixed(2)}</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="text-sm text-green-600 mb-1">Total Pago</div>
+            <div className="text-xl font-bold text-green-600">R$ {totalPaid.toFixed(2)}</div>
+          </div>
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="text-sm text-red-600 mb-1">Valor Restante</div>
+            <div className="text-xl font-bold text-red-600">R$ {remainingAmount.toFixed(2)}</div>
+          </div>
+        </div>
+        
+        {/* Lista de Pagamentos Parciais */}
+        {partialPayments && partialPayments.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Pagamentos Realizados:</h4>
+            <div className="space-y-1">
+              {partialPayments.map((payment, index) => (
+                <div key={payment.id || index} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
+                  <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
+                  <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Botão de Pagamento Parcial */}
+        {accountId && onAddPayment && remainingAmount > 0 && (
+          <Button
+            onClick={() => setPaymentModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+          >
+            <CreditCard className="w-4 h-4" />
+            Registrar Pagamento Parcial
+          </Button>
+        )}
+      </div>
       {Object.entries(grouped).map(([date, its]) => (
         <div key={date} className="bg-white rounded shadow p-4">
           <h2 className="text-lg font-semibold mb-2">{date}</h2>
@@ -153,6 +207,18 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Pagamento Parcial */}
+      {accountId && onAddPayment && (
+        <PartialPaymentModal
+          isOpen={paymentModalOpen}
+          onClose={() => setPaymentModalOpen(false)}
+          onAddPayment={onAddPayment}
+          currentTotal={totalItems}
+          totalPaid={totalPaid}
+          remainingAmount={remainingAmount}
+        />
+      )}
     </div>
   );
 };

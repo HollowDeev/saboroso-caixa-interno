@@ -5,9 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trash2, Plus, XCircle, Clipboard, AlertTriangle } from 'lucide-react';
+import { Trash2, Plus, XCircle, Clipboard, AlertTriangle, CreditCard } from 'lucide-react';
 import AddExpenseItemModal from './AddExpenseItemModal';
-import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems } from '../../services/expenseAccountService';
+import { PartialPaymentModal } from './PartialPaymentModal';
+import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems, addPartialPayment, calculateTotalPaid, calculateRemainingAmount } from '../../services/expenseAccountService';
 import { Switch } from '../ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
@@ -46,6 +47,8 @@ const AdminExpenseAccounts: React.FC = () => {
   const [ignoredItems, setIgnoredItems] = useState<{ [id: string]: boolean }>({});
   const [confirmClose, setConfirmClose] = useState(false);
   const [afterClose, setAfterClose] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [accountData, setAccountData] = useState<any>(null);
   const { toast } = useToast();
   const { currentUser } = useAppContext();
 
@@ -55,39 +58,105 @@ const AdminExpenseAccounts: React.FC = () => {
 
   const fetchAccounts = async () => {
     setLoading(true);
-    const { data: accountsData, error } = await supabase
-      .from('expense_accounts')
-      .select('id, employee_profile_id, employee_profile(name)')
-      .eq('status', 'open');
-    if (error) {
+    try {
+      const { data: accountsData, error } = await supabase
+        .from('expense_accounts')
+        .select('id, employee_profile_id, employee_profile(name)')
+        .eq('status', 'open');
+      
+      if (error) {
+        console.error('Erro ao buscar contas:', error);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar contas: ' + error.message,
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+      
+      const result: EmployeeAccountCard[] = (accountsData || []).map((acc: any) => ({
+        accountId: acc.id,
+        employeeName: acc.employee_profile?.name || 'Funcionário',
+      }));
+      setAccounts(result);
+    } catch (err) {
+      console.error('Erro geral ao buscar contas:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro inesperado ao carregar contas',
+        variant: 'destructive',
+      });
+    } finally {
       setLoading(false);
-      return;
     }
-    const result: EmployeeAccountCard[] = (accountsData || []).map((acc: any) => ({
-      accountId: acc.id,
-      employeeName: acc.employee_profile?.name || 'Funcionário',
-    }));
-    setAccounts(result);
-    setLoading(false);
   };
 
   const handleView = async (acc: EmployeeAccountCard) => {
     setSelected(acc);
     setModalOpen(true);
     setItemsLoading(true);
-    // Buscar todos os itens da conta ao abrir o modal
-    const { data: itemsData, error } = await supabase
-      .from('expense_account_items')
-      .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
-      .eq('expense_account_id', acc.accountId)
-      .order('created_at', { ascending: false });
-    setItems(itemsData || []);
-    setItemsLoading(false);
+    
+    try {
+      // Buscar dados da conta (incluindo pagamentos parciais)
+      const { data: accountData, error: accountError } = await supabase
+        .from('expense_accounts')
+        .select('*')
+        .eq('id', acc.accountId)
+        .single();
+      
+      if (accountError) {
+        console.error('Erro ao buscar dados da conta:', accountError);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar dados da conta: ' + accountError.message,
+          variant: 'destructive',
+        });
+      } else {
+        setAccountData(accountData);
+      }
+      
+      // Buscar todos os itens da conta ao abrir o modal
+      const { data: itemsData, error } = await supabase
+        .from('expense_account_items')
+        .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
+        .eq('expense_account_id', acc.accountId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Erro ao buscar itens:', error);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao carregar itens da conta: ' + error.message,
+          variant: 'destructive',
+        });
+      } else {
+        setItems(itemsData || []);
+      }
+    } catch (err) {
+      console.error('Erro geral:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro inesperado ao carregar dados',
+        variant: 'destructive',
+      });
+    } finally {
+      setItemsLoading(false);
+    }
   };
 
   const reloadItems = async () => {
     if (!selected) return;
     setItemsLoading(true);
+    
+    // Recarregar dados da conta
+    const { data: accountData } = await supabase
+      .from('expense_accounts')
+      .select('*')
+      .eq('id', selected.accountId)
+      .single();
+    setAccountData(accountData);
+    
     const { data: itemsData } = await supabase
       .from('expense_account_items')
       .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
@@ -227,6 +296,21 @@ const AdminExpenseAccounts: React.FC = () => {
     setIgnoredItems(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // Função para adicionar pagamento parcial
+  const handleAddPayment = async (amount: number) => {
+    if (!selected?.accountId) return;
+    try {
+      await addPartialPayment(selected.accountId, amount);
+      await reloadItems(); // Recarregar dados incluindo pagamentos
+      toast({
+        title: 'Pagamento registrado!',
+        description: `Pagamento de R$ ${amount.toFixed(2)} foi registrado com sucesso.`,
+      });
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao registrar pagamento');
+    }
+  };
+
   // Agrupar itens por data
   const groupByDate = (items: ExpenseItem[]) => {
     return items.reduce((acc, item) => {
@@ -268,6 +352,7 @@ const AdminExpenseAccounts: React.FC = () => {
 
   return (
     <>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map(acc => (
           <Card key={acc.accountId} className={`${pastelOrange} ${borderOrange} flex flex-col items-center justify-center py-8`}>
@@ -289,6 +374,65 @@ const AdminExpenseAccounts: React.FC = () => {
             <div className="text-center py-8 flex-1 overflow-y-auto">Carregando itens...</div>
           ) : (
             <div className="relative pb-32 flex-1 overflow-y-auto"> {/* espaço extra para rodapé e resumo, rolagem interna */}
+              
+              {/* Resumo Financeiro */}
+              {accountData && (
+                <div className="mb-6 bg-white rounded shadow p-6 border border-gray-200">
+                  <h3 className="text-lg font-semibold mb-4">Resumo da Conta</h3>
+                  {(() => {
+                    const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
+                    const totalItems = filteredItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+                    const totalPaid = calculateTotalPaid(accountData.partial_payments || []);
+                    const remainingAmount = calculateRemainingAmount(totalItems, totalPaid);
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="text-sm text-gray-600 mb-1">Total dos Itens</div>
+                            <div className="text-xl font-bold">R$ {totalItems.toFixed(2)}</div>
+                          </div>
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <div className="text-sm text-green-600 mb-1">Total Pago</div>
+                            <div className="text-xl font-bold text-green-600">R$ {totalPaid.toFixed(2)}</div>
+                          </div>
+                          <div className="bg-red-50 p-4 rounded-lg">
+                            <div className="text-sm text-red-600 mb-1">Valor Restante</div>
+                            <div className="text-xl font-bold text-red-600">R$ {remainingAmount.toFixed(2)}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Lista de Pagamentos Parciais */}
+                        {accountData.partial_payments && accountData.partial_payments.length > 0 && (
+                          <div className="mb-4">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Pagamentos Realizados:</h4>
+                            <div className="space-y-1">
+                              {accountData.partial_payments.map((payment: any, index: number) => (
+                                <div key={payment.id || index} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
+                                  <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
+                                  <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Botão de Pagamento Parcial */}
+                        {remainingAmount > 0 && (
+                          <Button
+                            onClick={() => setPaymentModalOpen(true)}
+                            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            Registrar Pagamento Parcial
+                          </Button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+              
               {items.length === 0 ? (
                 <div className="text-gray-500 text-center py-8">Nenhum item marcado nesta conta.</div>
               ) : (
@@ -381,6 +525,21 @@ const AdminExpenseAccounts: React.FC = () => {
           <Button className="bg-blue-600 hover:bg-blue-700 text-white mt-2" onClick={() => setAfterClose(false)}>OK</Button>
         </DialogContent>
       </Dialog>
+      
+      {/* Modal de Pagamento Parcial */}
+      {accountData && selected && (
+        <PartialPaymentModal
+          isOpen={paymentModalOpen}
+          onClose={() => setPaymentModalOpen(false)}
+          onAddPayment={handleAddPayment}
+          currentTotal={items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)}
+          totalPaid={calculateTotalPaid(accountData.partial_payments || [])}
+          remainingAmount={calculateRemainingAmount(
+            items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+            calculateTotalPaid(accountData.partial_payments || [])
+          )}
+        />
+      )}
     </>
   );
 };

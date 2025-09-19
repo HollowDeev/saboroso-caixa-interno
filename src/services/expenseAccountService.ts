@@ -82,4 +82,47 @@ export async function contestExpenseAccountItem(itemId: string, message: string)
     .eq('id', itemId);
   if (error) throw error;
   return true;
+}
+
+// Função para adicionar pagamento parcial
+export async function addPartialPayment(expenseAccountId: string, amount: number) {
+  // Primeiro, buscar a conta atual para obter os pagamentos existentes
+  const { data: account, error: fetchError } = await supabase
+    .from('expense_accounts')
+    .select('partial_payments')
+    .eq('id', expenseAccountId)
+    .single();
+  
+  if (fetchError) throw fetchError;
+  
+  // Criar novo pagamento
+  const newPayment = {
+    id: crypto.randomUUID(),
+    date: new Date().toISOString(),
+    amount: amount
+  };
+  
+  // Adicionar ao array de pagamentos existentes
+  const currentPayments = account?.partial_payments || [];
+  const updatedPayments = [...currentPayments, newPayment];
+  
+  // Atualizar a conta com o novo pagamento
+  const { error: updateError } = await supabase
+    .from('expense_accounts')
+    .update({ partial_payments: updatedPayments })
+    .eq('id', expenseAccountId);
+  
+  if (updateError) throw updateError;
+  return newPayment;
+}
+
+// Função para calcular o total pago em pagamentos parciais
+export function calculateTotalPaid(partialPayments: any[]): number {
+  if (!partialPayments || !Array.isArray(partialPayments)) return 0;
+  return partialPayments.reduce((total, payment) => total + (payment.amount || 0), 0);
+}
+
+// Função para calcular o valor restante da conta
+export function calculateRemainingAmount(totalItems: number, totalPaid: number): number {
+  return Math.max(0, totalItems - totalPaid);
 } 

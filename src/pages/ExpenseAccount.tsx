@@ -8,6 +8,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
+import { addPartialPayment } from '../services/expenseAccountService';
 
 const WESLEY_ID = '6ea87c3b-730a-4c4e-8e72-86d659d917d7';
 
@@ -21,6 +22,7 @@ const ExpenseAccount: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { account, items, loading, error, openAccount, addItems, reload } = useExpenseAccount();
   const { currentUser } = useAppContext();
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const profileId = (currentUser as any)?.owner_id ? (localStorage.getItem('employee_data') ? JSON.parse(localStorage.getItem('employee_data')!).id : undefined) : currentUser?.id;
   console.log('ID do perfil (profileId):', profileId);
 
@@ -168,6 +170,31 @@ const ExpenseAccount: React.FC = () => {
     }
   };
 
+  // Função para adicionar pagamento parcial (admin)
+  const handleAddPayment = async (amount: number) => {
+    if (!empAccount?.id) return;
+    try {
+      await addPartialPayment(empAccount.id, amount);
+      // Recarregar dados da conta para atualizar os pagamentos
+      const acc = await getOpenExpenseAccount(selectedEmployeeId!);
+      setEmpAccount(acc);
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao registrar pagamento');
+    }
+  };
+
+  // Função para adicionar pagamento parcial (funcionário)
+  const handleAddPaymentForEmployee = async (amount: number) => {
+    if (!account?.id) return;
+    try {
+      await addPartialPayment(account.id, amount);
+      // Recarregar dados da conta para atualizar os pagamentos
+      await reload();
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao registrar pagamento');
+    }
+  };
+
   // Se for o Wesley, mostrar tabs de funcionários
   if (profileId === WESLEY_ID) {
     return (
@@ -199,10 +226,16 @@ const ExpenseAccount: React.FC = () => {
                   >
                     <Plus className="w-4 h-4" /> Adicionar Item
                   </Button>
-                  <ExpenseAccountItemsList items={empItems} reload={async () => {
-                    const its = await getExpenseAccountItems(empAccount.id);
-                    setEmpItems(its);
-                  }} />
+                  <ExpenseAccountItemsList 
+                    items={empItems} 
+                    accountId={empAccount.id}
+                    partialPayments={empAccount.partial_payments || []}
+                    onAddPayment={handleAddPayment}
+                    reload={async () => {
+                      const its = await getExpenseAccountItems(empAccount.id);
+                      setEmpItems(its);
+                    }} 
+                  />
                   <AddExpenseItemModal
                     isOpen={isAddModalOpen}
                     onClose={() => setIsAddModalOpen(false)}
@@ -242,7 +275,13 @@ const ExpenseAccount: React.FC = () => {
         </div>
       )}
       {account && (
-        <ExpenseAccountItemsList items={items} reload={reload} />
+        <ExpenseAccountItemsList 
+          items={items} 
+          accountId={account.id}
+          partialPayments={account.partial_payments || []}
+          onAddPayment={handleAddPaymentForEmployee}
+          reload={reload} 
+        />
       )}
       {/* Modal para adicionar item */}
       <AddExpenseItemModal
