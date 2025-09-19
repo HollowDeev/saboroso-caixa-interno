@@ -125,4 +125,29 @@ export function calculateTotalPaid(partialPayments: any[]): number {
 // Função para calcular o valor restante da conta
 export function calculateRemainingAmount(totalItems: number, totalPaid: number): number {
   return Math.max(0, totalItems - totalPaid);
+}
+
+// Função para remover pagamento parcial
+export async function removePartialPayment(expenseAccountId: string, paymentId: string) {
+  // Primeiro, buscar a conta atual para obter os pagamentos existentes
+  const { data: account, error: fetchError } = await supabase
+    .from('expense_accounts')
+    .select('partial_payments')
+    .eq('id', expenseAccountId)
+    .single();
+  
+  if (fetchError) throw fetchError;
+  
+  // Remover o pagamento do array
+  const currentPayments = account?.partial_payments || [];
+  const updatedPayments = currentPayments.filter((payment: any) => payment.id !== paymentId);
+  
+  // Atualizar a conta com os pagamentos atualizados
+  const { error: updateError } = await supabase
+    .from('expense_accounts')
+    .update({ partial_payments: updatedPayments })
+    .eq('id', expenseAccountId);
+  
+  if (updateError) throw updateError;
+  return true;
 } 

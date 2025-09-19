@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
-import { contestExpenseAccountItem, calculateTotalPaid, calculateRemainingAmount } from '../../services/expenseAccountService';
-import { Trash2, Undo2, CreditCard } from 'lucide-react';
+import { contestExpenseAccountItem, calculateTotalPaid, calculateRemainingAmount, removePartialPayment } from '../../services/expenseAccountService';
+import { Trash2, Undo2, CreditCard, X, AlertTriangle } from 'lucide-react';
 import { PartialPaymentModal } from './PartialPaymentModal';
 
 interface Item {
@@ -28,6 +28,7 @@ interface Props {
   accountId?: string;
   partialPayments?: any[];
   onAddPayment?: (amount: number) => Promise<void>;
+  onRemovePayment?: (paymentId: string) => Promise<void>;
 }
 
 const groupByDate = (items: Item[]) => {
@@ -42,12 +43,14 @@ const groupByDate = (items: Item[]) => {
   }, {} as Record<string, Item[]>);
 };
 
-const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, partialPayments = [], onAddPayment }) => {
+const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, partialPayments = [], onAddPayment, onRemovePayment }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [removingPayment, setRemovingPayment] = useState<string | null>(null);
+  const [confirmRemovePayment, setConfirmRemovePayment] = useState<string | null>(null);
 
   const handleOpenModal = (item: Item) => {
     setSelectedItem(item);
@@ -88,6 +91,23 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, pa
     }
   };
 
+  const handleConfirmRemovePayment = (paymentId: string) => {
+    setConfirmRemovePayment(paymentId);
+  };
+
+  const handleRemovePayment = async (paymentId: string) => {
+    if (!onRemovePayment) return;
+    setRemovingPayment(paymentId);
+    setConfirmRemovePayment(null);
+    try {
+      await onRemovePayment(paymentId);
+    } catch (err) {
+      console.error('Erro ao remover pagamento:', err);
+    } finally {
+      setRemovingPayment(null);
+    }
+  };
+
   // Calcular totais
   const totalItems = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
   const totalPaid = calculateTotalPaid(partialPayments);
@@ -123,9 +143,26 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, pa
             <h4 className="text-sm font-medium text-gray-700 mb-2">Pagamentos Realizados:</h4>
             <div className="space-y-1">
               {partialPayments.map((payment, index) => (
-                <div key={payment.id || index} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                  <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
-                  <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
+                <div key={payment.id || index} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                  <div className="flex items-center gap-2">
+                    <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
+                    <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
+                  </div>
+                  {onRemovePayment && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleConfirmRemovePayment(payment.id)}
+                      disabled={removingPayment === payment.id}
+                      className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      {removingPayment === payment.id ? (
+                        <span className="animate-spin w-3 h-3 border border-red-500 border-t-transparent rounded-full inline-block"></span>
+                      ) : (
+                        <X className="w-3 h-3" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
@@ -219,6 +256,28 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, pa
           remainingAmount={remainingAmount}
         />
       )}
+      
+      {/* Modal de Confirmação para Remover Pagamento */}
+      <Dialog open={!!confirmRemovePayment} onOpenChange={() => setConfirmRemovePayment(null)}>
+        <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <div className="text-lg font-semibold mb-2">Remover Pagamento?</div>
+          <div className="mb-4 text-gray-700">
+            Tem certeza que deseja remover este pagamento? Esta ação não pode ser desfeita.
+          </div>
+          <div className="flex gap-4 justify-center mt-2">
+            <Button variant="outline" onClick={() => setConfirmRemovePayment(null)}>
+              Cancelar
+            </Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white" 
+              onClick={() => confirmRemovePayment && handleRemovePayment(confirmRemovePayment)}
+            >
+              Remover
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -5,10 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Trash2, Plus, XCircle, Clipboard, AlertTriangle, CreditCard } from 'lucide-react';
+import { Trash2, Plus, XCircle, Clipboard, AlertTriangle, CreditCard, X } from 'lucide-react';
 import AddExpenseItemModal from './AddExpenseItemModal';
 import { PartialPaymentModal } from './PartialPaymentModal';
-import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems, addPartialPayment, calculateTotalPaid, calculateRemainingAmount } from '../../services/expenseAccountService';
+import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems, addPartialPayment, calculateTotalPaid, calculateRemainingAmount, removePartialPayment } from '../../services/expenseAccountService';
 import { Switch } from '../ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
@@ -49,6 +49,8 @@ const AdminExpenseAccounts: React.FC = () => {
   const [afterClose, setAfterClose] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [accountData, setAccountData] = useState<any>(null);
+  const [removingPayment, setRemovingPayment] = useState<string | null>(null);
+  const [confirmRemovePayment, setConfirmRemovePayment] = useState<string | null>(null);
   const { toast } = useToast();
   const { currentUser } = useAppContext();
 
@@ -311,6 +313,34 @@ const AdminExpenseAccounts: React.FC = () => {
     }
   };
 
+  // Função para confirmar remoção de pagamento
+  const handleConfirmRemovePayment = (paymentId: string) => {
+    setConfirmRemovePayment(paymentId);
+  };
+
+  // Função para remover pagamento parcial
+  const handleRemovePayment = async (paymentId: string) => {
+    if (!selected?.accountId) return;
+    setRemovingPayment(paymentId);
+    setConfirmRemovePayment(null);
+    try {
+      await removePartialPayment(selected.accountId, paymentId);
+      await reloadItems(); // Recarregar dados incluindo pagamentos
+      toast({
+        title: 'Pagamento removido!',
+        description: 'O pagamento foi removido com sucesso.',
+      });
+    } catch (err: any) {
+      toast({
+        title: 'Erro',
+        description: 'Erro ao remover pagamento: ' + (err.message || 'Erro desconhecido'),
+        variant: 'destructive',
+      });
+    } finally {
+      setRemovingPayment(null);
+    }
+  };
+
   // Agrupar itens por data
   const groupByDate = (items: ExpenseItem[]) => {
     return items.reduce((acc, item) => {
@@ -408,9 +438,24 @@ const AdminExpenseAccounts: React.FC = () => {
                             <h4 className="text-sm font-medium text-gray-700 mb-2">Pagamentos Realizados:</h4>
                             <div className="space-y-1">
                               {accountData.partial_payments.map((payment: any, index: number) => (
-                                <div key={payment.id || index} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                                  <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
-                                  <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
+                                <div key={payment.id || index} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                                  <div className="flex items-center gap-2">
+                                    <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
+                                    <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleConfirmRemovePayment(payment.id)}
+                                    disabled={removingPayment === payment.id}
+                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    {removingPayment === payment.id ? (
+                                      <span className="animate-spin w-3 h-3 border border-red-500 border-t-transparent rounded-full inline-block"></span>
+                                    ) : (
+                                      <X className="w-3 h-3" />
+                                    )}
+                                  </Button>
                                 </div>
                               ))}
                             </div>
@@ -540,6 +585,28 @@ const AdminExpenseAccounts: React.FC = () => {
           )}
         />
       )}
+      
+      {/* Modal de Confirmação para Remover Pagamento */}
+      <Dialog open={!!confirmRemovePayment} onOpenChange={() => setConfirmRemovePayment(null)}>
+        <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <div className="text-lg font-semibold mb-2">Remover Pagamento?</div>
+          <div className="mb-4 text-gray-700">
+            Tem certeza que deseja remover este pagamento? Esta ação não pode ser desfeita.
+          </div>
+          <div className="flex gap-4 justify-center mt-2">
+            <Button variant="outline" onClick={() => setConfirmRemovePayment(null)}>
+              Cancelar
+            </Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white" 
+              onClick={() => confirmRemovePayment && handleRemovePayment(confirmRemovePayment)}
+            >
+              Remover
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

@@ -8,7 +8,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
-import { addPartialPayment } from '../services/expenseAccountService';
+import { addPartialPayment, removePartialPayment } from '../services/expenseAccountService';
 
 const WESLEY_ID = '6ea87c3b-730a-4c4e-8e72-86d659d917d7';
 
@@ -183,6 +183,19 @@ const ExpenseAccount: React.FC = () => {
     }
   };
 
+  // Função para remover pagamento parcial (admin)
+  const handleRemovePayment = async (paymentId: string) => {
+    if (!empAccount?.id) return;
+    try {
+      await removePartialPayment(empAccount.id, paymentId);
+      // Recarregar dados da conta para atualizar os pagamentos
+      const acc = await getOpenExpenseAccount(selectedEmployeeId!);
+      setEmpAccount(acc);
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao remover pagamento');
+    }
+  };
+
   // Função para adicionar pagamento parcial (funcionário)
   const handleAddPaymentForEmployee = async (amount: number) => {
     if (!account?.id) return;
@@ -192,6 +205,18 @@ const ExpenseAccount: React.FC = () => {
       await reload();
     } catch (err: any) {
       throw new Error(err.message || 'Erro ao registrar pagamento');
+    }
+  };
+
+  // Função para remover pagamento parcial (funcionário)
+  const handleRemovePaymentForEmployee = async (paymentId: string) => {
+    if (!account?.id) return;
+    try {
+      await removePartialPayment(account.id, paymentId);
+      // Recarregar dados da conta para atualizar os pagamentos
+      await reload();
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao remover pagamento');
     }
   };
 
@@ -231,6 +256,7 @@ const ExpenseAccount: React.FC = () => {
                     accountId={empAccount.id}
                     partialPayments={empAccount.partial_payments || []}
                     onAddPayment={handleAddPayment}
+                    onRemovePayment={handleRemovePayment}
                     reload={async () => {
                       const its = await getExpenseAccountItems(empAccount.id);
                       setEmpItems(its);
@@ -280,6 +306,7 @@ const ExpenseAccount: React.FC = () => {
           accountId={account.id}
           partialPayments={account.partial_payments || []}
           onAddPayment={handleAddPaymentForEmployee}
+          onRemovePayment={handleRemovePaymentForEmployee}
           reload={reload} 
         />
       )}
