@@ -65,9 +65,9 @@ export const PartialPaymentModal: React.FC<PartialPaymentModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-w-[95vw] mx-4">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between text-base sm:text-lg">
             Registrar Pagamento Parcial
             <Button
               variant="ghost"
@@ -82,18 +82,18 @@ export const PartialPaymentModal: React.FC<PartialPaymentModalProps> = ({
 
         <div className="space-y-4">
           {/* Resumo da conta */}
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Total da Conta:</span>
-              <span className="font-medium">R$ {currentTotal.toFixed(2)}</span>
+              <span className="text-xs sm:text-sm text-gray-600">Total da Conta:</span>
+              <span className="font-medium text-sm sm:text-base">R$ {currentTotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-gray-600">Total Pago:</span>
-              <span className="font-medium text-green-600">R$ {totalPaid.toFixed(2)}</span>
+              <span className="text-xs sm:text-sm text-gray-600">Total Pago:</span>
+              <span className="font-medium text-green-600 text-sm sm:text-base">R$ {totalPaid.toFixed(2)}</span>
             </div>
             <div className="flex justify-between border-t pt-2">
-              <span className="text-sm font-medium">Valor Restante:</span>
-              <span className="font-bold text-red-600">R$ {remainingAmount.toFixed(2)}</span>
+              <span className="text-xs sm:text-sm font-medium">Valor Restante:</span>
+              <span className="font-bold text-red-600 text-sm sm:text-base">R$ {remainingAmount.toFixed(2)}</span>
             </div>
           </div>
 
@@ -118,19 +118,19 @@ export const PartialPaymentModal: React.FC<PartialPaymentModalProps> = ({
               </p>
             </div>
 
-            <div className="flex gap-2 pt-4">
+            <div className="flex flex-col sm:flex-row gap-2 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                className="flex-1"
+                className="flex-1 text-sm sm:text-base"
                 disabled={isProcessing}
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-sm sm:text-base"
                 disabled={isProcessing || !paymentAmount || parseFloat(paymentAmount) <= 0}
               >
                 {isProcessing ? 'Registrando...' : 'Registrar Pagamento'}

@@ -30,8 +30,8 @@ interface ExpenseItem {
   removed_by_admin: boolean;
 }
 
-const pastelOrange = 'bg-[#FFF5E5]'; // laranja pastel claro
-const borderOrange = 'border border-[#FFD9A0]'; // borda laranja clara
+// Classes CSS para os cards
+const cardClasses = 'bg-[#FFF5E5] border border-[#FFD9A0] flex flex-col items-center justify-center py-8';
 
 const AdminExpenseAccounts: React.FC = () => {
   const [accounts, setAccounts] = useState<EmployeeAccountCard[]>([]);
@@ -416,10 +416,9 @@ const AdminExpenseAccounts: React.FC = () => {
 
   return (
     <>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map(acc => (
-          <Card key={acc.accountId} className={`${pastelOrange} ${borderOrange} flex flex-col items-center justify-center py-8`}>
+          <Card key={acc.accountId} className={cardClasses}>
             <CardHeader>
               <CardTitle className="text-lg font-semibold text-center">{acc.employeeName}</CardTitle>
             </CardHeader>
@@ -430,19 +429,19 @@ const AdminExpenseAccounts: React.FC = () => {
         ))}
       </div>
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Conta de Despesas de {selected?.employeeName}</DialogTitle>
+        <DialogContent className="max-w-2xl h-[90vh] sm:h-[80vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b">
+            <DialogTitle className="text-lg sm:text-xl">Conta de Despesas de {selected?.employeeName}</DialogTitle>
           </DialogHeader>
           {itemsLoading ? (
-            <div className="text-center py-8 flex-1 overflow-y-auto">Carregando itens...</div>
+            <div className="text-center py-8 flex-1 overflow-y-auto px-6">Carregando itens...</div>
           ) : (
-            <div className="relative pb-32 flex-1 overflow-y-auto"> {/* espaço extra para rodapé e resumo, rolagem interna */}
+            <div className="flex-1 overflow-y-auto px-6 py-4"> {/* conteúdo principal com scroll */}
               
               {/* Resumo Financeiro */}
               {accountData && (
-                <div className="mb-6 bg-white rounded shadow p-6 border border-gray-200">
-                  <h3 className="text-lg font-semibold mb-4">Resumo da Conta</h3>
+                <div className="mb-6 bg-white rounded shadow p-4 sm:p-6 border border-gray-200">
+                  <h3 className="text-base sm:text-lg font-semibold mb-4">Resumo da Conta</h3>
                   {(() => {
                     const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
                     const totalItems = filteredItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
@@ -451,30 +450,30 @@ const AdminExpenseAccounts: React.FC = () => {
                     
                     return (
                       <>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <div className="text-sm text-gray-600 mb-1">Total dos Itens</div>
-                            <div className="text-xl font-bold">R$ {totalItems.toFixed(2)}</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
+                          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                            <div className="text-xs sm:text-sm text-gray-600 mb-1">Total dos Itens</div>
+                            <div className="text-lg sm:text-xl font-bold">R$ {totalItems.toFixed(2)}</div>
                           </div>
-                          <div className="bg-green-50 p-4 rounded-lg">
-                            <div className="text-sm text-green-600 mb-1">Total Pago</div>
-                            <div className="text-xl font-bold text-green-600">R$ {totalPaid.toFixed(2)}</div>
+                          <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
+                            <div className="text-xs sm:text-sm text-green-600 mb-1">Total Pago</div>
+                            <div className="text-lg sm:text-xl font-bold text-green-600">R$ {totalPaid.toFixed(2)}</div>
                           </div>
-                          <div className="bg-red-50 p-4 rounded-lg">
-                            <div className="text-sm text-red-600 mb-1">Valor Restante</div>
-                            <div className="text-xl font-bold text-red-600">R$ {remainingAmount.toFixed(2)}</div>
+                          <div className="bg-red-50 p-3 sm:p-4 rounded-lg">
+                            <div className="text-xs sm:text-sm text-red-600 mb-1">Valor Restante</div>
+                            <div className="text-lg sm:text-xl font-bold text-red-600">R$ {remainingAmount.toFixed(2)}</div>
                           </div>
                         </div>
                         
                         {/* Lista de Pagamentos Parciais */}
                         {accountData.partial_payments && accountData.partial_payments.length > 0 && (
                           <div className="mb-4">
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Pagamentos Realizados:</h4>
+                            <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Pagamentos Realizados:</h4>
                             <div className="space-y-1">
                               {accountData.partial_payments.map((payment: any, index: number) => (
-                                <div key={payment.id || index} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                  <div className="flex items-center gap-2">
-                                    <span>{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
+                                <div key={payment.id || index} className="flex justify-between items-center text-xs sm:text-sm bg-gray-50 p-2 rounded">
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                                    <span className="truncate">{format(new Date(payment.date), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</span>
                                     <span className="font-medium">R$ {payment.amount.toFixed(2)}</span>
                                   </div>
                                   <Button
@@ -482,7 +481,7 @@ const AdminExpenseAccounts: React.FC = () => {
                                     variant="ghost"
                                     onClick={() => handleConfirmRemovePayment(payment.id)}
                                     disabled={removingPayment === payment.id}
-                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0 ml-2"
                                   >
                                     {removingPayment === payment.id ? (
                                       <span className="animate-spin w-3 h-3 border border-red-500 border-t-transparent rounded-full inline-block"></span>
@@ -500,7 +499,7 @@ const AdminExpenseAccounts: React.FC = () => {
                         {remainingAmount > 0 && (
                           <Button
                             onClick={() => setPaymentModalOpen(true)}
-                            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+                            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2 w-full sm:w-auto text-sm"
                           >
                             <CreditCard className="w-4 h-4" />
                             Registrar Pagamento Parcial
@@ -517,15 +516,15 @@ const AdminExpenseAccounts: React.FC = () => {
               ) : (
                 <>
                   {Object.entries(groupByDate(items.filter(i => !i.removed_by_admin))).map(([date, its]) => (
-                    <div key={date} className="mb-6 bg-gray-100 rounded-lg p-3">
-                      <h2 className="text-lg font-semibold mb-2">{date}</h2>
+                    <div key={date} className="mb-4 sm:mb-6 bg-gray-100 rounded-lg p-3">
+                      <h2 className="text-base sm:text-lg font-semibold mb-2">{date}</h2>
                       <ul className="divide-y">
                         {its.map(item => (
-                          <li key={item.id} className={`flex flex-col md:flex-row md:items-center md:justify-between py-2 rounded-lg px-2 ${item.contested ? 'bg-[#e3f0fd] border border-blue-800' : 'border border-gray-200'}`}>
-                            <div className="flex-1 flex flex-col gap-1">
-                              <div className="flex flex-row items-center gap-2">
-                                <span className={`font-medium ${item.contested ? 'text-[#17497a]' : ''}`}>{item.quantity}x {item.product_name}</span>
-                                <span className={`font-medium ${item.contested ? 'text-[#17497a]' : ''}`}>– R$ {item.unit_price.toFixed(2)}</span>
+                          <li key={item.id} className={'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 rounded-lg px-2 ' + (item.contested ? 'bg-[#e3f0fd] border border-blue-800' : 'border border-gray-200')}>
+                            <div className="flex-1 flex flex-col gap-1 mb-3 sm:mb-0">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                <span className={'font-medium text-sm sm:text-base ' + (item.contested ? 'text-[#17497a]' : '')}>{item.quantity}x {item.product_name}</span>
+                                <span className={'font-medium text-sm sm:text-base ' + (item.contested ? 'text-[#17497a]' : '')}>– R$ {item.unit_price.toFixed(2)}</span>
                               </div>
                               {item.contested && (
                                 <>
@@ -533,23 +532,23 @@ const AdminExpenseAccounts: React.FC = () => {
                                     <span className="inline-block bg-blue-800 text-white text-xs font-semibold rounded px-2 py-0.5 mb-1">Contestado</span>
                                   </div>
                                   <div className="w-full">
-                                    <span className="block text-sm font-normal text-black bg-transparent w-full"><b>Mensagem:</b> {item.contest_message}</span>
+                                    <span className="block text-xs sm:text-sm font-normal text-black bg-transparent w-full"><b>Mensagem:</b> {item.contest_message}</span>
                                   </div>
                                 </>
                               )}
                             </div>
-                            <div className="flex flex-col md:items-end gap-2 mt-2 md:mt-0 md:ml-6">
-                              <Button size="sm" variant="destructive" onClick={() => handleRemoveItem(item.id)} disabled={removing === item.id} className="flex items-center gap-1 w-full md:w-auto">
+                            <div className="flex flex-col sm:flex-row sm:items-end gap-2 sm:ml-6">
+                              <Button size="sm" variant="destructive" onClick={() => handleRemoveItem(item.id)} disabled={removing === item.id} className="flex items-center gap-1 w-full sm:w-auto text-xs sm:text-sm">
                                 {removing === item.id ? (
-                                  <span className="animate-spin mr-1 w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full inline-block"></span>
+                                  <span className="animate-spin mr-1 w-3 h-3 sm:w-4 sm:h-4 border-2 border-red-500 border-t-transparent rounded-full inline-block"></span>
                                 ) : (
-                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                                 )}
                                 Remover
                               </Button>
-                              <div className="flex items-center gap-2 mt-2">
+                              <div className="flex items-center gap-2">
                                 <Switch checked={!!ignoredItems[item.id]} onCheckedChange={() => toggleIgnore(item.id)} />
-                                <span className={`text-xs font-medium ${ignoredItems[item.id] ? 'text-green-600' : 'text-gray-500'}`}>Desconsiderar</span>
+                                <span className={'text-xs font-medium ' + (ignoredItems[item.id] ? 'text-green-600' : 'text-gray-500')}>Desconsiderar</span>
                               </div>
                             </div>
                           </li>
@@ -558,31 +557,40 @@ const AdminExpenseAccounts: React.FC = () => {
                     </div>
                   ))}
                   {/* Resumo total */}
-                  <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <span className="font-medium text-gray-700">Total de itens consumidos: {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity, 0)}</span>
-                    <span className="font-medium text-gray-700">Valor total: R$ {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2)}</span>
+                  <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <span className="font-medium text-gray-700 text-sm sm:text-base">Total de itens consumidos: {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity, 0)}</span>
+                    <span className="font-medium text-gray-700 text-sm sm:text-base">Valor total: R$ {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2)}</span>
                   </div>
                 </>
               )}
-              {/* Rodapé fixo com botões */}
-              <div className="fixed left-0 right-0 bottom-0 z-50 bg-white border-t border-gray-200 flex flex-row justify-between p-4 max-w-2xl mx-auto rounded-b-lg">
-                <div className="flex gap-2">
-                  <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2">
-                    <Plus className="w-4 h-4" />Adicionar Item
-                  </Button>
-                  <Button onClick={handleCopy} variant="outline" className="border border-gray-400 flex items-center gap-2 bg-white text-gray-700">
-                    <Clipboard className="w-4 h-4" /> Copiar Dados
-                  </Button>
-                </div>
-                <Button onClick={handleCloseAccount} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2" disabled={closing}>
-                  {closing ? 'Fechando...' : 'Fechar Conta'}
-                </Button>
-              </div>
-              <AddExpenseItemModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAddItems={handleAddItems} />
             </div>
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Rodapé fixo com botões - melhorado para mobile */}
+      {modalOpen && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-2xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 flex-1">
+              <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 text-sm sm:text-base">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Adicionar Item</span>
+                <span className="sm:hidden">Adicionar</span>
+              </Button>
+              <Button onClick={handleCopy} variant="outline" className="border border-gray-400 flex items-center justify-center gap-2 bg-white text-gray-700 text-sm sm:text-base">
+                <Clipboard className="w-4 h-4" />
+                <span className="hidden sm:inline">Copiar Dados</span>
+                <span className="sm:hidden">Copiar</span>
+              </Button>
+            </div>
+            <Button onClick={handleCloseAccount} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 text-sm sm:text-base" disabled={closing}>
+              {closing ? 'Fechando...' : 'Fechar Conta'}
+            </Button>
+          </div>
+        </div>
+      )}
+      <AddExpenseItemModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAddItems={handleAddItems} />
       {/* Confirmação de fechamento */}
       <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
         <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
