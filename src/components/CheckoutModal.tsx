@@ -167,10 +167,11 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-  <DialogContent className="w-full max-w-md h-[600px] overflow-hidden mx-auto rounded-xl shadow-lg flex flex-col justify-center items-center" style={{margin: '40px auto'}}>
-        <DialogHeader>
+  <DialogContent className="w-full max-w-md h-[90vh] max-h-[800px] mx-auto rounded-xl shadow-lg flex flex-col" style={{margin: '40px auto'}}>
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Finalizar Comanda</DialogTitle>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto pr-2">
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-4">
@@ -389,6 +390,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
               </div>
             </div>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

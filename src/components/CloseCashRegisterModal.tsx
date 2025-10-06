@@ -34,8 +34,8 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] h-[90vh] max-h-[600px] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center space-x-2">
             <DollarSign className="h-5 w-5 text-red-500" />
             <span>Fechar Caixa</span>
@@ -45,7 +45,7 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 flex-1 overflow-y-auto pr-2">
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <h3 className="font-semibold text-gray-900">Resumo do Caixa</h3>
             <div className="grid grid-cols-2 gap-4">
