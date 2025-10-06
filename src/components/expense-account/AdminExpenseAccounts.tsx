@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,8 +34,15 @@ interface ExpenseItem {
 // Classes CSS para os cards
 const cardClasses = 'bg-[#FFF5E5] border border-[#FFD9A0] flex flex-col items-center justify-center py-8';
 
+interface Employee {
+  id: string;
+  name: string;
+}
+
 const AdminExpenseAccounts: React.FC = () => {
   const [accounts, setAccounts] = useState<EmployeeAccountCard[]>([]);
+  const [employeesWithoutAccount, setEmployeesWithoutAccount] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EmployeeAccountCard | null>(null);
   const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -56,7 +64,70 @@ const AdminExpenseAccounts: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
+    fetchEmployeesWithoutAccount();
   }, []);
+
+  const fetchEmployeesWithoutAccount = async () => {
+    try {
+      const { data: employeesData, error: employeesError } = await supabase
+        .from('employee_profile')
+        .select('id, name')
+        .eq('is_active', true);
+
+      if (employeesError) throw employeesError;
+
+      // Buscar funcionários que já têm conta aberta
+      const { data: accountsData } = await supabase
+        .from('expense_accounts')
+        .select('employee_profile_id')
+        .eq('status', 'open');
+
+      // Filtrar funcionários sem conta aberta
+      const employeesWithAccount = new Set(accountsData?.map(acc => acc.employee_profile_id) || []);
+      const availableEmployees = employeesData?.filter(emp => !employeesWithAccount.has(emp.id)) || [];
+      
+      setEmployeesWithoutAccount(availableEmployees);
+    } catch (err) {
+      console.error('Erro ao buscar funcionários:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar lista de funcionários',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCreateAccount = async (employeeId: string) => {
+    if (!employeeId || !currentUser?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('expense_accounts')
+        .insert({
+          employee_profile_id: employeeId,
+          owner_id: currentUser.id,
+          status: 'open'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Conta criada com sucesso',
+      });
+
+      // Recarregar dados
+      await Promise.all([fetchAccounts(), fetchEmployeesWithoutAccount()]);
+      setSelectedEmployeeId('');
+    } catch (err) {
+      console.error('Erro ao criar conta:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao criar conta',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -416,6 +487,26 @@ const AdminExpenseAccounts: React.FC = () => {
 
   return (
     <>
+      <div className="flex justify-end mb-6 gap-4">
+        <div className="w-64">
+          <Select value={selectedEmployeeId} onValueChange={(value) => {
+            setSelectedEmployeeId(value);
+            handleCreateAccount(value);
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Abrir conta para funcionário" />
+            </SelectTrigger>
+            <SelectContent>
+              {employeesWithoutAccount.map((employee) => (
+                <SelectItem key={employee.id} value={employee.id}>
+                  {employee.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map(acc => (
           <Card key={acc.accountId} className={cardClasses}>
