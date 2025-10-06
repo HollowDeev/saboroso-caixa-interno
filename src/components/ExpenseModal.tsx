@@ -175,174 +175,176 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ isOpen, onClose }) =
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Registro de Despesa</DialogTitle>
         </DialogHeader>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="product_loss">Produtos Externos</TabsTrigger>
-            <TabsTrigger value="ingredient_loss">Comidas</TabsTrigger>
-            <TabsTrigger value="other">Outras Despesas</TabsTrigger>
-          </TabsList>
+        <div className="flex-1 overflow-y-auto">
+          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="product_loss">Produtos Externos</TabsTrigger>
+              <TabsTrigger value="ingredient_loss">Comidas</TabsTrigger>
+              <TabsTrigger value="other">Outras Despesas</TabsTrigger>
+            </TabsList>
 
-          {(selectedTab === 'product_loss' || selectedTab === 'ingredient_loss') && (
-            <div className="mt-4">
-              <Label>Pesquisar</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            {(selectedTab === 'product_loss' || selectedTab === 'ingredient_loss') && (
+              <div className="mt-4">
+                <Label>Pesquisar</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Digite para pesquisar..."
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            )}
+
+            {(selectedTab === 'product_loss' || selectedTab === 'ingredient_loss') && (
+              <div className="mt-4">
+                <Label>Tipo de Despesa</Label>
+                <Select value={expenseKind} onValueChange={v => setExpenseKind(v as 'consumo' | 'perda')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consumo">Consumo</SelectItem>
+                    <SelectItem value="perda">Perda</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <TabsContent value="product_loss" className="space-y-4">
+              <div>
+                <Label>Produto Externo</Label>
+                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um produto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredExternalProducts.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name} - {expenseKind === 'consumo' ? `Custo: R$ ${product.cost.toFixed(2)}` : `Venda: R$ ${product.price.toFixed(2)}`} (Estoque: {product.current_stock})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Quantidade</Label>
                 <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Digite para pesquisar..."
-                  className="pl-10"
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
                 />
               </div>
-            </div>
-          )}
 
-          {(selectedTab === 'product_loss' || selectedTab === 'ingredient_loss') && (
-            <div className="mt-4">
-              <Label>Tipo de Despesa</Label>
-              <Select value={expenseKind} onValueChange={v => setExpenseKind(v as 'consumo' | 'perda')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="consumo">Consumo</SelectItem>
-                  <SelectItem value="perda">Perda</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+              <div>
+                <Label>Valor Calculado</Label>
+                <Input
+                  type="text"
+                  value={`R$ ${calculateAmount().toFixed(2)}`}
+                  disabled
+                />
+              </div>
 
-          <TabsContent value="product_loss" className="space-y-4">
-            <div>
-              <Label>Produto Externo</Label>
-              <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredExternalProducts.map((product) => (
-                    <SelectItem key={product.id} value={product.id}>
-                      {product.name} - {expenseKind === 'consumo' ? `Custo: R$ ${product.cost.toFixed(2)}` : `Venda: R$ ${product.price.toFixed(2)}`} (Estoque: {product.current_stock})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label>Motivo (opcional)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Ex: Produto vencido, consumo interno, etc."
+                />
+              </div>
+            </TabsContent>
 
-            <div>
-              <Label>Quantidade</Label>
-              <Input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
-            </div>
+            <TabsContent value="ingredient_loss" className="space-y-4">
+              <div>
+                <Label>Comida</Label>
+                <Select value={selectedFood} onValueChange={setSelectedFood}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma comida" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredProducts.map((food) => (
+                      <SelectItem key={food.id} value={food.id}>
+                        {food.name} - {expenseKind === 'consumo' ? `Custo: R$ ${food.cost.toFixed(2)}` : `Venda: R$ ${food.price.toFixed(2)}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div>
-              <Label>Valor Calculado</Label>
-              <Input
-                type="text"
-                value={`R$ ${calculateAmount().toFixed(2)}`}
-                disabled
-              />
-            </div>
+              <div>
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                />
+              </div>
 
-            <div>
-              <Label>Motivo (opcional)</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Ex: Produto vencido, consumo interno, etc."
-              />
-            </div>
-          </TabsContent>
+              <div>
+                <Label>Valor Calculado</Label>
+                <Input
+                  type="text"
+                  value={`R$ ${calculateAmount().toFixed(2)}`}
+                  disabled
+                />
+              </div>
 
-          <TabsContent value="ingredient_loss" className="space-y-4">
-            <div>
-              <Label>Comida</Label>
-              <Select value={selectedFood} onValueChange={setSelectedFood}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma comida" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredProducts.map((food) => (
-                    <SelectItem key={food.id} value={food.id}>
-                      {food.name} - {expenseKind === 'consumo' ? `Custo: R$ ${food.cost.toFixed(2)}` : `Venda: R$ ${food.price.toFixed(2)}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div>
+                <Label>Motivo (opcional)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Ex: Comida queimada, erro na preparação, etc."
+                />
+              </div>
+            </TabsContent>
 
-            <div>
-              <Label>Quantidade</Label>
-              <Input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
-            </div>
+            <TabsContent value="other" className="space-y-4">
+              <div>
+                <Label>Descrição</Label>
+                <Input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Ex: Manutenção equipamento, conta de luz, etc."
+                />
+              </div>
 
-            <div>
-              <Label>Valor Calculado</Label>
-              <Input
-                type="text"
-                value={`R$ ${calculateAmount().toFixed(2)}`}
-                disabled
-              />
-            </div>
+              <div>
+                <Label>Valor</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  placeholder="0.00"
+                />
+              </div>
 
-            <div>
-              <Label>Motivo (opcional)</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Ex: Comida queimada, erro na preparação, etc."
-              />
-            </div>
-          </TabsContent>
+              <div>
+                <Label>Motivo (opcional)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Detalhes adicionais sobre a despesa"
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-          <TabsContent value="other" className="space-y-4">
-            <div>
-              <Label>Descrição</Label>
-              <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Manutenção equipamento, conta de luz, etc."
-              />
-            </div>
-
-            <div>
-              <Label>Valor</Label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div>
-              <Label>Motivo (opcional)</Label>
-              <Textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Detalhes adicionais sobre a despesa"
-              />
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <div className="flex gap-2 mt-6">
+        <div className="flex gap-2 mt-6 sticky bottom-0 bg-background py-4 z-10">
           <Button variant="outline" onClick={onClose} className="flex-1">
             Cancelar
           </Button>
