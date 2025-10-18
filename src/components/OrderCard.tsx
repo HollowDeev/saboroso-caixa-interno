@@ -1006,11 +1006,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                     Fechar Comanda
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
+                <DialogContent className="max-w-lg h-[90vh] max-h-[800px] flex flex-col">
+                  <DialogHeader className="flex-shrink-0">
                     <DialogTitle>Fechar Comanda</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <div className="space-y-4 flex-1 overflow-y-auto pr-2">
                     {/* Detalhes do Pedido */}
                     <div className="space-y-2 border-b pb-4">
                       <h3 className="font-medium text-sm text-gray-600">Detalhes do Pedido</h3>
@@ -1166,7 +1166,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                     </div>
 
                     {/* Botões alinhados: Cancelar | Fechar | Imprimir */}
-                    <div className="flex flex-row gap-2 pt-4">
+                    <div className="flex flex-row gap-2 pt-4 mt-4 flex-shrink-0 border-t">
                       <Button variant="outline" onClick={() => setIsCloseOrderOpen(false)} className="flex-1">
                         Cancelar
                       </Button>

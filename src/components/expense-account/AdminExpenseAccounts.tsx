@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,8 +34,15 @@ interface ExpenseItem {
 // Classes CSS para os cards
 const cardClasses = 'bg-[#FFF5E5] border border-[#FFD9A0] flex flex-col items-center justify-center py-8';
 
+interface Employee {
+  id: string;
+  name: string;
+}
+
 const AdminExpenseAccounts: React.FC = () => {
   const [accounts, setAccounts] = useState<EmployeeAccountCard[]>([]);
+  const [employeesWithoutAccount, setEmployeesWithoutAccount] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<EmployeeAccountCard | null>(null);
   const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -56,7 +64,70 @@ const AdminExpenseAccounts: React.FC = () => {
 
   useEffect(() => {
     fetchAccounts();
+    fetchEmployeesWithoutAccount();
   }, []);
+
+  const fetchEmployeesWithoutAccount = async () => {
+    try {
+      const { data: employeesData, error: employeesError } = await supabase
+        .from('employee_profile')
+        .select('id, name')
+        .eq('is_active', true);
+
+      if (employeesError) throw employeesError;
+
+      // Buscar funcionários que já têm conta aberta
+      const { data: accountsData } = await supabase
+        .from('expense_accounts')
+        .select('employee_profile_id')
+        .eq('status', 'open');
+
+      // Filtrar funcionários sem conta aberta
+      const employeesWithAccount = new Set(accountsData?.map(acc => acc.employee_profile_id) || []);
+      const availableEmployees = employeesData?.filter(emp => !employeesWithAccount.has(emp.id)) || [];
+      
+      setEmployeesWithoutAccount(availableEmployees);
+    } catch (err) {
+      console.error('Erro ao buscar funcionários:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao carregar lista de funcionários',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCreateAccount = async (employeeId: string) => {
+    if (!employeeId || !currentUser?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('expense_accounts')
+        .insert({
+          employee_profile_id: employeeId,
+          owner_id: currentUser.id,
+          status: 'open'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sucesso',
+        description: 'Conta criada com sucesso',
+      });
+
+      // Recarregar dados
+      await Promise.all([fetchAccounts(), fetchEmployeesWithoutAccount()]);
+      setSelectedEmployeeId('');
+    } catch (err) {
+      console.error('Erro ao criar conta:', err);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao criar conta',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -65,7 +136,7 @@ const AdminExpenseAccounts: React.FC = () => {
         .from('expense_accounts')
         .select('id, employee_profile_id, employee_profile(name)')
         .eq('status', 'open');
-      
+
       if (error) {
         console.error('Erro ao buscar contas:', error);
         toast({
@@ -76,7 +147,7 @@ const AdminExpenseAccounts: React.FC = () => {
         setLoading(false);
         return;
       }
-      
+
       const result: EmployeeAccountCard[] = (accountsData || []).map((acc: any) => ({
         accountId: acc.id,
         employeeName: acc.employee_profile?.name || 'Funcionário',
@@ -98,7 +169,7 @@ const AdminExpenseAccounts: React.FC = () => {
     setSelected(acc);
     setModalOpen(true);
     setItemsLoading(true);
-    
+
     try {
       // Buscar dados da conta (incluindo pagamentos parciais)
       const { data: accountData, error: accountError } = await supabase
@@ -106,7 +177,7 @@ const AdminExpenseAccounts: React.FC = () => {
         .select('*')
         .eq('id', acc.accountId)
         .single();
-      
+
       if (accountError) {
         console.error('Erro ao buscar dados da conta:', accountError);
         toast({
@@ -117,14 +188,14 @@ const AdminExpenseAccounts: React.FC = () => {
       } else {
         setAccountData(accountData);
       }
-      
+
       // Buscar todos os itens da conta ao abrir o modal
       const { data: itemsData, error } = await supabase
         .from('expense_account_items')
         .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
         .eq('expense_account_id', acc.accountId)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('Erro ao buscar itens:', error);
         toast({
@@ -150,7 +221,7 @@ const AdminExpenseAccounts: React.FC = () => {
   const reloadItems = async () => {
     if (!selected) return;
     setItemsLoading(true);
-    
+
     // Recarregar dados da conta
     const { data: accountData } = await supabase
       .from('expense_accounts')
@@ -158,7 +229,7 @@ const AdminExpenseAccounts: React.FC = () => {
       .eq('id', selected.accountId)
       .single();
     setAccountData(accountData);
-    
+
     const { data: itemsData } = await supabase
       .from('expense_account_items')
       .select('id, product_name, product_id, product_type, quantity, unit_price, created_at, contested, contest_message, removed_by_admin')
@@ -262,9 +333,9 @@ const AdminExpenseAccounts: React.FC = () => {
     const nome = selected.employeeName;
     const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
-    
+
     let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
-    
+
     Object.entries(itemsByDate).forEach(([date, its]) => {
       texto += `📅 ${date}\n\n`;
       its.forEach(item => {
@@ -272,10 +343,10 @@ const AdminExpenseAccounts: React.FC = () => {
       });
       texto += '\n';
     });
-    
+
     texto += `🧾 Total de itens consumidos: ${totalItens}\n`;
     texto += `💰 Valor total dos itens: R$ ${valorTotalItens.toFixed(2)}\n`;
-    
+
     // Adicionar seção de pagamentos parciais se houver
     if (accountData.partial_payments && accountData.partial_payments.length > 0) {
       texto += `\n💳 Pagamentos realizados:\n`;
@@ -285,7 +356,7 @@ const AdminExpenseAccounts: React.FC = () => {
       });
       texto += `   Total pago: R$ ${totalPago.toFixed(2)}\n`;
     }
-    
+
     texto += `\n💸 Valor restante a descontar: R$ ${valorRestante.toFixed(2)}\n\n=============================`;
     navigator.clipboard.writeText(texto);
   };
@@ -383,9 +454,9 @@ const AdminExpenseAccounts: React.FC = () => {
     const nome = selected.employeeName;
     const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
-    
+
     let texto = `== *Consumo do ${nome}* ==\n\n_Varanda Boteco_\n\nConta aberta: ${dataAbertura}\nConta fechada: ${dataFechamento}\n\n`;
-    
+
     Object.entries(itemsByDate).forEach(([date, its]) => {
       texto += `📅 ${date}\n\n`;
       its.forEach(item => {
@@ -393,10 +464,10 @@ const AdminExpenseAccounts: React.FC = () => {
       });
       texto += '\n';
     });
-    
+
     texto += `🧾 Total de itens consumidos: ${totalItens}\n`;
     texto += `💰 Valor total dos itens: R$ ${valorTotalItens.toFixed(2)}\n`;
-    
+
     // Adicionar seção de pagamentos parciais se houver
     if (accountData.partial_payments && accountData.partial_payments.length > 0) {
       texto += `\n💳 Pagamentos realizados:\n`;
@@ -406,7 +477,7 @@ const AdminExpenseAccounts: React.FC = () => {
       });
       texto += `   Total pago: R$ ${totalPago.toFixed(2)}\n`;
     }
-    
+
     texto += `\n💸 Valor restante a descontar: R$ ${valorRestante.toFixed(2)}\n\n=============================`;
     navigator.clipboard.writeText(texto);
     toast({ title: 'Dados copiados!', description: 'Os dados foram copiados para a área de transferência.' });
@@ -416,6 +487,26 @@ const AdminExpenseAccounts: React.FC = () => {
 
   return (
     <>
+      <div className="flex justify-end mb-6 gap-4">
+        <div className="w-64">
+          <Select value={selectedEmployeeId} onValueChange={(value) => {
+            setSelectedEmployeeId(value);
+            handleCreateAccount(value);
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Abrir conta para funcionário" />
+            </SelectTrigger>
+            <SelectContent>
+              {employeesWithoutAccount.map((employee) => (
+                <SelectItem key={employee.id} value={employee.id}>
+                  {employee.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map(acc => (
           <Card key={acc.accountId} className={cardClasses}>
@@ -437,7 +528,7 @@ const AdminExpenseAccounts: React.FC = () => {
             <div className="text-center py-8 flex-1 overflow-y-auto px-6">Carregando itens...</div>
           ) : (
             <div className="flex-1 overflow-y-auto px-6 py-4"> {/* conteúdo principal com scroll */}
-              
+
               {/* Resumo Financeiro */}
               {accountData && (
                 <div className="mb-6 bg-white rounded shadow p-4 sm:p-6 border border-gray-200">
@@ -447,7 +538,7 @@ const AdminExpenseAccounts: React.FC = () => {
                     const totalItems = filteredItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
                     const totalPaid = calculateTotalPaid(accountData.partial_payments || []);
                     const remainingAmount = calculateRemainingAmount(totalItems, totalPaid);
-                    
+
                     return (
                       <>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
@@ -464,7 +555,7 @@ const AdminExpenseAccounts: React.FC = () => {
                             <div className="text-lg sm:text-xl font-bold text-red-600">R$ {remainingAmount.toFixed(2)}</div>
                           </div>
                         </div>
-                        
+
                         {/* Lista de Pagamentos Parciais */}
                         {accountData.partial_payments && accountData.partial_payments.length > 0 && (
                           <div className="mb-4">
@@ -510,7 +601,7 @@ const AdminExpenseAccounts: React.FC = () => {
                   })()}
                 </div>
               )}
-              
+
               {items.length === 0 ? (
                 <div className="text-gray-500 text-center py-8">Nenhum item marcado nesta conta.</div>
               ) : (
@@ -561,35 +652,35 @@ const AdminExpenseAccounts: React.FC = () => {
                     <span className="font-medium text-gray-700 text-sm sm:text-base">Total de itens consumidos: {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity, 0)}</span>
                     <span className="font-medium text-gray-700 text-sm sm:text-base">Valor total: R$ {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2)}</span>
                   </div>
+                  <div className="sticky bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 flex-1">
+                        <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 text-sm sm:text-base">
+                          <Plus className="w-4 h-4" />
+                          <span className="hidden sm:inline">Adicionar Item</span>
+                          <span className="sm:hidden">Adicionar</span>
+                        </Button>
+                        <Button onClick={handleCopy} variant="outline" className="border border-gray-400 flex items-center justify-center gap-2 bg-white text-gray-700 text-sm sm:text-base">
+                          <Clipboard className="w-4 h-4" />
+                          <span className="hidden sm:inline">Copiar Dados</span>
+                          <span className="sm:hidden">Copiar</span>
+                        </Button>
+                      </div>
+                      <Button onClick={handleCloseAccount} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 text-sm sm:text-base" disabled={closing}>
+                        {closing ? 'Fechando...' : 'Fechar Conta'}
+                      </Button>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
+
           )}
+
         </DialogContent>
       </Dialog>
-      
-      {/* Rodapé fixo com botões - melhorado para mobile */}
-      {modalOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 max-w-2xl mx-auto">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 flex-1">
-              <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 text-sm sm:text-base">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Adicionar Item</span>
-                <span className="sm:hidden">Adicionar</span>
-              </Button>
-              <Button onClick={handleCopy} variant="outline" className="border border-gray-400 flex items-center justify-center gap-2 bg-white text-gray-700 text-sm sm:text-base">
-                <Clipboard className="w-4 h-4" />
-                <span className="hidden sm:inline">Copiar Dados</span>
-                <span className="sm:hidden">Copiar</span>
-              </Button>
-            </div>
-            <Button onClick={handleCloseAccount} className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 text-sm sm:text-base" disabled={closing}>
-              {closing ? 'Fechando...' : 'Fechar Conta'}
-            </Button>
-          </div>
-        </div>
-      )}
+
+
       <AddExpenseItemModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAddItems={handleAddItems} />
       {/* Confirmação de fechamento */}
       <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
@@ -612,7 +703,7 @@ const AdminExpenseAccounts: React.FC = () => {
           <Button className="bg-blue-600 hover:bg-blue-700 text-white mt-2" onClick={() => setAfterClose(false)}>OK</Button>
         </DialogContent>
       </Dialog>
-      
+
       {/* Modal de Pagamento Parcial */}
       {accountData && selected && (
         <PartialPaymentModal
@@ -627,7 +718,7 @@ const AdminExpenseAccounts: React.FC = () => {
           )}
         />
       )}
-      
+
       {/* Modal de Confirmação para Remover Pagamento */}
       <Dialog open={!!confirmRemovePayment} onOpenChange={() => setConfirmRemovePayment(null)}>
         <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
@@ -640,8 +731,8 @@ const AdminExpenseAccounts: React.FC = () => {
             <Button variant="outline" onClick={() => setConfirmRemovePayment(null)}>
               Cancelar
             </Button>
-            <Button 
-              className="bg-red-600 hover:bg-red-700 text-white" 
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => confirmRemovePayment && handleRemovePayment(confirmRemovePayment)}
             >
               Remover
