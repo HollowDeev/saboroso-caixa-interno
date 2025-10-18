@@ -651,6 +651,7 @@ export const Sales = () => {
         onClose={() => setIsCloseCashRegisterModalOpen(false)}
         onConfirm={handleCloseCashRegister}
         cashRegister={currentCashRegister}
+        totalSales={totalSales}
       />
 
       <AlertDialog open={!!saleToDelete} onOpenChange={() => setSaleToDelete(null)}>

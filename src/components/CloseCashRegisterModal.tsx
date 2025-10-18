@@ -11,9 +11,10 @@ interface CloseCashRegisterModalProps {
   onClose: () => void;
   onConfirm: (closingAmount: number) => Promise<void>;
   cashRegister: CashRegister | null;
+  totalSales?: number;
 }
 
-export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegister }: CloseCashRegisterModalProps) => {
+export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegister, totalSales }: CloseCashRegisterModalProps) => {
   const [closingAmount, setClosingAmount] = useState<string>('0');
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +33,8 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
 
   if (!cashRegister) return null;
 
+  const displayedTotalSales = typeof totalSales === 'number' ? totalSales : (cashRegister.total_sales || 0);
+  const displayedOpening = cashRegister.opening_amount || 0;
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -59,11 +62,11 @@ export const CloseCashRegisterModal = ({ isOpen, onClose, onConfirm, cashRegiste
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total em Vendas</p>
-                <p className="font-medium">R$ {cashRegister.total_sales.toFixed(2)}</p>
+                <p className="font-medium">R$ {Number(displayedTotalSales || 0).toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total em Caixa</p>
-                <p className="font-medium">R$ {(cashRegister.opening_amount + cashRegister.total_sales).toFixed(2)}</p>
+                <p className="font-medium">R$ {(Number(displayedOpening || 0) + Number(displayedTotalSales || 0)).toFixed(2)}</p>
               </div>
             </div>
           </div>

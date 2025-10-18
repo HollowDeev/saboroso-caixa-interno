@@ -345,6 +345,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Garantir consistência do tipo Sale (createdAt, items/payments normalizados)
       const formatted = formatSales([{ ...newSale }])[0];
       setSales(prev => [formatted, ...prev]);
+      // Atualizar totais do caixa localmente para manter consistência imediata na UI
+      setCurrentCashRegister(prev => {
+        if (!prev) return prev;
+        const added = Number(newSale.total) || 0;
+        return {
+          ...prev,
+          total_sales: (Number(prev.total_sales) || 0) + added,
+          total_orders: (Number(prev.total_orders) || 0) + 1
+        } as CashRegister;
+      });
       toast({
         title: "Sucesso",
         description: "Venda registrada com sucesso!",
@@ -379,7 +389,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser!,
         currentCashRegister!,
         () => {
-          setSales(prev => prev.filter(sale => sale.id !== id));
+          // Ao remover a venda do estado, também ajustar os totais do caixa localmente
+          setSales(prev => {
+            const saleToRemove = prev.find(s => s.id === id);
+            // Atualizar os totais do caixa antes de remover a venda
+            if (saleToRemove) {
+              setCurrentCashRegister(prevReg => {
+                if (!prevReg) return prevReg;
+                const removed = Number(saleToRemove.total) || 0;
+                return {
+                  ...prevReg,
+                  total_sales: Math.max((Number(prevReg.total_sales) || 0) - removed, 0),
+                  total_orders: Math.max((Number(prevReg.total_orders) || 0) - 1, 0)
+                } as CashRegister;
+              });
+            }
+            return prev.filter(sale => sale.id !== id);
+          });
         }
       );
       toast({
