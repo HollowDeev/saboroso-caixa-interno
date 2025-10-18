@@ -34,7 +34,7 @@ export const PartialPaymentModal: React.FC<PartialPaymentModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const amount = parseFloat(paymentAmount);
+  const amount = parseFloat(String(paymentAmount).replace(',', '.'));
     if (isNaN(amount) || amount <= 0) {
       alert('Por favor, insira um valor válido maior que zero.');
       return;
@@ -103,12 +103,16 @@ export const PartialPaymentModal: React.FC<PartialPaymentModalProps> = ({
               <Label htmlFor="paymentAmount">Valor do Pagamento (R$)</Label>
               <Input
                 id="paymentAmount"
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={remainingAmount}
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*[.,]?[0-9]*"
                 value={paymentAmount}
                 onChange={(e) => setPaymentAmount(e.target.value)}
+                onBlur={() => {
+                  const v = String(paymentAmount).replace(/,/g, '.');
+                  const n = parseFloat(v);
+                  if (!isNaN(n)) setPaymentAmount(n.toFixed(2));
+                }}
                 placeholder="0,00"
                 required
                 disabled={isProcessing}
@@ -131,7 +135,7 @@ export const PartialPaymentModal: React.FC<PartialPaymentModalProps> = ({
               <Button
                 type="submit"
                 className="flex-1 bg-green-600 hover:bg-green-700 text-sm sm:text-base"
-                disabled={isProcessing || !paymentAmount || parseFloat(paymentAmount) <= 0}
+                disabled={isProcessing || !paymentAmount || parseFloat(String(paymentAmount).replace(',', '.')) <= 0}
               >
                 {isProcessing ? 'Registrando...' : 'Registrar Pagamento'}
               </Button>

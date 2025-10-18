@@ -19,13 +19,13 @@ interface DirectSaleModalProps {
 
 interface Payment {
   method: PaymentMethod;
-  amount: number;
+  amount: string; // store as string while editing to allow comma input
 }
 
 export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClose }) => {
   const { products, externalProducts, currentUser, addSale, currentCashRegister } = useAppContext();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([{ method: 'cash', amount: 0 }]);
+  const [payments, setPayments] = useState<Payment[]>([{ method: 'cash', amount: '' }]);
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingSale, setIsCreatingSale] = useState(false);
@@ -40,7 +40,11 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
     [selectedItems, totalManualDiscount]
   );
   const total = useMemo(() => subtotal - totalDiscount, [subtotal, totalDiscount]);
-  const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + payment.amount, 0), [payments]);
+  const totalPaid = useMemo(() => payments.reduce((sum, payment) => {
+    const v = String(payment.amount || '').replace(',', '.');
+    const n = parseFloat(v);
+    return sum + (isNaN(n) ? 0 : n);
+  }, 0), [payments]);
   const remainingAmount = useMemo(() => {
     const diff = total - totalPaid;
     return diff > 0 ? diff : 0;
@@ -48,7 +52,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   const change = useMemo(() => totalPaid > total ? totalPaid - total : 0, [total, totalPaid]);
 
   const addPayment = () => {
-    setPayments([...payments, { method: 'cash', amount: 0 }]);
+    setPayments([...payments, { method: 'cash', amount: '' }]);
   };
 
   const removePayment = (index: number) => {
@@ -183,11 +187,17 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         discount_id: item.discountId ?? null
       }));
 
+      // Converter pagamentos para números
+      const paymentsForApi = payments.map(p => ({
+        method: p.method,
+        amount: Number(String(p.amount).replace(',', '.')) || 0
+      }));
+
       await addSale({
         total,
         subtotal,
         tax: 0,
-        payments,
+        payments: paymentsForApi,
         user_id: currentUser.id,
         customer_name: customerName,
         is_direct_sale: true,
@@ -202,9 +212,9 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         description: "Venda direta registrada com sucesso!",
       });
 
-      setSelectedItems([]);
-      setCustomerName('');
-      setPayments([{ method: 'cash', amount: 0 }]);
+  setSelectedItems([]);
+  setCustomerName('');
+  setPayments([{ method: 'cash', amount: '' }]);
       setSearchTerm('');
       onClose();
     } catch (error: any) {
@@ -421,10 +431,34 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
                       type="text"
                       inputMode="decimal"
                       pattern="[0-9]*[.,]?[0-9]*"
-                      value={payment.amount === 0 ? '' : payment.amount}
+                      value={payment.amount}
                       onChange={(e) => {
-                        const val = e.target.value.replace(',', '.');
-                        updatePayment(index, 'amount', val === '' ? 0 : Number(val));
+                        // Allow comma while typing; sanitize to keep only digits and one decimal sep
+                        let val = e.target.value;
+                        // Replace comma with dot for internal normalization
+                        val = val.replace(/,/g, '.');
+                        // Remove any character except digits and dot
+                        val = val.replace(/[^0-9.]/g, '');
+                        // Ensure at most one dot
+                        const parts = val.split('.');
+                        if (parts.length > 2) {
+                          val = parts[0] + '.' + parts.slice(1).join('').slice(0, 2);
+                        }
+                        // Limit to 2 decimals
+                        if (parts[1] && parts[1].length > 2) {
+                          val = parts[0] + '.' + parts[1].slice(0, 2);
+                        }
+                        updatePayment(index, 'amount', val === '0' ? '' : val);
+                      }}
+                      onBlur={(e) => {
+                        // Format to 2 decimals on blur
+                        const raw = String(e.target.value).replace(/,/g, '.');
+                        const num = parseFloat(raw);
+                        if (!isNaN(num)) {
+                          updatePayment(index, 'amount', num.toFixed(2));
+                        } else {
+                          updatePayment(index, 'amount', '');
+                        }
                       }}
                       placeholder="Valor"
                       className="w-[150px]"
@@ -443,13 +477,14 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {payments.map((payment, index) => (
-                  payment.amount > 0 && (
+                {payments.map((payment, index) => {
+                  const num = parseFloat(String(payment.amount).replace(',', '.'));
+                  return (!isNaN(num) && num > 0) ? (
                     <Badge key={index} variant="secondary" className={cn("text-white", getPaymentMethodColor(payment.method))}>
-                      {getPaymentMethodLabel(payment.method)} (R$ {payment.amount.toFixed(2)})
+                      {getPaymentMethodLabel(payment.method)} (R$ {num.toFixed(2)})
                     </Badge>
-                  )
-                ))}
+                  ) : null;
+                })}
               </div>
 
               {/* Campo para adicionar desconto manual */}
