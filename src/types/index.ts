@@ -190,6 +190,7 @@ export type PaymentMethod = 'cash' | 'card' | 'pix';
 
 export interface AppContextType {
   currentUser: User | null;
+  profileId?: string | null;
   isEmployee: boolean;
   ingredients: Ingredient[];
   products: Product[];

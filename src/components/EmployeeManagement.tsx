@@ -6,6 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trash2, Plus, Eye, EyeOff } from 'lucide-react';
+import ExpenseAccountItemsList from '@/components/expense-account/ExpenseAccountItemsList';
+import AddExpenseItemModal from '@/components/expense-account/AddExpenseItemModal';
+import AdvancesList from '@/components/expense-account/AdvancesList';
+import AddAdvanceModal from '@/components/expense-account/AddAdvanceModal';
+import { listAdvances, addPartialPayment, removePartialPayment } from '@/services/expenseAccountService';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
@@ -26,6 +31,15 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
   });
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
+
+  // Estado para visualizar/manipular conta de despesa por funcionário (para o dono)
+  const [selectedEmployeeForAccount, setSelectedEmployeeForAccount] = useState<string | null>(null);
+  const [empAccount, setEmpAccount] = useState<any | null>(null);
+  const [empItems, setEmpItems] = useState<any[]>([]);
+  const [empAdvances, setEmpAdvances] = useState<any[]>([]);
+  const [empAccountLoading, setEmpAccountLoading] = useState(false);
+  const [isAddItemModalOpenForAccount, setIsAddItemModalOpenForAccount] = useState(false);
+  const [isAddAdvanceModalOpenForAccount, setIsAddAdvanceModalOpenForAccount] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -159,6 +173,99 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
         description: 'Erro ao excluir funcionário',
         variant: 'destructive',
       });
+    }
+  };
+
+  // --- Conta de despesas (dono pode abrir aqui) ---
+  const getOpenExpenseAccount = async (employeeProfileId: string) => {
+    const { data, error } = await supabase
+      .from('expense_accounts')
+      .select('*')
+      .eq('employee_profile_id', employeeProfileId)
+      .eq('status', 'open')
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  };
+
+  const getExpenseAccountItems = async (accountId: string) => {
+    const { data, error } = await supabase
+      .from('expense_account_items')
+      .select('*')
+      .eq('expense_account_id', accountId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  };
+
+  useEffect(() => {
+    if (!selectedEmployeeForAccount) return;
+    (async () => {
+      setEmpAccountLoading(true);
+      try {
+        const acc = await getOpenExpenseAccount(selectedEmployeeForAccount);
+        setEmpAccount(acc);
+        if (acc) {
+          const its = await getExpenseAccountItems(acc.id);
+          setEmpItems(its);
+          try {
+            const adv = await listAdvances(acc.id);
+            setEmpAdvances(adv || []);
+          } catch (err) {
+            setEmpAdvances([]);
+          }
+        } else {
+          setEmpItems([]);
+          setEmpAdvances([]);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar conta de despesa:', err);
+        toast({ title: 'Erro', description: 'Erro ao carregar conta de despesa', variant: 'destructive' });
+      } finally {
+        setEmpAccountLoading(false);
+      }
+    })();
+  }, [selectedEmployeeForAccount]);
+
+  const handleAddPayment = async (amount: number) => {
+    if (!empAccount?.id) return;
+    try {
+      await addPartialPayment(empAccount.id, amount);
+      const acc = await getOpenExpenseAccount(selectedEmployeeForAccount!);
+      setEmpAccount(acc);
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao registrar pagamento');
+    }
+  };
+
+  const handleRemovePayment = async (paymentId: string) => {
+    if (!empAccount?.id) return;
+    try {
+      await removePartialPayment(empAccount.id, paymentId);
+      const acc = await getOpenExpenseAccount(selectedEmployeeForAccount!);
+      setEmpAccount(acc);
+    } catch (err: any) {
+      throw new Error(err.message || 'Erro ao remover pagamento');
+    }
+  };
+
+  const handleOpenAccountForEmployee = async (employeeProfileId: string) => {
+    if (!currentUserId) return;
+    setEmpAccountLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('expense_accounts')
+        .insert({ owner_id: currentUserId, employee_profile_id: employeeProfileId, status: 'open' })
+        .select()
+        .single();
+      if (error) throw error;
+      setEmpAccount(data);
+      setEmpItems([]);
+    } catch (err: any) {
+      console.error('Erro ao abrir conta:', err);
+      toast({ title: 'Erro', description: 'Erro ao abrir conta', variant: 'destructive' });
+    } finally {
+      setEmpAccountLoading(false);
     }
   };
 
@@ -299,6 +406,16 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
+                        {/* Botão para visualizar/gerenciar Conta de Despesa do funcionário (para o dono) */}
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={async () => {
+                            setSelectedEmployeeForAccount(employee.id);
+                          }}
+                        >
+                          Conta
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -308,6 +425,97 @@ export const EmployeeManagement = ({ currentUserId }: EmployeeManagementProps) =
           )}
         </CardContent>
       </Card>
+      {/* Dialog global para gerenciar conta de despesa do funcionário selecionado */}
+      <Dialog open={!!selectedEmployeeForAccount} onOpenChange={(open) => { if (!open) setSelectedEmployeeForAccount(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Conta de Despesa - {selectedEmployeeForAccount ? (employees.find(e => e.id === selectedEmployeeForAccount)?.name ?? '') : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {empAccountLoading && <div className="text-center text-gray-500 py-8">Carregando...</div>}
+            {!empAccountLoading && !empAccount && (
+              <div className="flex flex-col items-center py-6">
+                <div className="text-lg mb-4">Nenhuma conta de despesas aberta.</div>
+                <div className="flex gap-2">
+                  <Button className="bg-green-600" onClick={() => handleOpenAccountForEmployee(selectedEmployeeForAccount!)}>Abrir Nova Conta de Despesa</Button>
+                  <Button variant="outline" onClick={() => setSelectedEmployeeForAccount(null)}>Fechar</Button>
+                </div>
+              </div>
+            )}
+            {empAccount && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Button className="bg-orange-600 hover:bg-orange-700" onClick={() => setIsAddItemModalOpenForAccount(true)}><Plus className="w-4 h-4" /> Adicionar Item</Button>
+                  <Button className="bg-yellow-600 hover:bg-yellow-700" onClick={() => setIsAddAdvanceModalOpenForAccount(true)}><Plus className="w-4 h-4" /> Adicionar Vale</Button>
+                </div>
+                <ExpenseAccountItemsList
+                  items={empItems}
+                  accountId={empAccount.id}
+                  partialPayments={(empAccount as any)?.partial_payments || []}
+                  advances={empAdvances}
+                  onAddPayment={handleAddPayment}
+                  onRemovePayment={handleRemovePayment}
+                  reload={async () => {
+                    const its = await getExpenseAccountItems(empAccount.id);
+                    setEmpItems(its);
+                  }}
+                />
+                <div className="mt-4">
+                  <AdvancesList accountId={empAccount.id} employeeId={selectedEmployeeForAccount} onChange={async () => {
+                    const acc = await getOpenExpenseAccount(selectedEmployeeForAccount!);
+                    setEmpAccount(acc);
+                    try {
+                      const adv = await listAdvances(acc.id);
+                      setEmpAdvances(adv || []);
+                    } catch (err) {
+                      setEmpAdvances([]);
+                    }
+                  }} />
+                </div>
+                <AddExpenseItemModal
+                  isOpen={isAddItemModalOpenForAccount}
+                  onClose={() => setIsAddItemModalOpenForAccount(false)}
+                  onAddItems={async (newItems) => {
+                    if (!empAccount?.id) return;
+                    const insertData = newItems.map((item: any) => ({
+                      expense_account_id: empAccount.id,
+                      product_id: item.product_id,
+                      product_type: item.product_type,
+                      quantity: item.quantity,
+                      unit_price: item.unit_price,
+                      product_name: item.product_name,
+                    }));
+                    const { error } = await supabase.from('expense_account_items').insert(insertData);
+                    if (error) { toast({ title: 'Erro', description: 'Erro ao adicionar itens', variant: 'destructive' }); return; }
+                    const its = await getExpenseAccountItems(empAccount.id);
+                    setEmpItems(its);
+                    setIsAddItemModalOpenForAccount(false);
+                  }}
+                />
+                <AddAdvanceModal
+                  isOpen={isAddAdvanceModalOpenForAccount}
+                  onClose={() => setIsAddAdvanceModalOpenForAccount(false)}
+                  accountId={empAccount.id}
+                  employeeId={selectedEmployeeForAccount!}
+                  onSaved={async () => {
+                    const acc = await getOpenExpenseAccount(selectedEmployeeForAccount!);
+                    setEmpAccount(acc);
+                    try {
+                      const adv = await listAdvances(acc.id);
+                      setEmpAdvances(adv || []);
+                    } catch (err) {
+                      setEmpAdvances([]);
+                    }
+                    setIsAddAdvanceModalOpenForAccount(false);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

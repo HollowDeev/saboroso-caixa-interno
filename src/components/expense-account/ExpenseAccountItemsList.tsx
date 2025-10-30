@@ -27,6 +27,7 @@ interface Props {
   reload?: () => void;
   accountId?: string;
   partialPayments?: any[];
+  advances?: any[];
   onAddPayment?: (amount: number) => Promise<void>;
   onRemovePayment?: (paymentId: string) => Promise<void>;
 }
@@ -43,7 +44,7 @@ const groupByDate = (items: Item[]) => {
   }, {} as Record<string, Item[]>);
 };
 
-const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, partialPayments = [], onAddPayment, onRemovePayment }) => {
+const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, partialPayments = [], advances = [], onAddPayment, onRemovePayment }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [message, setMessage] = useState('');
@@ -108,10 +109,12 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, pa
     }
   };
 
-  // Calcular totais
+  // Calcular totais (inclui vales como parte da dívida)
   const totalItems = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+  const totalAdvances = (advances && Array.isArray(advances)) ? advances.reduce((s, a) => s + (a.amount || 0), 0) : 0;
   const totalPaid = calculateTotalPaid(partialPayments);
-  const remainingAmount = calculateRemainingAmount(totalItems, totalPaid);
+  // Novo cálculo do restante: itens + vales - pagamentos
+  const remainingAmount = Math.max(0, (totalItems + totalAdvances) - totalPaid);
 
   if (!items || items.length === 0) {
     return <div className="bg-white rounded shadow p-4 text-center text-gray-500">Nenhum item marcado ainda.</div>;
@@ -251,7 +254,7 @@ const ExpenseAccountItemsList: React.FC<Props> = ({ items, reload, accountId, pa
           isOpen={paymentModalOpen}
           onClose={() => setPaymentModalOpen(false)}
           onAddPayment={onAddPayment}
-          currentTotal={totalItems}
+          currentTotal={totalItems + totalAdvances}
           totalPaid={totalPaid}
           remainingAmount={remainingAmount}
         />

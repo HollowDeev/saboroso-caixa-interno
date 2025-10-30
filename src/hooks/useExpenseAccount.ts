@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getOpenExpenseAccount, openExpenseAccount, getExpenseAccountItems, addExpenseAccountItems } from '../services/expenseAccountService';
+import { getOpenExpenseAccount, openExpenseAccount, getExpenseAccountItems, addExpenseAccountItems, listAdvances } from '../services/expenseAccountService';
 import { useAppContext } from '../contexts/AppContext';
 
 export function useExpenseAccount() {
@@ -21,6 +21,16 @@ export function useExpenseAccount() {
       if (acc) {
         const its = await getExpenseAccountItems(acc.id);
         setItems(its);
+        try {
+          const adv = await listAdvances(acc.id);
+          // attach advances and advances_total to account object for convenience
+          (acc as any).advances = adv;
+          (acc as any).advances_total = adv.reduce((s: number, a: any) => s + (a.amount || 0), 0);
+          setAccount(acc);
+        } catch (err) {
+          // ignore advances fetch error but log
+          console.warn('[useExpenseAccount] Erro ao buscar vales:', err);
+        }
       } else {
         setItems([]);
       }

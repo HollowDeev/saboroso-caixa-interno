@@ -151,3 +151,69 @@ export async function removePartialPayment(expenseAccountId: string, paymentId: 
   if (updateError) throw updateError;
   return true;
 } 
+
+// ---------- Advances (Vales) related helpers ----------
+
+export type ExpenseAccountAdvance = {
+  id: string;
+  expense_account_id: string;
+  employee_id: string;
+  amount: number;
+  reason: string;
+  note?: string | null;
+  created_at: string;
+  created_by?: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
+};
+
+export async function listAdvances(expenseAccountId: string): Promise<ExpenseAccountAdvance[]> {
+  const res = await supabase
+    .from<any, any>('expense_account_advances')
+    .select('*')
+    .eq('expense_account_id', expenseAccountId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+  if (res.error) throw res.error;
+  return (res.data as ExpenseAccountAdvance[]) || [];
+}
+
+export async function createAdvance(params: { expenseAccountId: string; employeeId?: string | null; amount: number; reason?: string; createdBy?: string | null; }) {
+  const { expenseAccountId, employeeId = null, amount, reason = null, createdBy = null } = params;
+  if (!expenseAccountId) throw new Error('expenseAccountId is required');
+  if (!amount || amount <= 0) throw new Error('amount must be greater than zero');
+
+  const insert = {
+    expense_account_id: expenseAccountId,
+    employee_id: employeeId,
+    amount: Number(Number(amount).toFixed(2)),
+    reason: reason,
+    created_by: createdBy,
+  };
+
+  const res = await supabase
+    .from<any, any>('expense_account_advances')
+    .insert(insert)
+    .select()
+    .single();
+  if (res.error) throw res.error;
+  return res.data as ExpenseAccountAdvance;
+}
+
+export async function deleteAdvance(advanceId: string, deletedBy?: string | null) {
+  if (!advanceId) throw new Error('advanceId is required');
+  const res = await supabase
+    .from<any, any>('expense_account_advances')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: deletedBy || null })
+    .eq('id', advanceId)
+    .is('deleted_at', null)
+    .select()
+    .single();
+  if (res.error) throw res.error;
+  return res.data as ExpenseAccountAdvance;
+}
+
+export async function getAdvancesTotal(expenseAccountId: string): Promise<number> {
+  const advances = await listAdvances(expenseAccountId);
+  return advances.reduce((s, a) => s + (a.amount || 0), 0);
+}

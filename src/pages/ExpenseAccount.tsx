@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ExpenseAccountItemsList from '../components/expense-account/ExpenseAccountItemsList';
 import AddExpenseItemModal from '../components/expense-account/AddExpenseItemModal';
+import AdvancesList from '../components/expense-account/AdvancesList';
+import AddAdvanceModal from '../components/expense-account/AddAdvanceModal';
 import { Button } from '../components/ui/button';
 import { Plus } from 'lucide-react';
 import { useExpenseAccount } from '../hooks/useExpenseAccount';
@@ -8,7 +10,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import type { Database } from '@/integrations/supabase/types';
-import { addPartialPayment, removePartialPayment } from '../services/expenseAccountService';
+import { addPartialPayment, removePartialPayment, listAdvances } from '../services/expenseAccountService';
 
 const WESLEY_ID = '6ea87c3b-730a-4c4e-8e72-86d659d917d7';
 
@@ -20,19 +22,48 @@ type ExpenseAccountItem = Database['public']['Tables']['expense_account_items'][
 
 const ExpenseAccount: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddAdvanceModalOpen, setIsAddAdvanceModalOpen] = useState(false);
   const { account, items, loading, error, openAccount, addItems, reload } = useExpenseAccount();
-  const { currentUser } = useAppContext();
+  const { currentUser, profileId } = useAppContext();
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const profileId = (currentUser as any)?.owner_id ? (localStorage.getItem('employee_data') ? JSON.parse(localStorage.getItem('employee_data')!).id : undefined) : currentUser?.id;
-  console.log('ID do perfil (profileId):', profileId);
+  // removed local profileId computation in favor of context-provided profileId
+  // console.log('ID do perfil (profileId):', profileId);
 
   // NOVO: Estado para tabs de funcionários
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [empAccount, setEmpAccount] = useState<ExpenseAccount>(null);
   const [empItems, setEmpItems] = useState<ExpenseAccountItem[]>([]);
+  const [empAdvances, setEmpAdvances] = useState<any[]>([]);
   const [empLoading, setEmpLoading] = useState(false);
   const [empError, setEmpError] = useState<string | null>(null);
+
+  // DEBUG: logar usuário/conta para diagnosticar visibilidade do botão de 'Adicionar Vale'
+  React.useEffect(() => {
+    try {
+      console.log('[debug][ExpenseAccount] currentUser:', currentUser);
+      console.log('[debug][ExpenseAccount] profileId:', profileId);
+      console.log('[debug][ExpenseAccount] empAccount.owner_id:', empAccount?.owner_id);
+    } catch (e) {
+      /* ignore */
+    }
+  }, [currentUser, profileId, empAccount]);
+
+  // DEBUG PANEL: visible in non-production to help diagnose permission issues
+  const DebugPanel: React.FC = () => {
+    if (process.env.NODE_ENV === 'production') return null;
+    return (
+      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-gray-800">
+        <div className="font-semibold mb-1">Debug (dev only)</div>
+        <div><b>currentUser.id:</b> {(currentUser as any)?.id ?? 'null'}</div>
+        <div><b>currentUser.owner_id:</b> {(currentUser as any)?.owner_id ?? 'null'}</div>
+        <div><b>currentUser.role:</b> {(currentUser as any)?.role ?? 'null'}</div>
+        <div><b>profileId:</b> {profileId ?? 'null'}</div>
+        <div><b>account.owner_id:</b> {(account as any)?.owner_id ?? 'null'}</div>
+        <div><b>empAccount.owner_id:</b> {empAccount?.owner_id ?? 'null'}</div>
+      </div>
+    );
+  };
 
   // Funções auxiliares para buscar dados do funcionário
   const getOpenExpenseAccount = async (employeeProfileId: string): Promise<ExpenseAccount> => {
@@ -117,8 +148,16 @@ const ExpenseAccount: React.FC = () => {
           if (acc) {
             const its = await getExpenseAccountItems(acc.id);
             setEmpItems(its);
+            try {
+              const adv = await listAdvances(acc.id);
+              setEmpAdvances(adv || []);
+            } catch (err) {
+              console.warn('Erro ao buscar vales do funcionário:', err);
+              setEmpAdvances([]);
+            }
           } else {
             setEmpItems([]);
+            setEmpAdvances([]);
           }
         } catch (err: any) {
           setEmpError(err.message || 'Erro ao carregar conta de despesas');
@@ -251,16 +290,57 @@ const ExpenseAccount: React.FC = () => {
                   >
                     <Plus className="w-4 h-4" /> Adicionar Item
                   </Button>
+                  {/* Botão para adicionar Vale (Wesley ou dono da conta) */}
+                  {(profileId === WESLEY_ID || currentUser?.id === empAccount.owner_id || currentUser?.owner_id === empAccount.owner_id || currentUser?.role === 'admin') && (
+                    <Button
+                      className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-2 mb-6 ml-2"
+                      onClick={() => setIsAddAdvanceModalOpen(true)}
+                      title="Adicionar Vale"
+                    >
+                      <Plus className="w-4 h-4" /> Adicionar Vale
+                    </Button>
+                  )}
                   <ExpenseAccountItemsList 
                     items={empItems} 
                     accountId={empAccount.id}
                     partialPayments={empAccount.partial_payments || []}
+                    advances={empAdvances}
                     onAddPayment={handleAddPayment}
                     onRemovePayment={handleRemovePayment}
                     reload={async () => {
                       const its = await getExpenseAccountItems(empAccount.id);
                       setEmpItems(its);
                     }} 
+                  />
+                  {/* Lista de vales */}
+                  <div className="mt-4">
+                    <AdvancesList accountId={empAccount.id} employeeId={selectedEmployeeId} onChange={async () => {
+                      const acc = await getOpenExpenseAccount(selectedEmployeeId);
+                      setEmpAccount(acc);
+                      try {
+                        const adv = await listAdvances(acc.id);
+                        setEmpAdvances(adv || []);
+                      } catch (err) {
+                        setEmpAdvances([]);
+                      }
+                    }} />
+                  </div>
+                  {/* Modal para adicionar vale */}
+                  <AddAdvanceModal
+                    isOpen={isAddAdvanceModalOpen}
+                    onClose={() => setIsAddAdvanceModalOpen(false)}
+                    accountId={empAccount.id}
+                    employeeId={selectedEmployeeId || undefined}
+                    onSaved={async () => {
+                      const acc = await getOpenExpenseAccount(selectedEmployeeId);
+                      setEmpAccount(acc);
+                      try {
+                        const adv = await listAdvances(acc.id);
+                        setEmpAdvances(adv || []);
+                      } catch (err) {
+                        setEmpAdvances([]);
+                      }
+                    }}
                   />
                   <AddExpenseItemModal
                     isOpen={isAddModalOpen}
@@ -290,6 +370,16 @@ const ExpenseAccount: React.FC = () => {
           <Plus className="w-4 h-4" /> Adicionar Item
         </Button>
       )}
+      {/* Botão para adicionar Vale pelo dono da conta (admin) */}
+      {account && (currentUser?.id === account.owner_id || currentUser?.owner_id === account.owner_id || currentUser?.role === 'admin') && (
+        <Button
+          className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-2 mb-6 ml-2"
+          onClick={() => setIsAddAdvanceModalOpen(true)}
+          title="Adicionar Vale"
+        >
+          <Plus className="w-4 h-4" /> Adicionar Vale
+        </Button>
+      )}
       {loading && <div className="text-center text-gray-500 py-8">Carregando...</div>}
       {error && <div className="text-center text-red-500 py-8">{error}</div>}
       {!loading && !account && (
@@ -305,10 +395,16 @@ const ExpenseAccount: React.FC = () => {
           items={items} 
           accountId={account.id}
           partialPayments={account.partial_payments || []}
+          advances={account.advances || []}
           onAddPayment={handleAddPaymentForEmployee}
           onRemovePayment={handleRemovePaymentForEmployee}
           reload={reload} 
         />
+      )}
+      {account && (
+        <div className="mt-4">
+          <AdvancesList accountId={account.id} employeeId={profileId} onChange={async () => { await reload(); }} />
+        </div>
       )}
       {/* Modal para adicionar item */}
       <AddExpenseItemModal
@@ -316,6 +412,18 @@ const ExpenseAccount: React.FC = () => {
         onClose={() => setIsAddModalOpen(false)}
         onAddItems={addItems}
       />
+      {/* Modal para adicionar vale (disponível ao dono da conta via botão acima) */}
+      {account && (
+        <AddAdvanceModal
+          isOpen={isAddAdvanceModalOpen}
+          onClose={() => setIsAddAdvanceModalOpen(false)}
+          accountId={account.id}
+          employeeId={(account as any).employee_profile_id}
+          onSaved={async () => {
+            await reload();
+          }}
+        />
+      )}
     </div>
   );
 };

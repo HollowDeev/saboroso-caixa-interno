@@ -9,7 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Trash2, Plus, XCircle, Clipboard, AlertTriangle, CreditCard, X } from 'lucide-react';
 import AddExpenseItemModal from './AddExpenseItemModal';
 import { PartialPaymentModal } from './PartialPaymentModal';
-import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems, addPartialPayment, calculateTotalPaid, calculateRemainingAmount, removePartialPayment } from '../../services/expenseAccountService';
+import { contestExpenseAccountItem, addExpenseAccountItems, getExpenseAccountItems, addPartialPayment, calculateTotalPaid, calculateRemainingAmount, removePartialPayment, listAdvances } from '../../services/expenseAccountService';
+import AdvancesList from './AdvancesList';
+import AddAdvanceModal from './AddAdvanceModal';
 import { Switch } from '../ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
@@ -47,6 +49,8 @@ const AdminExpenseAccounts: React.FC = () => {
   const [selected, setSelected] = useState<EmployeeAccountCard | null>(null);
   const [items, setItems] = useState<ExpenseItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
+  const [advances, setAdvances] = useState<any[]>([]);
+  const [addAdvanceOpen, setAddAdvanceOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -205,6 +209,12 @@ const AdminExpenseAccounts: React.FC = () => {
         });
       } else {
         setItems(itemsData || []);
+        try {
+          const adv = await listAdvances(acc.accountId);
+          setAdvances(adv || []);
+        } catch (err) {
+          setAdvances([]);
+        }
       }
     } catch (err) {
       console.error('Erro geral:', err);
@@ -647,7 +657,21 @@ const AdminExpenseAccounts: React.FC = () => {
                       </ul>
                     </div>
                   ))}
-                  {/* Resumo total */}
+                    {/* Lista de Vales (Advances) */}
+                    <div className="mt-2 mb-4">
+                      <AdvancesList accountId={selected?.accountId || ''} employeeId={selected?.accountId ? (accountData as any)?.employee_profile_id : undefined} onChange={async () => {
+                        if (!selected) return;
+                        try {
+                          const adv = await listAdvances(selected.accountId);
+                          setAdvances(adv || []);
+                        } catch (err) {
+                          setAdvances([]);
+                        }
+                        await reloadItems();
+                      }} />
+                    </div>
+
+                    {/* Resumo total */}
                   <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <span className="font-medium text-gray-700 text-sm sm:text-base">Total de itens consumidos: {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity, 0)}</span>
                     <span className="font-medium text-gray-700 text-sm sm:text-base">Valor total: R$ {items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, i) => sum + i.quantity * i.unit_price, 0).toFixed(2)}</span>
@@ -655,11 +679,16 @@ const AdminExpenseAccounts: React.FC = () => {
                   <div className="sticky bottom-0 left-0 right-0 z-10 border-t border-gray-200 bg-white p-4 sm:p-6">
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                       <div className="flex flex-col sm:flex-row gap-2 sm:gap-2 flex-1">
-                        <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 text-sm sm:text-base">
+                          <Button onClick={() => setAddModalOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2 text-sm sm:text-base">
                           <Plus className="w-4 h-4" />
                           <span className="hidden sm:inline">Adicionar Item</span>
                           <span className="sm:hidden">Adicionar</span>
                         </Button>
+                          <Button onClick={() => setAddAdvanceOpen(true)} className="bg-yellow-600 hover:bg-yellow-700 text-white flex items-center justify-center gap-2 text-sm sm:text-base">
+                            <Plus className="w-4 h-4" />
+                            <span className="hidden sm:inline">Adicionar Vale</span>
+                            <span className="sm:hidden">Vale</span>
+                          </Button>
                         <Button onClick={handleCopy} variant="outline" className="border border-gray-400 flex items-center justify-center gap-2 bg-white text-gray-700 text-sm sm:text-base">
                           <Clipboard className="w-4 h-4" />
                           <span className="hidden sm:inline">Copiar Dados</span>
@@ -682,6 +711,23 @@ const AdminExpenseAccounts: React.FC = () => {
 
 
       <AddExpenseItemModal isOpen={addModalOpen} onClose={() => setAddModalOpen(false)} onAddItems={handleAddItems} />
+      <AddAdvanceModal
+        isOpen={addAdvanceOpen}
+        onClose={() => setAddAdvanceOpen(false)}
+        accountId={selected?.accountId}
+        employeeId={(accountData as any)?.employee_profile_id}
+        onSaved={async () => {
+          if (!selected) return;
+          try {
+            const adv = await listAdvances(selected.accountId);
+            setAdvances(adv || []);
+          } catch (err) {
+            setAdvances([]);
+          }
+          await reloadItems();
+          setAddAdvanceOpen(false);
+        }}
+      />
       {/* Confirmação de fechamento */}
       <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
         <DialogContent className="max-w-md flex flex-col items-center justify-center text-center">
