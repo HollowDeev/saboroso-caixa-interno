@@ -530,7 +530,7 @@ const AdminExpenseAccounts: React.FC = () => {
         ))}
       </div>
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl h-[90vh] sm:h-[80vh] flex flex-col p-0">
+        <DialogContent className="max-w-4xl h-[90vh] sm:h-[80vh] flex flex-col p-0">
           <DialogHeader className="px-6 py-4 border-b">
             <DialogTitle className="text-lg sm:text-xl">Conta de Despesas de {selected?.employeeName}</DialogTitle>
           </DialogHeader>
