@@ -338,8 +338,9 @@ const AdminExpenseAccounts: React.FC = () => {
     const itemsByDate = groupByDate(filteredItems);
     const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
     const valorTotalItens = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
-    const totalPago = calculateTotalPaid(accountData.partial_payments || []);
-    const valorRestante = calculateRemainingAmount(valorTotalItens, totalPago);
+  const totalPago = calculateTotalPaid(accountData.partial_payments || []);
+  const totalAdvances = (advances && Array.isArray(advances)) ? advances.reduce((s, a) => s + (a.amount || 0), 0) : 0;
+  const valorRestante = Math.max(0, (valorTotalItens + totalAdvances) - totalPago);
     const nome = selected.employeeName;
     const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
@@ -365,6 +366,17 @@ const AdminExpenseAccounts: React.FC = () => {
         texto += `   • ${dataPagamento} - R$ ${payment.amount.toFixed(2)}\n`;
       });
       texto += `   Total pago: R$ ${totalPago.toFixed(2)}\n`;
+    }
+
+    // Adicionar seção de vales (advances) se houver
+    if (advances && advances.length > 0) {
+      texto += `\n💸 Vales concedidos:\n`;
+      advances.forEach((adv: any) => {
+        const dataVale = adv.created_at ? format(new Date(adv.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-';
+        const reason = adv.reason || adv.note || '';
+        texto += `   • ${dataVale} - R$ ${Number(adv.amount || 0).toFixed(2)}${reason ? ` (${reason})` : ''}\n`;
+      });
+      texto += `   Total vales: R$ ${totalAdvances.toFixed(2)}\n`;
     }
 
     texto += `\n💸 Valor restante a descontar: R$ ${valorRestante.toFixed(2)}\n\n=============================`;
@@ -452,15 +464,25 @@ const AdminExpenseAccounts: React.FC = () => {
     }, {} as Record<string, ExpenseItem[]>);
   };
 
-  // Função para copiar dados formatados para a área de transferência
-  const handleCopy = () => {
+  // Função para copiar dados formatados para a área de transferência (inclui vales)
+  const handleCopy = async () => {
     if (!selected || !accountData) return;
+    // Recarregar vales do servidor para garantir que estamos copiando o estado mais recente
+    let currentAdvances: any[] = [];
+    try {
+      currentAdvances = await listAdvances(selected.accountId);
+      setAdvances(currentAdvances || []);
+    } catch (err) {
+      currentAdvances = advances || [];
+    }
+
     const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
     const itemsByDate = groupByDate(filteredItems);
     const totalItens = filteredItems.reduce((sum, i) => sum + i.quantity, 0);
     const valorTotalItens = filteredItems.reduce((sum, i) => sum + i.quantity * i.unit_price, 0);
     const totalPago = calculateTotalPaid(accountData.partial_payments || []);
-    const valorRestante = calculateRemainingAmount(valorTotalItens, totalPago);
+    const totalAdvances = (currentAdvances && Array.isArray(currentAdvances)) ? currentAdvances.reduce((s, a) => s + (a.amount || 0), 0) : 0;
+    const valorRestante = Math.max(0, (valorTotalItens + totalAdvances) - totalPago);
     const nome = selected.employeeName;
     const dataAbertura = items.length > 0 ? format(new Date(items[items.length - 1].created_at), 'dd/MM/yyyy', { locale: ptBR }) : '-';
     const dataFechamento = format(new Date(), 'dd/MM/yyyy', { locale: ptBR });
@@ -488,8 +510,19 @@ const AdminExpenseAccounts: React.FC = () => {
       texto += `   Total pago: R$ ${totalPago.toFixed(2)}\n`;
     }
 
+    // Adicionar seção de vales (advances) se houver
+    if (currentAdvances && currentAdvances.length > 0) {
+      texto += `\n💸 Vales concedidos:\n`;
+      currentAdvances.forEach((adv: any) => {
+        const dataVale = adv.created_at ? format(new Date(adv.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-';
+        const reason = adv.reason || adv.note || '';
+        texto += `   • ${dataVale} - R$ ${Number(adv.amount || 0).toFixed(2)}${reason ? ` (${reason})` : ''}\n`;
+      });
+      texto += `   Total vales: R$ ${totalAdvances.toFixed(2)}\n`;
+    }
+
     texto += `\n💸 Valor restante a descontar: R$ ${valorRestante.toFixed(2)}\n\n=============================`;
-    navigator.clipboard.writeText(texto);
+    await navigator.clipboard.writeText(texto);
     toast({ title: 'Dados copiados!', description: 'Os dados foram copiados para a área de transferência.' });
   };
 
@@ -547,14 +580,19 @@ const AdminExpenseAccounts: React.FC = () => {
                     const filteredItems = items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]);
                     const totalItems = filteredItems.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
                     const totalPaid = calculateTotalPaid(accountData.partial_payments || []);
-                    const remainingAmount = calculateRemainingAmount(totalItems, totalPaid);
+                    const totalAdvances = (advances && Array.isArray(advances)) ? advances.reduce((s, a) => s + (a.amount || 0), 0) : 0;
+                    const remainingAmount = Math.max(0, (totalItems + totalAdvances) - totalPaid);
 
                     return (
                       <>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
                           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
                             <div className="text-xs sm:text-sm text-gray-600 mb-1">Total dos Itens</div>
                             <div className="text-lg sm:text-xl font-bold">R$ {totalItems.toFixed(2)}</div>
+                          </div>
+                          <div className="bg-yellow-50 p-3 sm:p-4 rounded-lg">
+                            <div className="text-xs sm:text-sm text-yellow-600 mb-1">Total Vales</div>
+                            <div className="text-lg sm:text-xl font-bold text-yellow-600">R$ {totalAdvances.toFixed(2)}</div>
                           </div>
                           <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
                             <div className="text-xs sm:text-sm text-green-600 mb-1">Total Pago</div>
@@ -756,12 +794,12 @@ const AdminExpenseAccounts: React.FC = () => {
           isOpen={paymentModalOpen}
           onClose={() => setPaymentModalOpen(false)}
           onAddPayment={handleAddPayment}
-          currentTotal={items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)}
+          currentTotal={items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) + ((advances && Array.isArray(advances)) ? advances.reduce((s, a) => s + (a.amount || 0), 0) : 0)}
           totalPaid={calculateTotalPaid(accountData.partial_payments || [])}
-          remainingAmount={calculateRemainingAmount(
-            items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
-            calculateTotalPaid(accountData.partial_payments || [])
-          )}
+          remainingAmount={Math.max(0, (
+            items.filter(i => !i.removed_by_admin && !ignoredItems[i.id]).reduce((sum, item) => sum + (item.unit_price * item.quantity), 0)
+            + ((advances && Array.isArray(advances)) ? advances.reduce((s, a) => s + (a.amount || 0), 0) : 0)
+          ) - calculateTotalPaid(accountData.partial_payments || []))}
         />
       )}
 
