@@ -174,9 +174,9 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
             {step === 1 ? 'Acesse sua conta do comércio' : 'Acesse seu perfil de funcionário'}
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent key={step}>
           {step === 1 && (
-            <form key="commerce" onSubmit={handleCommerceLogin} className="space-y-4">
+            <form onSubmit={handleCommerceLogin} className="space-y-4">
               <div>
                 <Label htmlFor="email">Email do comércio</Label>
                 <Input
@@ -222,24 +222,22 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 disabled={loading}
               >
-                <span className="flex items-center justify-center">
-                  {loading ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Entrando...
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <Lock className="h-4 w-4 mr-2" />
-                      Entrar
-                    </div>
-                  )}
-                </span>
+                {loading ? (
+                  <>
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></span>
+                    Entrando...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Entrar
+                  </>
+                )}
               </Button>
             </form>
           )}
           {step === 2 && (
-            <form key="employee" onSubmit={handleEmployeeProfileLogin} className="space-y-4">
+            <form onSubmit={handleEmployeeProfileLogin} className="space-y-4">
               <div>
                 <Label htmlFor="accessKey">Código de Acesso</Label>
                 <Input
@@ -285,19 +283,17 @@ export const Login = ({ onAdminLogin, onEmployeeLogin }: LoginProps) => {
                 className="w-full bg-orange-500 hover:bg-orange-600"
                 disabled={loading}
               >
-                <span className="flex items-center justify-center">
-                  {loading ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Entrando...
-                    </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <Lock className="h-4 w-4 mr-2" />
-                      Entrar como Funcionário
-                    </div>
-                  )}
-                </span>
+                {loading ? (
+                  <>
+                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 inline-block"></span>
+                    Entrando...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Entrar como Funcionário
+                  </>
+                )}
               </Button>
             </form>
           )}

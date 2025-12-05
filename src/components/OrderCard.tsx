@@ -7,15 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
 } from '@/components/ui/alert-dialog';
 import { Plus, User, Hash, CreditCard, X, Printer, AlertTriangle, Search, Trash2, Edit, MoreVertical, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
@@ -247,7 +247,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
         d => d.productId === selectedProduct.id && d.active && d.productType === ('current_stock' in selectedProduct ? 'external_product' : 'food')
       );
       const priceToUse = discount ? discount.newPrice : selectedProduct.price;
-      
+
       const isExternalProduct = 'current_stock' in selectedProduct;
       const newItem = {
         productId: selectedProduct.id,
@@ -362,18 +362,18 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       d => d.productId === product.id && d.active && d.productType === ('current_stock' in product ? 'external_product' : 'food')
     );
     const priceToUse = discount ? discount.newPrice : product.price;
-    
+
     const exists = addItemsSelected.find(item => item.productId === product.id);
     if (exists) {
       setAddItemsSelected(prev => prev.map(item =>
         item.productId === product.id
-          ? { 
-              ...item, 
-              quantity: item.quantity + 1, 
-              totalPrice: (item.quantity + 1) * priceToUse,
-              unitPrice: priceToUse
-              // Dados de desconto já estão preservados pelo spread operator (...item)
-            }
+          ? {
+            ...item,
+            quantity: item.quantity + 1,
+            totalPrice: (item.quantity + 1) * priceToUse,
+            unitPrice: priceToUse
+            // Dados de desconto já estão preservados pelo spread operator (...item)
+          }
           : item
       ));
     } else {
@@ -404,12 +404,12 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     }
     setAddItemsSelected(prev => prev.map(item =>
       item.productId === productId
-        ? { 
-            ...item, 
-            quantity, 
-            totalPrice: quantity * item.unitPrice
-            // Dados de desconto já estão preservados pelo spread operator (...item)
-          }
+        ? {
+          ...item,
+          quantity,
+          totalPrice: quantity * item.unitPrice
+          // Dados de desconto já estão preservados pelo spread operator (...item)
+        }
         : item
     ));
   };
@@ -553,7 +553,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
       // Adicionar o valor do item como desconto manual
       const itemTotal = item.totalPrice;
       setManualDiscounts(prev => [...prev, itemTotal]);
-      
+
       toast({
         title: "Cortesia Aplicada",
         description: `${item.product_name} foi dado de cortesia (R$ ${itemTotal.toFixed(2)})`,
@@ -610,7 +610,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     try {
       // 1. Verificar se existe conta de despesa aberta para o funcionário
       let expenseAccount = await getOpenExpenseAccount(selectedEmployee.id);
-      
+
       // 2. Se não existir, criar uma nova conta
       if (!expenseAccount) {
         expenseAccount = await openExpenseAccount(currentUser.id, selectedEmployee.id);
@@ -692,11 +692,11 @@ export const OrderCard = ({ order }: OrderCardProps) => {
           </div>
           <div className="flex flex-col items-end gap-1 min-w-fit">
             <div className="flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={e => { 
-                  e.stopPropagation(); 
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={e => {
+                  e.stopPropagation();
                   setOrderToPrint(order);
                 }}
               >
@@ -733,8 +733,8 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                   )}
                 </div>
                 <div className="text-right mr-2">
-                   <div className="text-gray-500">R$ {item.unitPrice.toFixed(2)} cada</div>
-                   <div>R$ {item.totalPrice.toFixed(2)}</div>
+                  <div className="text-gray-500">R$ {item.unitPrice.toFixed(2)} cada</div>
+                  <div>R$ {item.totalPrice.toFixed(2)}</div>
                 </div>
                 {order.status === 'open' && (
                   <DropdownMenu>
@@ -748,7 +748,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                         <Edit className="h-4 w-4 mr-2" />
                         Dar de Cortesia
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => openAssignLossModal(item)}
                         className="text-red-600 focus:text-red-600"
                       >
@@ -1037,7 +1037,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                                     <Edit className="h-4 w-4 mr-2" />
                                     Dar de Cortesia
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     onClick={() => openAssignLossModal(item)}
                                     className="text-red-600 focus:text-red-600"
                                   >

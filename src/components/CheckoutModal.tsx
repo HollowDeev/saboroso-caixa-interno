@@ -167,230 +167,230 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-  <DialogContent className="w-full max-w-md h-[90vh] max-h-[800px] mx-auto rounded-xl shadow-lg flex flex-col" style={{margin: '40px auto'}}>
+      <DialogContent className="w-full max-w-md h-[90vh] max-h-[800px] mx-auto rounded-xl shadow-lg flex flex-col" style={{ margin: '40px auto' }}>
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Finalizar Comanda</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto pr-2">
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="finalCustomerName">Nome do Cliente</Label>
-              <Input
-                id="finalCustomerName"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Digite o nome do cliente"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
-              <Select value={paymentMethod} onValueChange={(value: 'cash' | 'card' | 'pix') => setPaymentMethod(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Dinheiro</SelectItem>
-                  <SelectItem value="card">Cartão</SelectItem>
-                  <SelectItem value="pix">PIX</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="amountPaid">Valor Pago</Label>
-              <Input
-                id="amountPaid"
-                type="text"
-                inputMode="decimal"
-                pattern="[0-9]*[.,]?[0-9]*"
-                value={amountPaid === 0 ? '' : amountPaid}
-                onChange={e => setAmountPaid(Number(e.target.value.replace(',', '.')))}
-                placeholder="Digite o valor pago pelo cliente"
-              />
-            </div>
-            {/* Campo para adicionar desconto manual */}
-            <div className="flex items-end gap-2 mt-2 border border-red-500 p-2">
-              <div className="flex-1">
-                <Label htmlFor="manualDiscount">Adicionar Desconto (R$)</Label>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="finalCustomerName">Nome do Cliente</Label>
                 <Input
-                  id="manualDiscount"
+                  id="finalCustomerName"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Digite o nome do cliente"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="paymentMethod">Forma de Pagamento</Label>
+                <Select value={paymentMethod} onValueChange={(value: 'cash' | 'card' | 'pix') => setPaymentMethod(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Dinheiro</SelectItem>
+                    <SelectItem value="card">Cartão</SelectItem>
+                    <SelectItem value="pix">PIX</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="amountPaid">Valor Pago</Label>
+                <Input
+                  id="amountPaid"
                   type="text"
                   inputMode="decimal"
                   pattern="[0-9]*[.,]?[0-9]*"
-                  value={discountInput}
-                  onChange={e => setDiscountInput(e.target.value)}
-                  placeholder="Ex: 10,00"
-                  className="mt-1"
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManualDiscount(); } }}
+                  value={amountPaid === 0 ? '' : amountPaid}
+                  onChange={e => setAmountPaid(Number(e.target.value.replace(',', '.')))}
+                  placeholder="Digite o valor pago pelo cliente"
                 />
               </div>
-              <Button type="button" onClick={addManualDiscount} className="h-10">Adicionar</Button>
-            </div>
-            {/* Lista de descontos aplicados */}
-            {manualDiscounts.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2 border border-blue-500 p-2">
-                {manualDiscounts.map((d, i) => (
-                  <Badge key={i} variant="secondary" className="flex items-center gap-1">
-                    R$ {d.toFixed(2)}
-                    <Button size="icon" variant="ghost" onClick={() => removeManualDiscount(i)} className="ml-1 p-0 h-4 w-4">×</Button>
-                  </Badge>
-                ))}
+              {/* Campo para adicionar desconto manual */}
+              <div className="flex items-end gap-2 mt-2 border border-red-500 p-2">
+                <div className="flex-1">
+                  <Label htmlFor="manualDiscount">Adicionar Desconto (R$)</Label>
+                  <Input
+                    id="manualDiscount"
+                    type="text"
+                    inputMode="decimal"
+                    pattern="[0-9]*[.,]?[0-9]*"
+                    value={discountInput}
+                    onChange={e => setDiscountInput(e.target.value)}
+                    placeholder="Ex: 10,00"
+                    className="mt-1"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addManualDiscount(); } }}
+                  />
+                </div>
+                <Button type="button" onClick={addManualDiscount} className="h-10">Adicionar</Button>
               </div>
-            )}
-
-            <div>
-              <Label htmlFor="productSearch">Adicionar Produtos</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  id="productSearch"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Pesquisar produtos para adicionar..."
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {searchTerm && (
-              <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
-                {filteredFoodProducts.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
-                    {filteredFoodProducts.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
-                        <div>
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => addProductToOrder(product)}
-                          className="bg-green-500 hover:bg-green-600"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {filteredExternalProducts.length > 0 && (
-                  <div className={filteredFoodProducts.length > 0 ? "mt-3" : ""}>
-                    <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
-                    {filteredExternalProducts.map((product) => (
-                      <div key={product.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
-                        <div>
-                          <p className="font-medium text-sm">{product.name}</p>
-                          <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
-                          {product.brand && (
-                            <p className="text-xs text-gray-500">{product.brand}</p>
-                          )}
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => addProductToOrder(product)}
-                          className="bg-green-500 hover:bg-green-600"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
-                  <div className="text-center py-4 text-gray-500 text-sm">
-                    Nenhum produto encontrado
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold mb-3">Itens da Comanda</h3>
-                <div className="space-y-2 h-[300px] overflow-y-auto border rounded-lg bg-white">
-                  {selectedProducts.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{item.product_name || item.product?.name}</p>
-                        <p className="text-xs text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateProductQuantity(item.productId, item.quantity - 1)}
-                        >
-                          -
-                        </Button>
-                        <span className="w-6 text-center text-sm">{item.quantity}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => updateProductQuantity(item.productId, item.quantity + 1)}
-                        >
-                          +
-                        </Button>
-                      </div>
-                    </div>
+              {/* Lista de descontos aplicados */}
+              {manualDiscounts.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2 border border-blue-500 p-2">
+                  {manualDiscounts.map((d, i) => (
+                    <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                      R$ {d.toFixed(2)}
+                      <Button size="icon" variant="ghost" onClick={() => removeManualDiscount(i)} className="ml-1 p-0 h-4 w-4">×</Button>
+                    </Badge>
                   ))}
                 </div>
+              )}
+
+              <div>
+                <Label htmlFor="productSearch">Adicionar Produtos</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    id="productSearch"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Pesquisar produtos para adicionar..."
+                    className="pl-10"
+                  />
+                </div>
               </div>
 
-              <div className="border-t pt-4 space-y-2">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Subtotal:</span>
-                  <span>R$ {subtotal.toFixed(2)}</span>
+              {searchTerm && (
+                <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
+                  {filteredFoodProducts.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Comidas</h4>
+                      {filteredFoodProducts.map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                          <div>
+                            <p className="font-medium text-sm">{product.name}</p>
+                            <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => addProductToOrder(product)}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {filteredExternalProducts.length > 0 && (
+                    <div className={filteredFoodProducts.length > 0 ? "mt-3" : ""}>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Produtos Externos</h4>
+                      {filteredExternalProducts.map((product) => (
+                        <div key={product.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                          <div>
+                            <p className="font-medium text-sm">{product.name}</p>
+                            <p className="text-xs text-gray-600">R$ {product.price.toFixed(2)}</p>
+                            {product.brand && (
+                              <p className="text-xs text-gray-500">{product.brand}</p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => addProductToOrder(product)}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {filteredFoodProducts.length === 0 && filteredExternalProducts.length === 0 && (
+                    <div className="text-center py-4 text-gray-500 text-sm">
+                      Nenhum produto encontrado
+                    </div>
+                  )}
                 </div>
-                {totalDiscount > 0 && (
-                  <div className="flex justify-between text-base text-green-600">
-                    <span>Descontos:</span>
-                    <span>- R$ {totalDiscount.toFixed(2)}</span>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-3">Itens da Comanda</h3>
+                  <div className="space-y-2 h-[300px] overflow-y-auto border rounded-lg bg-white">
+                    {selectedProducts.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{item.product_name || item.product?.name}</p>
+                          <p className="text-xs text-gray-600">R$ {item.unitPrice.toFixed(2)} cada</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateProductQuantity(item.productId, item.quantity - 1)}
+                          >
+                            -
+                          </Button>
+                          <span className="w-6 text-center text-sm">{item.quantity}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateProductQuantity(item.productId, item.quantity + 1)}
+                          >
+                            +
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>R$ {total.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-base">
-                  <span>Valor Pago:</span>
-                  <span>R$ {amountPaid.toFixed(2)}</span>
-                </div>
-                {remainingAmount > 0 && (
-                  <div className="flex justify-between text-base text-red-600">
-                    <span>Resta a pagar:</span>
-                    <span>R$ {remainingAmount.toFixed(2)}</span>
+
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Subtotal:</span>
+                    <span>R$ {subtotal.toFixed(2)}</span>
                   </div>
-                )}
-                {change > 0 && (
-                  <div className="flex justify-between font-bold text-green-600">
-                    <span>Troco:</span>
-                    <span>R$ {change.toFixed(2)}</span>
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-base text-green-600">
+                      <span>Descontos:</span>
+                      <span>- R$ {totalDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span>R$ {total.toFixed(2)}</span>
                   </div>
-                )}
-                <div className="flex space-x-2 mt-4">
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    onClick={finalizeSale}
-                    className="flex-1 bg-green-500 hover:bg-green-600"
-                  >
-                    Finalizar Venda
-                  </Button>
+                  <div className="flex justify-between text-base">
+                    <span>Valor Pago:</span>
+                    <span>R$ {amountPaid.toFixed(2)}</span>
+                  </div>
+                  {remainingAmount > 0 && (
+                    <div className="flex justify-between text-base text-red-600">
+                      <span>Resta a pagar:</span>
+                      <span>R$ {remainingAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {change > 0 && (
+                    <div className="flex justify-between font-bold text-green-600">
+                      <span>Troco:</span>
+                      <span>R$ {change.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex space-x-2 mt-4">
+                    <Button
+                      variant="outline"
+                      onClick={onClose}
+                      className="flex-1"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={finalizeSale}
+                      className="flex-1 bg-green-500 hover:bg-green-600"
+                    >
+                      Finalizar Venda
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
         </div>
       </DialogContent>
     </Dialog>
