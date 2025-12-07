@@ -133,12 +133,15 @@ export const addExternalProduct = async (
 };
 
 export const updateExternalProduct = async (id: string, updates: Partial<ExternalProduct>) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('external_products')
     .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select()
+    .single();
 
   if (error) throw error;
+  return data;
 };
 
 export const deleteExternalProduct = async (id: string) => {
@@ -169,12 +172,15 @@ export const addIngredient = async (
 };
 
 export const updateIngredient = async (id: string, updates: Partial<Ingredient>) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('ingredients')
     .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select()
+    .single();
 
   if (error) throw error;
+  return data;
 };
 
 export const deleteIngredient = async (id: string) => {

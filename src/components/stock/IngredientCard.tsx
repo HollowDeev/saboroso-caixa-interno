@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,11 @@ export const IngredientCard: React.FC<IngredientCardProps> = ({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editedIngredient, setEditedIngredient] = useState(ingredient);
 
+  // Sincronizar estado local quando ingredient muda
+  useEffect(() => {
+    setEditedIngredient(ingredient);
+  }, [ingredient]);
+
   const getStockStatus = (currentStock: number, minStock: number) => {
     if (currentStock === 0) return { status: 'out', color: 'destructive', text: 'Sem estoque' };
     if (currentStock <= minStock) return { status: 'low', color: 'warning', text: 'Estoque baixo' };
@@ -45,6 +50,7 @@ export const IngredientCard: React.FC<IngredientCardProps> = ({
         supplier: editedIngredient.supplier,
         description: editedIngredient.description,
       });
+      toast.success('Ingrediente atualizado com sucesso');
       setIsEditOpen(false);
     } catch (error) {
       console.error('Erro ao atualizar ingrediente:', error);

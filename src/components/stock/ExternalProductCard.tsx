@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,11 @@ export const ExternalProductCard: React.FC<ExternalProductCardProps> = ({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editedProduct, setEditedProduct] = useState(product);
 
+  // Sincronizar estado local quando product muda
+  useEffect(() => {
+    setEditedProduct(product);
+  }, [product]);
+
   const getStockStatus = (currentStock: number, minStock: number) => {
     if (currentStock === 0) return { status: 'out', color: 'destructive', text: 'Sem estoque' };
     if (currentStock <= minStock) return { status: 'low', color: 'warning', text: 'Estoque baixo' };
@@ -45,6 +50,7 @@ export const ExternalProductCard: React.FC<ExternalProductCardProps> = ({
         current_stock: editedProduct.current_stock,
         min_stock: editedProduct.min_stock,
       });
+      toast.success('Produto atualizado com sucesso');
       setIsEditOpen(false);
     } catch (error) {
       console.error('Erro ao atualizar produto:', error);

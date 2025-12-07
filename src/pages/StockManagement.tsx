@@ -49,15 +49,15 @@ export const StockManagement = () => {
   // Itens com estoque baixo ou zerado
   const lowOrNoStockItems = useMemo(() => {
     return [
-      ...ingredients.filter(item => item.current_stock <= (item.min_stock || 0)),
-      ...externalProducts.filter(item => item.current_stock <= (item.min_stock || 0)),
+      ...ingredients.filter(item => item && typeof item.current_stock === 'number' && item.current_stock <= (item.min_stock || 0)),
+      ...externalProducts.filter(item => item && typeof item.current_stock === 'number' && item.current_stock <= (item.min_stock || 0)),
     ];
   }, [ingredients, externalProducts]);
 
   // Exportar apenas itens com estoque baixo/zerado (CSV)
   const exportLowStockCSV = () => {
     const allItems = [
-      ...ingredients.filter(item => item.current_stock <= (item.min_stock || 0)).map(item => ({
+      ...ingredients.filter(item => item && typeof item.current_stock === 'number' && item.current_stock <= (item.min_stock || 0)).map(item => ({
         tipo: 'Ingrediente',
         nome: item.name,
         estoque: item.current_stock,
@@ -66,7 +66,7 @@ export const StockManagement = () => {
         estoque_minimo: item.min_stock,
         fornecedor: item.supplier || ''
       })),
-      ...externalProducts.filter(item => item.current_stock <= (item.min_stock || 0)).map(item => ({
+      ...externalProducts.filter(item => item && typeof item.current_stock === 'number' && item.current_stock <= (item.min_stock || 0)).map(item => ({
         tipo: 'Produto Externo',
         nome: item.name,
         estoque: item.current_stock,
@@ -96,10 +96,10 @@ export const StockManagement = () => {
   // Copiar apenas itens com estoque baixo/zerado, formatado conforme especificação
   const copyLowStockData = () => {
     // Separar ingredientes e produtos externos
-    const lowStockIngredients = ingredients.filter(item => item.current_stock > 0 && item.current_stock <= (item.min_stock || 0));
-    const noStockIngredients = ingredients.filter(item => item.current_stock === 0);
-    const lowStockExternal = externalProducts.filter(item => item.current_stock > 0 && item.current_stock <= (item.min_stock || 0));
-    const noStockExternal = externalProducts.filter(item => item.current_stock === 0);
+    const lowStockIngredients = ingredients.filter(item => item && typeof item.current_stock === 'number' && item.current_stock > 0 && item.current_stock <= (item.min_stock || 0));
+    const noStockIngredients = ingredients.filter(item => item && typeof item.current_stock === 'number' && item.current_stock === 0);
+    const lowStockExternal = externalProducts.filter(item => item && typeof item.current_stock === 'number' && item.current_stock > 0 && item.current_stock <= (item.min_stock || 0));
+    const noStockExternal = externalProducts.filter(item => item && typeof item.current_stock === 'number' && item.current_stock === 0);
 
     // Montar linhas formatadas
     const formatLine = (item, type) => {
@@ -133,7 +133,7 @@ export const StockManagement = () => {
     const pad = n => n.toString().padStart(2, '0');
     const dataStr = `${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()}`;
 
-  const text = `*Relatório*\n*Estoque baixo / Sem estoque*\nData: ${dataStr}\n\n*Total*: ${total} itens \n*Sem estoque:* ${totalNoStock} 🔴 \n*Estoque baixo:* ${totalLowStock} 🟠\n\n${lines.join('\n\n')}`;
+    const text = `*Relatório*\n*Estoque baixo / Sem estoque*\nData: ${dataStr}\n\n*Total*: ${total} itens \n*Sem estoque:* ${totalNoStock} 🔴 \n*Estoque baixo:* ${totalLowStock} 🟠\n\n${lines.join('\n\n')}`;
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Dados de estoque baixo copiados!');
     }).catch(() => {
@@ -349,32 +349,35 @@ export const StockManagement = () => {
   };
 
   const filteredIngredients = useMemo(() => {
-    if (!searchTerm) return ingredients;
+    if (!searchTerm) return ingredients.filter(ingredient => ingredient && ingredient.id);
     const term = searchTerm.toLowerCase();
     return ingredients.filter(ingredient =>
-      ingredient.name.toLowerCase().includes(term) ||
-      (ingredient.description?.toLowerCase().includes(term)) ||
-      (ingredient.supplier?.toLowerCase().includes(term))
+      ingredient && ingredient.id &&
+      (ingredient.name?.toLowerCase().includes(term) ||
+        ingredient.description?.toLowerCase().includes(term) ||
+        ingredient.supplier?.toLowerCase().includes(term))
     );
   }, [ingredients, searchTerm]);
 
   const filteredExternalProducts = useMemo(() => {
-    if (!searchTerm) return externalProducts;
+    if (!searchTerm) return externalProducts.filter(product => product && product.id);
     const term = searchTerm.toLowerCase();
     return externalProducts.filter(product =>
-      product.name.toLowerCase().includes(term) ||
-      (product.description?.toLowerCase().includes(term)) ||
-      (product.brand?.toLowerCase().includes(term))
+      product && product.id &&
+      (product.name?.toLowerCase().includes(term) ||
+        product.description?.toLowerCase().includes(term) ||
+        product.brand?.toLowerCase().includes(term))
     );
   }, [externalProducts, searchTerm]);
 
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
+    if (!searchTerm) return products.filter(product => product && product.id);
     const term = searchTerm.toLowerCase();
     return products.filter(product =>
-      product.name.toLowerCase().includes(term) ||
-      (product.description?.toLowerCase().includes(term)) ||
-      (product.category?.toLowerCase().includes(term))
+      product && product.id &&
+      (product.name?.toLowerCase().includes(term) ||
+        product.description?.toLowerCase().includes(term) ||
+        product.category?.toLowerCase().includes(term))
     );
   }, [products, searchTerm]);
 
