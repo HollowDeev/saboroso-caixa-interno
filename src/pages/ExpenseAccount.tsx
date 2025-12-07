@@ -262,44 +262,46 @@ const ExpenseAccount: React.FC = () => {
   // Se for o Wesley, mostrar tabs de funcionários
   if (profileId === WESLEY_ID) {
     return (
-      <div className="max-w-5xl mx-auto p-6">
-        <h1 className="text-2xl font-bold mb-6">Contas de Despesa dos Funcionários</h1>
+      <div className="w-full max-w-5xl mx-auto p-3 sm:p-4 md:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Contas de Despesa dos Funcionários</h1>
         <Tabs value={selectedEmployeeId || ''} onValueChange={setSelectedEmployeeId}>
-          <TabsList>
+          <TabsList className="w-full flex-wrap justify-start gap-1">
             {employees.map(emp => (
-              <TabsTrigger key={emp.id} value={emp.id}>{emp.name}</TabsTrigger>
+              <TabsTrigger key={emp.id} value={emp.id} className="text-xs sm:text-sm px-2 sm:px-4">{emp.name}</TabsTrigger>
             ))}
           </TabsList>
           {employees.map(emp => (
             <TabsContent key={emp.id} value={emp.id}>
-              {empLoading && selectedEmployeeId === emp.id && <div className="text-center text-gray-500 py-8">Carregando...</div>}
-              {empError && selectedEmployeeId === emp.id && <div className="text-center text-red-500 py-8">{empError}</div>}
+              {empLoading && selectedEmployeeId === emp.id && <div className="text-center text-gray-500 py-6 sm:py-8">Carregando...</div>}
+              {empError && selectedEmployeeId === emp.id && <div className="text-center text-red-500 py-6 sm:py-8 px-4">{empError}</div>}
               {!empLoading && !empAccount && selectedEmployeeId === emp.id && (
-                <div className="flex flex-col items-center py-12">
-                  <div className="text-lg mb-4">Nenhuma conta de despesas aberta.</div>
-                  <Button className="bg-green-600 hover:bg-green-700" onClick={handleOpenAccountForEmployee}>
+                <div className="flex flex-col items-center py-8 sm:py-12 px-4">
+                  <div className="text-base sm:text-lg mb-4 text-center">Nenhuma conta de despesas aberta.</div>
+                  <Button className="bg-green-600 hover:bg-green-700 w-full sm:w-auto" onClick={handleOpenAccountForEmployee}>
                     Abrir Nova Conta de Despesa
                   </Button>
                 </div>
               )}
               {empAccount && selectedEmployeeId === emp.id && (
                 <>
-                  <Button
-                    className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2 mb-6"
-                    onClick={() => setIsAddModalOpen(true)}
-                  >
-                    <Plus className="w-4 h-4" /> Adicionar Item
-                  </Button>
-                  {/* Botão para adicionar Vale (Wesley ou dono da conta) */}
-                  {(profileId === WESLEY_ID || currentUser?.id === empAccount.owner_id || currentUser?.owner_id === empAccount.owner_id || currentUser?.role === 'admin') && (
+                  <div className="flex flex-col sm:flex-row gap-2 mb-4 sm:mb-6">
                     <Button
-                      className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-2 mb-6 ml-2"
-                      onClick={() => setIsAddAdvanceModalOpen(true)}
-                      title="Adicionar Vale"
+                      className="bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2 w-full sm:w-auto"
+                      onClick={() => setIsAddModalOpen(true)}
                     >
-                      <Plus className="w-4 h-4" /> Adicionar Vale
+                      <Plus className="w-4 h-4" /> Adicionar Item
                     </Button>
-                  )}
+                    {/* Botão para adicionar Vale (Wesley ou dono da conta) */}
+                    {(profileId === WESLEY_ID || currentUser?.id === empAccount.owner_id || currentUser?.owner_id === empAccount.owner_id || currentUser?.role === 'admin') && (
+                      <Button
+                        className="bg-yellow-600 hover:bg-yellow-700 flex items-center justify-center gap-2 w-full sm:w-auto"
+                        onClick={() => setIsAddAdvanceModalOpen(true)}
+                        title="Adicionar Vale"
+                      >
+                        <Plus className="w-4 h-4" /> Adicionar Vale
+                      </Button>
+                    )}
+                  </div>
                   <ExpenseAccountItemsList 
                     items={empItems} 
                     accountId={empAccount.id}
@@ -358,34 +360,36 @@ const ExpenseAccount: React.FC = () => {
 
   // Funcionamento padrão para outros usuários
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Conta de Despesas</h1>
+    <div className="w-full max-w-5xl mx-auto p-3 sm:p-4 md:p-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold">Conta de Despesas</h1>
       </div>
       {account && (
-        <Button
-          className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2 mb-6"
-          onClick={() => setIsAddModalOpen(true)}
-        >
-          <Plus className="w-4 h-4" /> Adicionar Item
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 mb-4 sm:mb-6">
+          <Button
+            className="bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2 w-full sm:w-auto"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            <Plus className="w-4 h-4" /> Adicionar Item
+          </Button>
+          {/* Botão para adicionar Vale pelo dono da conta (admin) */}
+          {(currentUser?.id === account.owner_id || currentUser?.owner_id === account.owner_id || currentUser?.role === 'admin') && (
+            <Button
+              className="bg-yellow-600 hover:bg-yellow-700 flex items-center justify-center gap-2 w-full sm:w-auto"
+              onClick={() => setIsAddAdvanceModalOpen(true)}
+              title="Adicionar Vale"
+            >
+              <Plus className="w-4 h-4" /> Adicionar Vale
+            </Button>
+          )}
+        </div>
       )}
-      {/* Botão para adicionar Vale pelo dono da conta (admin) */}
-      {account && (currentUser?.id === account.owner_id || currentUser?.owner_id === account.owner_id || currentUser?.role === 'admin') && (
-        <Button
-          className="bg-yellow-600 hover:bg-yellow-700 flex items-center gap-2 mb-6 ml-2"
-          onClick={() => setIsAddAdvanceModalOpen(true)}
-          title="Adicionar Vale"
-        >
-          <Plus className="w-4 h-4" /> Adicionar Vale
-        </Button>
-      )}
-      {loading && <div className="text-center text-gray-500 py-8">Carregando...</div>}
-      {error && <div className="text-center text-red-500 py-8">{error}</div>}
+      {loading && <div className="text-center text-gray-500 py-6 sm:py-8">Carregando...</div>}
+      {error && <div className="text-center text-red-500 py-6 sm:py-8 px-4">{error}</div>}
       {!loading && !account && (
-        <div className="flex flex-col items-center py-12">
-          <div className="text-lg mb-4">Nenhuma conta de despesas aberta.</div>
-          <Button className="bg-green-600 hover:bg-green-700" onClick={openAccount}>
+        <div className="flex flex-col items-center py-8 sm:py-12 px-4">
+          <div className="text-base sm:text-lg mb-4 text-center">Nenhuma conta de despesas aberta.</div>
+          <Button className="bg-green-600 hover:bg-green-700 w-full sm:w-auto" onClick={openAccount}>
             Abrir Nova Conta de Despesa
           </Button>
         </div>

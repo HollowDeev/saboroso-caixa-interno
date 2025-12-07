@@ -530,13 +530,13 @@ const AdminExpenseAccounts: React.FC = () => {
 
   return (
     <>
-      <div className="flex justify-end mb-6 gap-4">
-        <div className="w-64">
+      <div className="flex justify-end mb-4 sm:mb-6 gap-4">
+        <div className="w-full sm:w-64">
           <Select value={selectedEmployeeId} onValueChange={(value) => {
             setSelectedEmployeeId(value);
             handleCreateAccount(value);
           }}>
-            <SelectTrigger>
+            <SelectTrigger className="text-sm sm:text-base">
               <SelectValue placeholder="Abrir conta para funcionário" />
             </SelectTrigger>
             <SelectContent>
@@ -550,7 +550,7 @@ const AdminExpenseAccounts: React.FC = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {accounts.map(acc => (
           <Card key={acc.accountId} className={cardClasses}>
             <CardHeader>

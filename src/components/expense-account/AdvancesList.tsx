@@ -68,10 +68,10 @@ const AdvancesList: React.FC<Props> = ({ accountId, employeeId, onChange }) => {
   if (!accountId) return null;
 
   return (
-    <div className="bg-white rounded shadow p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="font-medium">Vales / Adiantamentos</h4>
-        <div className="text-sm text-gray-600">Total: R$ {totalAdvances.toFixed(2)}</div>
+    <div className="bg-white rounded shadow p-3 sm:p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+        <h4 className="font-medium text-sm sm:text-base">Vales / Adiantamentos</h4>
+        <div className="text-xs sm:text-sm text-gray-600">Total: R$ {totalAdvances.toFixed(2)}</div>
       </div>
 
       {loading && <div className="text-sm text-gray-500">Carregando vales...</div>}
@@ -83,15 +83,15 @@ const AdvancesList: React.FC<Props> = ({ accountId, employeeId, onChange }) => {
       {!loading && advances.length > 0 && (
         <ul className="space-y-2">
           {advances.map(a => (
-            <li key={a.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
-              <div>
-                <div className="text-sm font-medium">R$ {a.amount.toFixed(2)}</div>
-                <div className="text-xs text-gray-600">{a.reason}</div>
+            <li key={a.id} className="flex flex-row justify-between items-start gap-2 bg-gray-50 p-2 sm:p-3 rounded">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm sm:text-base font-medium">R$ {a.amount.toFixed(2)}</div>
+                <div className="text-xs sm:text-sm text-gray-600 truncate">{a.reason}</div>
                 <div className="text-xs text-gray-500">{format(new Date(a.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</div>
               </div>
               {isAdmin && (
-                <Button size="sm" variant="ghost" className="text-red-600 h-8 w-8 p-0" onClick={() => handleRemove(a.id)}>
-                  {removing === a.id ? <span className="animate-spin w-3 h-3 border border-red-500 border-t-transparent rounded-full inline-block"></span> : <Trash2 className="w-4 h-4" />}
+                <Button size="sm" variant="ghost" className="text-red-600 h-8 w-8 p-0 flex-shrink-0" onClick={() => handleRemove(a.id)}>
+                  {removing === a.id ? <span className="animate-spin w-3 h-3 border border-red-500 border-t-transparent rounded-full inline-block"></span> : <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                 </Button>
               )}
             </li>

@@ -90,9 +90,9 @@ const AddAdvanceModal: React.FC<Props> = ({ isOpen, onClose, accountId, employee
             <Input id="advanceReason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo do vale" disabled={isSaving} />
           </div>
 
-          <div className="flex gap-2 justify-end pt-4">
-            <Button variant="outline" onClick={handleClose} disabled={isSaving}>Cancelar</Button>
-            <Button type="submit" className="bg-orange-600 hover:bg-orange-700" disabled={isSaving || !amount}> 
+          <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4">
+            <Button variant="outline" onClick={handleClose} disabled={isSaving} className="w-full sm:w-auto">Cancelar</Button>
+            <Button type="submit" className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto" disabled={isSaving || !amount}> 
               {isSaving ? 'Salvando...' : 'Adicionar Vale'}
             </Button>
           </div>

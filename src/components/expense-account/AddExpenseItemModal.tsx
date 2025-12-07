@@ -75,11 +75,11 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-6">
+      <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[90vh] sm:max-h-[95vh] overflow-y-auto p-3 sm:p-4 md:p-6">
         <DialogHeader>
-          <DialogTitle className="text-xl">Adicionar Itens à Conta de Despesas</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg md:text-xl">Adicionar Itens à Conta de Despesas</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleAddItems} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <form onSubmit={handleAddItems} className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           <div className="space-y-4">
             <div>
               <label htmlFor="itemSearch" className="block text-sm font-medium mb-1">Pesquisar Produtos ou Comidas</label>
@@ -94,26 +94,26 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
                 />
               </div>
             </div>
-            <div className="h-96 overflow-y-auto border rounded-lg p-3 bg-white">
+            <div className="h-64 sm:h-80 lg:h-96 overflow-y-auto border rounded-lg p-2 sm:p-3 bg-white">
               {filteredFoods.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Comidas ({filteredFoods.length})</h4>
                   {filteredFoods.map(product => (
-                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{product.name}</p>
-                        <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                    <div key={product.id} className="flex items-start sm:items-center justify-between p-2 sm:p-3 border rounded-lg mb-2 bg-white gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-xs sm:text-sm truncate">{product.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
                         {product.description && (
-                          <p className="text-xs text-gray-500 mt-1">{product.description}</p>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-1">{product.description}</p>
                         )}
                       </div>
                       <Button
                         size="sm"
                         type="button"
                         onClick={() => addItem({ id: product.id, name: product.name, price: product.price, quantity: 1, type: 'food' })}
-                        className="bg-green-500 hover:bg-green-600 ml-2"
+                        className="bg-green-500 hover:bg-green-600 flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 p-0"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   ))}
@@ -123,21 +123,21 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
                 <div className={filteredFoods.length > 0 ? 'mt-4' : ''}>
                   <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Produtos Externos ({filteredExternals.length})</h4>
                   {filteredExternals.map(product => (
-                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{product.name}</p>
-                        <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                    <div key={product.id} className="flex items-start sm:items-center justify-between p-2 sm:p-3 border rounded-lg mb-2 bg-white gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-xs sm:text-sm truncate">{product.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
                         {product.description && (
-                          <p className="text-xs text-gray-500 mt-1">{product.description}</p>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-1">{product.description}</p>
                         )}
                       </div>
                       <Button
                         size="sm"
                         type="button"
                         onClick={() => addItem({ id: product.id, name: product.name, price: product.price, quantity: 1, type: 'external_product' })}
-                        className="bg-green-500 hover:bg-green-600 ml-2"
+                        className="bg-green-500 hover:bg-green-600 flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 p-0"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                       </Button>
                     </div>
                   ))}
@@ -148,36 +148,36 @@ const AddExpenseItemModal: React.FC<AddExpenseItemModalProps> = ({ isOpen, onClo
               )}
             </div>
           </div>
-          <div className="space-y-4">
-            <h3 className="font-semibold mb-3">Itens Selecionados</h3>
-            <div className="h-96 overflow-y-auto border rounded-lg p-3 bg-white">
+          <div className="space-y-3 sm:space-y-4">
+            <h3 className="font-semibold text-sm sm:text-base mb-2 sm:mb-3">Itens Selecionados</h3>
+            <div className="h-64 sm:h-80 lg:h-96 overflow-y-auto border rounded-lg p-2 sm:p-3 bg-white">
               {selectedItems.length === 0 ? (
-                <div className="text-gray-500 text-center py-8">Nenhum item selecionado.</div>
+                <div className="text-gray-500 text-center py-8 text-sm">Nenhum item selecionado.</div>
               ) : (
                 selectedItems.map(item => (
-                  <div key={item.id + item.type} className="flex items-center justify-between border-b py-2">
-                    <div>
-                      <p className="font-medium text-sm">{item.name}</p>
+                  <div key={item.id + item.type} className="flex items-center justify-between border-b py-2 gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs sm:text-sm truncate">{item.name}</p>
                       <p className="text-xs text-gray-500">{item.type === 'food' ? 'Comida' : 'Produto Externo'}</p>
-                      <p className="text-sm text-gray-600">R$ {item.price.toFixed(2)} x </p>
+                      <p className="text-xs sm:text-sm text-gray-600">R$ {item.price.toFixed(2)} x </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                       <Input
                         type="number"
                         min={1}
                         value={item.quantity}
                         onChange={e => updateQuantity(item.id, item.type, Number(e.target.value))}
-                        className="w-16"
+                        className="w-12 sm:w-16 text-xs sm:text-sm"
                       />
-                      <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(item.id, item.type)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeItem(item.id, item.type)} className="h-8 w-8">
+                        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-500" />
                       </Button>
                     </div>
                   </div>
                 ))
               )}
             </div>
-            <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700" disabled={selectedItems.length === 0}>
+            <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700 text-sm sm:text-base" disabled={selectedItems.length === 0}>
               Adicionar {selectedItems.length > 1 ? 'Itens' : 'Item'} à Conta
             </Button>
           </div>
