@@ -9,14 +9,17 @@ interface OrderReceiptPrintProps {
 export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
   if (!order) return null;
 
+  // DEBUG: Log para verificar os dados do pedido
+  console.log('OrderReceiptPrint - order received:', JSON.stringify(order, null, 2));
+
   const items = Array.isArray(order.items) ? order.items : [];
   const total = typeof order.total === 'number' ? order.total : 0;
   const createdAt = order.created_at || new Date().toISOString();
   const customerName = order.customer_name || 'Não informado';
-    const tableNumber = order.table_number !== undefined && order.table_number !== null ? order.table_number : 'S/N';
+  const tableNumber = order.table_number !== undefined && order.table_number !== null ? order.table_number : 'S/N';
 
-
-  
+  // DEBUG: Verificar items processados
+  console.log('OrderReceiptPrint - items count:', items.length, 'items:', items);
 
   // Função para criar linha centralizada
   const centerLine = (text: string) => {
@@ -33,29 +36,54 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
   // Função para formatar valor monetário
   const formatCurrency = (value: number) => `R$ ${value.toFixed(2)}`;
 
-  // Função para criar linha de produto com desconto
-  const formatProductLine = (name: string, quantity: number, unitPrice: number, totalPrice: number, originalPrice?: number, discountValue?: number) => {
-    const qtyAndUnit = `${quantity}x ${formatCurrency(unitPrice)}`;
-    const right = formatCurrency(totalPrice);
+  const divider = '-'.repeat(32);
+
+  // Calcular desconto: usar total_discount se disponível, senão calcular da diferença
+  const calculatedDiscount = (order.subtotal || 0) + (order.tax || 0) - total;
+  const totalDiscount = order.total_discount || (calculatedDiscount > 0 ? calculatedDiscount : 0);
+
+  console.log('OrderReceiptPrint - discount calculation:', {
+    order_total_discount: order.total_discount,
+    subtotal: order.subtotal,
+    tax: order.tax,
+    total: total,
+    calculatedDiscount: calculatedDiscount,
+    finalDiscount: totalDiscount
+  });
+
+  // Função para renderizar item com desconto em negrito
+  const renderItem = (item: typeof items[0], idx: number) => {
+    const quantity = Number(item.quantity) || 0;
+    const unitPrice = Number(item.unitPrice ?? item.unit_price) || 0;
+    const totalPrice = Number(item.totalPrice ?? item.total_price) || 0;
+    const productName = item.product_name || 'Produto não identificado';
+    const originalPrice = item.originalPrice ?? item.original_price;
+    const discountValue = item.discountValue ?? item.discount_value;
+    
     const maxNameLength = 30;
-    let trimmedName = name;
+    let trimmedName = productName;
     if (trimmedName.length > maxNameLength) {
       trimmedName = trimmedName.slice(0, maxNameLength - 1) + '…';
     }
-    let line = `${trimmedName}\n  - ${qtyAndUnit} \n  - Total: ${right}`;
     
+    const qtyAndUnit = `${quantity}x ${formatCurrency(unitPrice)}`;
+    const hasDiscount = originalPrice && discountValue && discountValue > 0;
 
-    if (originalPrice && discountValue && discountValue > 0) {
-      line += `\n  - Preço original: ${formatCurrency(originalPrice)}`;
-      line += `\n  (Desconto de: ${formatCurrency(discountValue)})`;
-    }
-    return line + '\n';
+    return (
+      <span key={idx}>
+        {trimmedName}{'\n'}
+        {'  - '}{qtyAndUnit}{'\n'}
+        {'  - Total: '}{formatCurrency(totalPrice)}{'\n'}
+        {hasDiscount && (
+          <>
+            {'  - Preço original: '}{formatCurrency(originalPrice)}{'\n'}
+            <span style={{ fontWeight: 'bold' }}>{'  >>> DESCONTO: -'}{formatCurrency(discountValue * quantity)}{' <<<'}</span>{'\n'}
+          </>
+        )}
+        {idx < items.length - 1 && '\n'}
+      </span>
+    );
   };
-
-  const divider = '-'.repeat(32);
-
-  // Usar o total_discount da comanda (inclui descontos manuais + descontos de itens)
-  const totalDiscount = order.total_discount || 0;
 
   return (
     <pre style={{
@@ -72,19 +100,21 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
           body * {
             visibility: hidden;
           }
-          #print-content-order {
+          #print-content-order,
+          #print-content-order * {
             visibility: visible !important;
+          }
+          #print-content-order {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
           }
-          pre {
+          pre, pre * {
             visibility: visible !important;
             position: relative !important;
             margin: 0 !important;
-            padding: 0 5mm !important;
           }
           @page {
             margin: 0;
@@ -104,23 +134,23 @@ export const OrderReceiptPrint = ({ order }: OrderReceiptPrintProps) => {
       {'\n'}
       {divider}
       {'\n'}
-      {items.map((item, idx) => {
-        const quantity = Number(item.quantity) || 0;
-        const unitPrice = Number(item.unitPrice ?? item.unit_price) || 0;
-        const totalPrice = Number(item.totalPrice ?? item.total_price) || 0;
-        const productName = item.product_name || 'Produto não identificado';
-        const originalPrice = item.originalPrice ?? item.original_price;
-        const discountValue = item.discountValue ?? item.discount_value;
-        return formatProductLine(productName, quantity, unitPrice, totalPrice, originalPrice, discountValue) + (idx < items.length - 1 ? '\n' : '');
-      }).join('')}
+      {items.length > 0 ? (
+        items.map((item, idx) => renderItem(item, idx))
+      ) : (
+        <span>{'(Nenhum item encontrado)'}{'\n'}</span>
+      )}
       {'\n'}
       {divider}
       {'\n'}
-      {rightAlign('Subtotal:', formatCurrency(order.subtotal))}
+      {rightAlign('Subtotal:', formatCurrency(order.subtotal || 0))}
       {'\n'}
-      {totalDiscount > 0 && rightAlign('Total de descontos:', formatCurrency(totalDiscount))}
-      {totalDiscount > 0 && '\n'}
-      {rightAlign('Taxa:', formatCurrency(order.tax))}
+      {totalDiscount > 0 && (
+        <>
+          <span style={{ fontWeight: 'bold' }}>{rightAlign('DESCONTO:', '-' + formatCurrency(totalDiscount))}</span>
+          {'\n'}
+        </>
+      )}
+      {rightAlign('Taxa:', formatCurrency(order.tax || 0))}
       {'\n'}
       {rightAlign('TOTAL:', formatCurrency(total))}
       {'\n'}

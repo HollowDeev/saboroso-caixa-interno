@@ -70,63 +70,90 @@ export const formatCurrency = (value: number): string => {
 };
 
 export const formatOrders = (ordersData: RawOrder[]): Order[] => {
-  return ordersData.map(order => ({
-    id: order.id,
-    customer_name: order.customer_name,
-    table_number: Number(order.table_number) || undefined,
-    items: (order.order_items || []).map(item => ({
-      id: item.id,
-      productId: item.product_id,
-      product_name: item.product_name,
-      quantity: item.quantity,
-      unitPrice: item.unit_price,
-      totalPrice: item.total_price,
-      product_type: item.product_type as 'food' | 'external_product',
-      // Campos de desconto
-      originalPrice: item.original_price || undefined,
-      discountValue: item.discount_value || undefined,
-      discountId: item.discount_id || undefined
-    })),
-    subtotal: order.subtotal,
-    tax: order.tax,
-    total: order.total,
-    status: order.status,
-    user_id: order.user_id,
-    cash_register_id: order.cash_register_id,
-    created_at: order.created_at,
-    updated_at: order.updated_at
-  }));
+  return ordersData.map(order => {
+    // Calcular total de descontos dos itens
+    const totalItemsDiscount = (order.order_items || []).reduce((sum, item) => {
+      return sum + (item.discount_value || 0) * item.quantity;
+    }, 0);
+
+    return {
+      id: order.id,
+      customer_name: order.customer_name,
+      table_number: Number(order.table_number) || undefined,
+      items: (order.order_items || []).map(item => ({
+        id: item.id,
+        productId: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unitPrice: item.unit_price,
+        totalPrice: item.total_price,
+        product_type: item.product_type as 'food' | 'external_product',
+        // Campos de desconto
+        originalPrice: item.original_price || undefined,
+        discountValue: item.discount_value || undefined,
+        discountId: item.discount_id || undefined
+      })),
+      subtotal: order.subtotal,
+      tax: order.tax,
+      total: order.total,
+      total_discount: totalItemsDiscount > 0 ? totalItemsDiscount : undefined,
+      status: order.status,
+      user_id: order.user_id,
+      cash_register_id: order.cash_register_id,
+      created_at: order.created_at,
+      updated_at: order.updated_at
+    };
+  });
 };
 
 export const formatSales = (salesData: RawSale[]): Sale[] => {
-  return salesData.map(sale => ({
-    id: sale.id,
-    items: Array.isArray(sale.items) ? sale.items.map((item: RawSaleItem) => ({
-      id: item.id || '',
-      product_id: item.productId || item.product_id || '',
-      product_name: item.product_name || item.name || '',
-      quantity: Number(item.quantity) || 0,
-      unit_price: Number(item.unitPrice || item.unit_price) || 0,
-      total_price: Number(item.totalPrice || item.total_price) || 0,
-      product_type: item.product_type || 'food',
-      // Campos de desconto
-      original_price: item.original_price || undefined,
-      discount_value: item.discount_value || undefined,
-      discount_id: item.discount_id || undefined
-    })) : [],
-    subtotal: Number(sale.subtotal) || 0,
-    tax: Number(sale.tax) || 0,
-    total: Number(sale.total) || 0,
-    payments: Array.isArray(sale.payments) ? sale.payments.map(p => ({
-      method: p.method,
-      amount: Number(p.amount) || 0
-    })) : [],
-    customer_name: sale.customer_name, // Corrigido para snake_case
-    user_id: sale.user_id,
-    cash_register_id: sale.cash_register_id,
-    order_id: sale.order_id || '',
-    is_direct_sale: sale.is_direct_sale,
-    total_discount: Number(sale.total_discount) || undefined,
-    createdAt: sale.created_at
-  }));
+  return salesData.map(sale => {
+    // DEBUG: Log para verificar dados brutos
+    console.log('formatSales - raw sale:', {
+      id: sale.id,
+      items: sale.items,
+      items_type: typeof sale.items,
+      total_discount: sale.total_discount
+    });
+
+    const formattedSale = {
+      id: sale.id,
+      items: Array.isArray(sale.items) ? sale.items.map((item: RawSaleItem) => ({
+        id: item.id || '',
+        product_id: item.productId || item.product_id || '',
+        product_name: item.product_name || item.name || '',
+        quantity: Number(item.quantity) || 0,
+        unit_price: Number(item.unitPrice || item.unit_price) || 0,
+        total_price: Number(item.totalPrice || item.total_price) || 0,
+        product_type: item.product_type || 'food',
+        // Campos de desconto
+        original_price: item.original_price ? Number(item.original_price) : undefined,
+        discount_value: item.discount_value ? Number(item.discount_value) : undefined,
+        discount_id: item.discount_id || undefined
+      })) : [],
+      subtotal: Number(sale.subtotal) || 0,
+      tax: Number(sale.tax) || 0,
+      total: Number(sale.total) || 0,
+      payments: Array.isArray(sale.payments) ? sale.payments.map(p => ({
+        method: p.method,
+        amount: Number(p.amount) || 0
+      })) : [],
+      customer_name: sale.customer_name,
+      user_id: sale.user_id,
+      cash_register_id: sale.cash_register_id,
+      order_id: sale.order_id || '',
+      is_direct_sale: sale.is_direct_sale,
+      total_discount: sale.total_discount != null ? Number(sale.total_discount) : 0,
+      createdAt: sale.created_at
+    };
+
+    // DEBUG: Log do resultado formatado
+    console.log('formatSales - formatted sale:', {
+      id: formattedSale.id,
+      items_count: formattedSale.items.length,
+      total_discount: formattedSale.total_discount
+    });
+
+    return formattedSale;
+  });
 };

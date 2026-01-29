@@ -73,6 +73,12 @@ export interface OrderItem {
   originalPrice?: number;
   discountValue?: number;
   discountId?: string;
+  // Campos em snake_case para compatibilidade com dados do banco
+  unit_price?: number;
+  total_price?: number;
+  original_price?: number;
+  discount_value?: number;
+  discount_id?: string;
 }
 
 export interface NewOrderItem {
