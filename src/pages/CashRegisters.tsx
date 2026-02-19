@@ -12,8 +12,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, formatSales } from '@/utils/dataFormatters';
-import { Loader2, FileDown, Copy, ChevronDown, ShoppingCart } from 'lucide-react';
+import { formatCurrency, formatSales, formatExpenses } from '@/utils/dataFormatters';
+import { formatCashRegisterReport, sendReportToWhatsApp } from '@/utils/cashRegisterUtils';
+import { Loader2, FileDown, Copy, ChevronDown, ShoppingCart, Send } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -70,20 +71,7 @@ const SaleCard = ({ sale, isOpen, onToggle }: { sale: Sale, isOpen: boolean, onT
 };
 
 // Função utilitária para formatar despesas vindas do Supabase
-function formatExpenses(expenses: Record<string, unknown>[]): Expense[] {
-  return expenses.map(exp => ({
-    id: exp.id as string,
-    description: exp.description as string,
-    amount: exp.amount as number,
-    type: exp.type as any,
-    quantity: exp.quantity as number | undefined,
-    created_at: exp.created_at as string,
-    updated_at: (exp.updated_at as string) ?? '',
-    cash_register_id: exp.cash_register_id as string,
-    user_id: exp.user_id as string,
-    // Não incluir reason no tipo Expense, mas pode ser acessado via cast na renderização
-  }));
-}
+// Função movida para @/utils/dataFormatters
 
 export const CashRegisters = () => {
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([]);
@@ -201,13 +189,13 @@ export const CashRegisters = () => {
       // Lista detalhada de despesas
       const expensesList = expensesByRegister[register.id]?.length
         ? '\n*DESPESAS*\nData | Descrição | Tipo | Valor | Motivo\n' +
-          expensesByRegister[register.id].map(expense => [
-            format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-            expense.description,
-            expense.type,
-            `R$ ${expense.amount.toFixed(2)}`,
-            (typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')
-          ].join(' | ')).join('\n')
+        expensesByRegister[register.id].map(expense => [
+          format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+          expense.description,
+          expense.type,
+          `R$ ${expense.amount.toFixed(2)}`,
+          (typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')
+        ].join(' | ')).join('\n')
         : '\nNenhuma despesa registrada.';
       return [
         `Caixa (${register.is_open ? 'Aberto' : 'Fechado'})`,
@@ -265,42 +253,87 @@ export const CashRegisters = () => {
     document.body.removeChild(link);
   };
 
-  const copySingleCashRegisterToClipboard = (register) => {
-    const vendas = salesByRegister[register.id] || [];
-    const despesas = expensesByRegister[register.id]?.reduce((acc, exp) => acc + exp.amount, 0) || 0;
-    const vendasText = vendas.map(sale => {
-      const items = sale.items ? sale.items.map(item => `${item.quantity}x ${item.product_name}`).join(', ') : '';
-      return `> ${sale.customer_name || 'Cliente não informado'} - ${items} - R$ ${sale.total?.toFixed(2) ?? ''}`;
-    }).join('\n');
-    // Lista detalhada de despesas
-    const expensesList = expensesByRegister[register.id]?.length
-      ? '\n*DESPESAS*\nData | Descrição | Tipo | Valor | Motivo\n' +
-        expensesByRegister[register.id].map(expense => [
-          format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-          expense.description,
-          expense.type,
-          `R$ ${expense.amount.toFixed(2)}`,
-          (typeof expense === 'object' && expense !== null && 'reason' in expense ? (expense as unknown as { reason?: string }).reason || '-' : '-')
-        ].join(' | ')).join('\n')
-      : '\nNenhuma despesa registrada.';
-    const text = [
-      `Caixa (${register.is_open ? 'Aberto' : 'Fechado'})`,
-      `Abertura: ${register.opened_at ? format(new Date(register.opened_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
-      `Fechamento: ${register.closed_at ? format(new Date(register.closed_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }) : '-'}`,
-      `Valor de Abertura: R$ ${register.opening_amount?.toFixed(2) ?? '-'}`,
-      `Valor de Fechamento: R$ ${register.closing_amount?.toFixed(2) ?? '-'}`,
-      `Total de Vendas: R$ ${vendas.reduce((acc, sale) => acc + sale.total, 0).toFixed(2)}`,
-      `Total de Despesas: R$ ${despesas.toFixed(2)}`,
-      '',
-      '*VENDAS*',
-      vendasText,
-      expensesList
-    ].join('\n');
-    navigator.clipboard.writeText(text).then(() => {
+
+
+  // ... (inside component)
+
+  const loadRegisterData = async (registerId: string) => {
+    // Buscar vendas
+    const { data: sales } = await supabase
+      .from('sales')
+      .select('*')
+      .eq('cash_register_id', registerId)
+      .order('created_at', { ascending: false });
+
+    const salesParsed = sales?.map(sale => ({
+      ...sale,
+      items: Array.isArray(sale.items)
+        ? sale.items
+        : (typeof sale.items === 'string' ? JSON.parse(sale.items) : (sale.items ?? [])),
+      payments: Array.isArray(sale.payments)
+        ? sale.payments
+        : (typeof sale.payments === 'string' ? JSON.parse(sale.payments) : (sale.payments ?? [])),
+    })) ?? [];
+
+    const formattedSales = formatSales(salesParsed);
+
+    // Buscar despesas
+    const { data: expenses } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('cash_register_id', registerId)
+      .order('created_at', { ascending: false });
+
+    const formattedExpenses = expenses ? formatExpenses(expenses) : [];
+
+    return { sales: formattedSales, expenses: formattedExpenses };
+  };
+
+  const copySingleCashRegisterToClipboard = async (register: CashRegister) => {
+    try {
+      let vendas = salesByRegister[register.id];
+      let despesas = expensesByRegister[register.id];
+
+      if (!vendas || !despesas) {
+        const data = await loadRegisterData(register.id);
+        vendas = data.sales;
+        despesas = data.expenses;
+
+        // Atualizar estado local para não precisar buscar de novo
+        setSalesByRegister(prev => ({ ...prev, [register.id]: vendas }));
+        setExpensesByRegister(prev => ({ ...prev, [register.id]: despesas }));
+      }
+
+      const text = formatCashRegisterReport(register, vendas, despesas);
+
+      await navigator.clipboard.writeText(text);
       alert('Dados copiados para a área de transferência!');
-    }).catch(() => {
+    } catch (error) {
+      console.error('Erro ao copiar:', error);
       alert('Não foi possível copiar os dados.');
-    });
+    }
+  };
+
+  const handleSendToWhatsApp = async (register: CashRegister) => {
+    try {
+      let vendas = salesByRegister[register.id];
+      let despesas = expensesByRegister[register.id];
+
+      if (!vendas || !despesas) {
+        const data = await loadRegisterData(register.id);
+        vendas = data.sales;
+        despesas = data.expenses;
+        // Atualizar estado local
+        setSalesByRegister(prev => ({ ...prev, [register.id]: vendas }));
+        setExpensesByRegister(prev => ({ ...prev, [register.id]: despesas }));
+      }
+
+      const text = formatCashRegisterReport(register, vendas, despesas);
+      sendReportToWhatsApp(text);
+    } catch (error) {
+      console.error('Erro ao enviar para WhatsApp:', error);
+      alert('Erro ao preparar dados para WhatsApp.');
+    }
   };
 
   if (loading) {
@@ -372,6 +405,10 @@ export const CashRegisters = () => {
                         <DropdownMenuItem onClick={e => { e.stopPropagation(); copySingleCashRegisterToClipboard(register); }}>
                           <Copy className="h-4 w-4 mr-2" />
                           Copiar Dados
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={e => { e.stopPropagation(); handleSendToWhatsApp(register); }}>
+                          <Send className="h-4 w-4 mr-2" />
+                          Enviar no WhatsApp
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -502,7 +539,7 @@ export const CashRegisters = () => {
 
                         <TabsContent value="sales" className="px-4 md:px-0">
                           <div className="flex justify-end mb-4">
-                            <Select value="all" onValueChange={() => {}}>
+                            <Select value="all" onValueChange={() => { }}>
                               <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Método de Pagamento" />
                               </SelectTrigger>

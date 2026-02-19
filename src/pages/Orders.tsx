@@ -70,14 +70,14 @@ export const Orders = () => {
       setSelectedProducts(prev => prev.map(item =>
         item.productId === product.id
           ? {
-              ...item,
-              quantity: item.quantity + 1,
-              totalPrice: (item.quantity + 1) * priceToUse,
-              unitPrice: priceToUse,
-              originalPrice: product.price,
-              discountValue: discount ? product.price - discount.newPrice : 0,
-              discountId: discount?.id
-            }
+            ...item,
+            quantity: item.quantity + 1,
+            totalPrice: (item.quantity + 1) * priceToUse,
+            unitPrice: priceToUse,
+            originalPrice: product.price,
+            discountValue: discount ? product.price - discount.newPrice : 0,
+            discountId: discount?.id
+          }
           : item
       ));
     } else {
@@ -114,15 +114,15 @@ export const Orders = () => {
 
     setSelectedProducts(prev => prev.map(item =>
       item.productId === productId
-        ? { 
-            ...item, 
-            quantity, 
-            totalPrice: quantity * item.unitPrice,
-            // Preservar dados de desconto
-            originalPrice: item.originalPrice,
-            discountValue: item.discountValue,
-            discountId: item.discountId
-          }
+        ? {
+          ...item,
+          quantity,
+          totalPrice: quantity * item.unitPrice,
+          // Preservar dados de desconto
+          originalPrice: item.originalPrice,
+          discountValue: item.discountValue,
+          discountId: item.discountId
+        }
         : item
     ));
   };
@@ -257,12 +257,12 @@ export const Orders = () => {
               Nova Comanda
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-6">
+          <DialogContent className="w-full h-full md:h-auto md:max-h-[95vh] md:max-w-6xl overflow-y-auto p-4 md:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">Nova Comanda</DialogTitle>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -305,7 +305,7 @@ export const Orders = () => {
 
                 <div>
                   <h3 className="font-semibold mb-3">Produtos Disponíveis</h3>
-                  <div className="grid grid-cols-1 gap-2 h-96 overflow-y-auto border rounded-lg p-3">
+                  <div className="grid grid-cols-1 gap-2 h-[40vh] md:h-96 overflow-y-auto border rounded-lg p-3">
                     {filteredFoodProducts.length > 0 && (
                       <div>
                         <h4 className="text-sm font-medium text-gray-500 mb-2 sticky top-0 bg-white py-1">Comidas ({filteredFoodProducts.length})</h4>

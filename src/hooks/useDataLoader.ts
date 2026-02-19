@@ -3,6 +3,7 @@ import { User, Ingredient, Product, ExternalProduct, Order, Sale, ServiceTax, Ca
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from "@/components/ui/use-toast";
 import { formatOrders, formatSales } from '@/utils/dataFormatters';
+import { id } from 'date-fns/locale';
 
 export const useDataLoader = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -85,17 +86,26 @@ export const useDataLoader = () => {
             quantity,
             unit,
             created_at,
-            updated_at
+            updated_at,
+            ingredients (
+              name
+            )
           )
         `)
         .eq('owner_id', ownerId)
-        .is('deleted_at', null)
+        // .is('deleted_at', null) // Temporarily disabled for debugging
         .order('name');
 
       if (foodsError) {
         console.error('❌ Error loading foods:', foodsError);
         throw foodsError;
       }
+      console.log('🔍 Debug Foods Fetch:', {
+        ownerId,
+        count: foodsData?.length,
+        firstItem: foodsData?.[0],
+        allIds: foodsData?.map(f => f.id)
+      });
       console.log('✅ Foods loaded:', foodsData?.length || 0, 'items');
       
       setProducts((foodsData || []).map(food => ({
@@ -117,10 +127,12 @@ export const useDataLoader = () => {
           unit: string;
           created_at: string;
           updated_at: string;
+          ingredients?: { name: string };
         }) => ({
           id: fi.id,
           food_id: food.id,
           ingredient_id: fi.ingredient_id,
+          ingredient_name: fi.ingredients?.name || 'Sem nome',
           quantity: fi.quantity,
           unit: fi.unit,
           created_at: fi.created_at,

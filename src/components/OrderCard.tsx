@@ -426,7 +426,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
     // Atualizar quantidades dos itens existentes, se houver
     for (const item of editItemsSelected) {
       try {
-        await orderService.updateOrderItemQuantity(item.id, item.quantity, order.id);
+        await updateOrderItem(item.id, item.quantity, order.id);
       } catch (error) {
         console.error('Erro ao atualizar quantidade do item:', error);
         // Mostrar erro ao usuário
@@ -779,7 +779,81 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                     Inserir Pedido
                   </Button>
                 </DialogTrigger>
-                {/* Modal de adicionar itens - conteúdo existente */}
+                <DialogContent className="w-full h-full md:h-auto md:max-h-[95vh] md:max-w-4xl overflow-y-auto p-4 md:p-6">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Adicionar Item</DialogTitle>
+                  </DialogHeader>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="addItemSearch">Pesquisar Produto</Label>
+                        <div className="relative mt-1">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <Input
+                            id="addItemSearch"
+                            value={addItemsSearch}
+                            onChange={(e) => setAddItemsSearch(e.target.value)}
+                            placeholder="Nome do produto..."
+                            className="pl-10 h-10 md:h-9" // Larger touch target
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 h-[40vh] md:h-80 overflow-y-auto border rounded-lg p-2">
+                        {filteredFoodProducts.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white touch-manipulation" onClick={() => addProductToSelection(product)}>
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{product.name}</p>
+                              <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <Plus className="h-5 w-5" />
+                            </Button>
+                          </div>
+                        ))}
+                        {filteredExternalProducts.map((product) => (
+                          <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg mb-2 bg-white touch-manipulation" onClick={() => addProductToSelection(product)}>
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{product.name}</p>
+                              <p className="text-sm text-gray-600">R$ {product.price.toFixed(2)}</p>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <Plus className="h-5 w-5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="font-semibold">Itens Selecionados</h3>
+                      <div className="space-y-2 h-[30vh] md:h-64 overflow-y-auto border rounded-lg p-3">
+                        {addItemsSelected.map((item) => (
+                          <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{item.product_name}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span>{item.quantity}x R$ {item.unitPrice.toFixed(2)}</span>
+                                <span className="font-bold text-gray-700">Total: R$ {item.totalPrice.toFixed(2)}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => updateProductQuantityInSelection(item.productId, item.quantity - 1)}>-</Button>
+                              <span className="w-6 text-center">{item.quantity}</span>
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => updateProductQuantityInSelection(item.productId, item.quantity + 1)}>+</Button>
+                              <Button size="sm" variant="destructive" className="h-8 w-8 p-0 ml-1" onClick={() => removeProductFromSelection(item.productId)}><X className="h-4 w-4" /></Button>
+                            </div>
+                          </div>
+                        ))}
+                        {addItemsSelected.length === 0 && <p className="text-center text-gray-500 py-4">Nenhum item selecionado</p>}
+                      </div>
+                      <Button className="w-full bg-green-600 hover:bg-green-700 h-12 md:h-10 text-lg md:text-sm" onClick={handleAddItemsToOrder} disabled={addItemsSelected.length === 0}>
+                        Confirmar Adição
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
               </Dialog>
 
               <Dialog open={isEditOrderOpen} onOpenChange={(open) => {
@@ -794,7 +868,7 @@ export const OrderCard = ({ order }: OrderCardProps) => {
                     Editar Comanda
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-6">
+                <DialogContent className="w-full h-full md:h-auto md:max-h-[95vh] md:max-w-4xl overflow-y-auto p-4 md:p-6">
                   <DialogHeader>
                     <DialogTitle className="text-xl">Editar Itens da Comanda</DialogTitle>
                   </DialogHeader>

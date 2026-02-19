@@ -157,3 +157,18 @@ export const formatSales = (salesData: RawSale[]): Sale[] => {
     return formattedSale;
   });
 };
+
+export const formatExpenses = (expenses: Record<string, unknown>[]): any[] => {
+  return expenses.map(exp => ({
+    id: exp.id as string,
+    description: exp.description as string,
+    amount: exp.amount as number,
+    type: exp.type as any,
+    quantity: exp.quantity as number | undefined,
+    created_at: exp.created_at as string,
+    updated_at: (exp.updated_at as string) ?? '',
+    cash_register_id: exp.cash_register_id as string,
+    user_id: exp.user_id as string,
+    reason: (exp as any).reason
+  }));
+};

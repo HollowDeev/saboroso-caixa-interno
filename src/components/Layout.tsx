@@ -3,7 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useAppContext } from '@/contexts/AppContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, BarChart3, DollarSign, Package, Plus, ClipboardList, Users } from 'lucide-react';
+import { ShoppingCart, BarChart3, DollarSign, Package, Plus, ClipboardList, Users, Menu, Pencil } from 'lucide-react';
 import { DirectSaleModal } from './DirectSaleModal';
 import { NewOrderModal } from './NewOrderModal';
 
@@ -59,15 +59,15 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
 
         {/* Mobile Sidebar */}
         {sidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
+          <>
             <div
-              className="absolute inset-0 bg-black opacity-50"
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
               onClick={() => setSidebarOpen(false)}
             />
-            <div className="relative">
+            <div className="fixed inset-y-0 left-0 z-[60] w-64 h-full bg-white shadow-2xl lg:hidden animate-in slide-in-from-left duration-300">
               <Sidebar onClose={() => setSidebarOpen(false)} isEmployee={isEmployee} isAdmin={isAdmin} />
             </div>
-          </div>
+          </>
         )}
 
         <main className="flex-1 p-4 md:p-6 min-h-screen pb-20 md:pb-6">
@@ -76,64 +76,22 @@ export const Layout = ({ children, adminData, employeeData, onLogout, isEmployee
       </div>
 
       {/* Barra de navegação inferior mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg z-50 h-16 flex items-center justify-between px-4">
-        <div className="relative w-full flex items-center justify-center gap-4">
-          {isAdmin ? (
-            <>
-              <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <ShoppingCart className="h-4 w-4 mb-1" />
-                Comandas
-              </Link>
-              <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <BarChart3 className="h-4 w-4 mb-1" />
-                Vendas
-              </Link>
-              <Link to="/cash-registers" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <DollarSign className="h-4 w-4 mb-1" />
-                Caixas
-              </Link>
-              <Link to="/users" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <Users className="h-4 w-4 mb-1" />
-                Usuários
-              </Link>
-              <Link to="/stock" className="flex flex-col items-center justify-center text-xs text-gray-700 mx-3">
-                <Package className="h-4 w-4 mb-1" />
-                Estoque
-              </Link>
-            </>
-          ) : (
-            <>
-              <button
-                className="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white rounded-full h-12 w-12"
-                onClick={() => setOpenNewOrder(true)}
-                aria-label="Nova Comanda"
-              >
-                <ClipboardList className="h-6 w-6" />
-              </button>
-              <div className="flex items-center gap-4">
-                <Link to="/orders" className="flex flex-col items-center justify-center text-xs text-gray-700">
-                  <ShoppingCart className="h-4 w-4 mb-1" />
-                  Comandas
-                </Link>
-                <Link to="/sales" className="flex flex-col items-center justify-center text-xs text-gray-700">
-                  <BarChart3 className="h-4 w-4 mb-1" />
-                  Vendas
-                </Link>
-                <Link to="/expense-account" className="flex flex-col items-center justify-center text-xs text-gray-700">
-                  <DollarSign className="h-4 w-4 mb-1" />
-                  Despesas
-                </Link>
-              </div>
-              <button
-                className="flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-full h-12 w-12"
-                onClick={() => setOpenDirectSale(true)}
-                aria-label="Nova Venda Direta"
-              >
-                <Plus className="h-6 w-6" />
-              </button>
-            </>
-          )}
-        </div>
+      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-transparent flex items-center justify-center gap-8 z-50">
+        <button
+          className="flex items-center justify-center bg-green-600 active:bg-green-700 text-white rounded-full h-12 w-12 shadow-lg transition-transform active:scale-95"
+          onClick={() => setOpenDirectSale(true)}
+          aria-label="Nova Venda Direta"
+        >
+          <DollarSign className="h-6 w-6" />
+        </button>
+
+        <button
+          className="flex items-center justify-center bg-orange-500 active:bg-orange-600 text-white rounded-full h-12 w-12 shadow-lg transition-transform active:scale-95"
+          onClick={() => setOpenNewOrder(true)}
+          aria-label="Nova Comanda"
+        >
+          <Pencil className="h-6 w-6" />
+        </button>
       </nav>
       {/* Modais de ação rápida */}
       <DirectSaleModal isOpen={openDirectSale} onClose={() => setOpenDirectSale(false)} />

@@ -11,6 +11,9 @@ import { Order, OrderItem, Product, ExternalProduct } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 import { toast } from '@/components/ui/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { PrintModal } from './PrintModal';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -19,7 +22,7 @@ interface CheckoutModalProps {
 }
 
 export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) => {
-  const { products, externalProducts, updateOrder } = useAppContext();
+  const { products, externalProducts, updateOrder, currentUser } = useAppContext();
   const [selectedProducts, setSelectedProducts] = useState<OrderItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'pix'>('cash');
   const [amountPaid, setAmountPaid] = useState(0);
@@ -29,6 +32,8 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
   // O input de desconto direto deve atualizar total_discount (já existente)
   const [manualDiscounts, setManualDiscounts] = useState<number[]>([]);
   const [discountInput, setDiscountInput] = useState('');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const isMobile = useIsMobile();
 
   React.useEffect(() => {
     if (isOpen && order) {
@@ -107,7 +112,7 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
     setManualDiscounts(prev => prev.filter((_, i) => i !== index));
   };
 
-  const finalizeSale = async () => {
+  const finalizeOrder = async () => {
     if (!order) return;
 
     if (!customerName.trim()) {
@@ -153,6 +158,55 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
       setDiscountInput('');
     } catch (error) {
       console.error('Erro ao finalizar venda:', error);
+    }
+  };
+
+  const finalizeSale = async () => {
+    console.log('finalizeSale called, isMobile:', isMobile);
+    if (isMobile) {
+      setShowPrintModal(true);
+    } else {
+      await finalizeOrder();
+    }
+      console.log('finalizeOrder - updating order with', updatedOrderData);
+      const updatedOrderData = {
+
+  const handlePrint = async (selectedItems: OrderItem[]) => {
+    console.log('handlePrint called with', selectedItems);
+    const userName = currentUser?.name || 'Funcionário';
+    const conteudo = {
+      nome: userName,
+      horario: new Date().toISOString(),
+      mesa: order?.table_number || null,
+      itens: selectedItems.map(item => ({
+      const res = await updateOrder(order.id, updatedOrderData);
+      console.log('finalizeOrder - updateOrder result', res);
+        quantidade: item.quantity,
+        preco: item.unitPrice,
+        total: item.totalPrice
+      }))
+    };
+    console.log('conteudo:', conteudo);
+
+    try {
+      const { error } = await supabase.from('fila_impressao').insert({ conteudo });
+      if (error) {
+        console.error('Erro ao inserir:', error);
+        toast({
+          title: 'Erro',
+          description: 'Erro ao salvar impressão.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      await finalizeOrder();
+    } catch (error) {
+      console.error('Erro ao salvar impressão:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao salvar impressão.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -394,5 +448,11 @@ export const CheckoutModal = ({ isOpen, onClose, order }: CheckoutModalProps) =>
         </div>
       </DialogContent>
     </Dialog>
+    <PrintModal
+      isOpen={showPrintModal}
+      onClose={() => setShowPrintModal(false)}
+      items={selectedProducts}
+      onPrint={handlePrint}
+    />
   );
 };

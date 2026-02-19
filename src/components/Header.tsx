@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Menu } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -18,15 +18,25 @@ interface HeaderProps {
   isEmployee?: boolean;
 }
 
-export const Header = ({ adminData, employeeData, onLogout, isEmployee }: HeaderProps) => {
+export const Header = ({ onMenuClick, adminData, employeeData, onLogout, isEmployee }: HeaderProps) => {
   const currentUser = adminData || employeeData;
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3 md:px-6 md:py-4">
       <div className="flex items-center justify-between w-full">
-        {/* Esquerda: Logo */}
-        <div className="flex items-center min-w-[120px] md:min-w-[300px]">
-          <img src="/varanda.png" alt="Varanda Logo" className="h-10 w-auto" style={{ maxHeight: 40 }} />
+        {/* Esquerda: Menu (Mobile) + Logo */}
+        <div className="flex items-center gap-3 min-w-[120px] md:min-w-[300px]">
+          {onMenuClick && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={onMenuClick}
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          )}
+          <img src="/varanda.png" alt="Varanda Logo" className="h-8 md:h-10 w-auto" style={{ maxHeight: 40 }} />
         </div>
         {/* Centro: Título (apenas em md+) */}
         <div className="flex-1 flex justify-center">

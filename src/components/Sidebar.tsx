@@ -5,7 +5,7 @@ import {
   ShoppingCart,
   Package,
   BarChart3,
-    BarChart2,
+  BarChart2,
   Users,
   Settings,
   Calculator,
@@ -28,12 +28,11 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
     ...((isAdmin || !isEmployee) ? [
       { icon: DollarSign, label: 'Caixas', path: '/cash-registers' },
       { icon: Home, label: 'Dashboard', path: '/dashboard' },
-        { icon: BarChart2, label: 'Faturamento', path: '/billing' },
+      { icon: BarChart2, label: 'Faturamento', path: '/billing' },
       { icon: Package, label: 'Estoque', path: '/stock' },
       { icon: Users, label: 'Funcionários', path: '/users' },
       { icon: Calculator, label: 'Calculadora', path: '/calculator' },
       { icon: Settings, label: 'Configurações', path: '/settings' },
-      { icon: DollarSign, label: 'Descontos', path: '/discounts' },
     ] : []),
     ...((!isAdmin && (isManager || isEmployee)) ? [
       { icon: Package, label: 'Estoque', path: '/stock' },
@@ -43,40 +42,45 @@ export const Sidebar = ({ onClose, isEmployee, isAdmin, isManager }: SidebarProp
   ];
 
   return (
-    <aside className="bg-white w-64 min-h-screen border-r border-gray-200 fixed lg:relative z-40">
+    <aside className="bg-white w-64 min-h-screen border-r border-gray-200 z-40 flex flex-col h-full">
       <div className="p-4 md:p-6">
-        <div className="flex items-center justify-between mb-6 md:mb-8">
-          <h2 className="text-base md:text-lg font-semibold text-gray-900">Menu</h2>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="lg:hidden p-2 rounded-md hover:bg-gray-100 touch-manipulation"
-            >
-              <X className="h-5 w-5" />
+        <div className="flex items-center justify-between mb-2 md:mb-8">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 lg:block hidden">Menu</h2>
+          {/* Mobile header */}
+          <div className="lg:hidden w-full flex justify-end pb-2">
+            <button onClick={onClose} className="p-2 text-gray-500">
+              <X className="h-6 w-6" />
             </button>
-          )}
+          </div>
         </div>
 
         <nav className="space-y-1 md:space-y-2">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={onClose}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center px-3 py-3 md:px-4 md:py-3 text-sm md:text-base font-medium rounded-lg transition-colors touch-manipulation',
-                  'min-h-[48px]', // Ensure minimum touch target size
-                  isActive
-                    ? 'bg-orange-50 text-orange-600 border-r-2 border-orange-600'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
-                )
-              }
-            >
-              <item.icon className="mr-3 h-5 w-5 md:h-5 md:w-5 flex-shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </NavLink>
-          ))}
+          {menuItems.map((item) => {
+            // Itens que devem aparecer no mobile
+            const isMobileItem = ['/orders', '/sales', '/cash-registers', '/stock'].includes(item.path);
+
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    'items-center px-3 py-3 md:px-4 md:py-3 text-sm md:text-base font-medium rounded-lg transition-colors touch-manipulation',
+                    'min-h-[48px]',
+                    // Se não for um item mobile, esconder em telas pequenas
+                    !isMobileItem ? 'hidden md:flex' : 'flex',
+                    isActive
+                      ? 'bg-orange-50 text-orange-600 border-r-2 border-orange-600'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100'
+                  )
+                }
+              >
+                <item.icon className="mr-3 h-5 w-5 md:h-5 md:w-5 flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
       </div>
     </aside>

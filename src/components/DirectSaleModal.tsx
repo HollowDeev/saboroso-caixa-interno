@@ -11,6 +11,9 @@ import { toast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useActiveDiscounts } from '@/hooks/useActiveDiscounts';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { PrintModal } from './PrintModal';
+import { supabase } from '@/integrations/supabase/client';
 
 interface DirectSaleModalProps {
   isOpen: boolean;
@@ -25,7 +28,10 @@ interface Payment {
 export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClose }) => {
   const { products, externalProducts, currentUser, addSale, currentCashRegister } = useAppContext();
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [pendingSalePayload, setPendingSalePayload] = useState<any>(null);
   const [payments, setPayments] = useState<Payment[]>([{ method: 'cash', amount: '' }]);
+  const isMobile = useIsMobile();
   const [customerName, setCustomerName] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreatingSale, setIsCreatingSale] = useState(false);
@@ -193,7 +199,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         amount: Number(String(p.amount).replace(',', '.')) || 0
       }));
 
-      await addSale({
+      const salePayload = {
         total,
         subtotal,
         tax: 0,
@@ -205,16 +211,27 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
         items: formattedItems,
         order_id: null,
         total_discount: totalDiscount
-      });
+      } as const;
+
+      // Se estiver em mobile, primeiro abrir o modal de seleção de impressão
+      if (isMobile) {
+        setPendingSalePayload(salePayload as any);
+        setShowPrintModal(true);
+        setIsCreatingSale(false);
+        return;
+      }
+
+      // Caso desktop, prosseguir normalmente
+      await addSale(salePayload as any);
 
       toast({
         title: "Sucesso",
         description: "Venda direta registrada com sucesso!",
       });
 
-  setSelectedItems([]);
-  setCustomerName('');
-  setPayments([{ method: 'cash', amount: '' }]);
+      setSelectedItems([]);
+      setCustomerName('');
+      setPayments([{ method: 'cash', amount: '' }]);
       setSearchTerm('');
       onClose();
     } catch (error: any) {
@@ -226,6 +243,51 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
       });
     } finally {
       setIsCreatingSale(false);
+    }
+  };
+
+  const handlePrintFromDirectSale = async (itemsToPrint: OrderItem[]) => {
+    console.log('handlePrintFromDirectSale called with items:', itemsToPrint, 'pendingSalePayload:', pendingSalePayload);
+    if (!currentUser) {
+      console.error('No currentUser in handlePrintFromDirectSale');
+      toast({ title: 'Erro', description: 'Usuário não autenticado.', variant: 'destructive' });
+      return;
+    }
+
+    const conteudo = {
+      nome: currentUser.name || 'Funcionário',
+      horario: new Date().toISOString(),
+      mesa: null,
+      itens: itemsToPrint.map(i => ({ nome: i.product_name, quantidade: i.quantity, preco: i.unitPrice, total: i.totalPrice }))
+    };
+
+    try {
+      console.log('Inserindo na fila_impressao:', conteudo);
+      const { data, error } = await supabase.from('fila_impressao').insert({ conteudo }).select().single();
+      if (error) {
+        console.error('Erro ao inserir fila_impressao:', error);
+        toast({ title: 'Erro', description: 'Erro ao salvar impressão.', variant: 'destructive' });
+        return;
+      }
+      console.log('Inserção fila_impressao result:', data);
+
+      // Após salvar impressão, finalizar a venda
+      if (pendingSalePayload) {
+        console.log('Finalizando venda com payload:', pendingSalePayload);
+        await addSale(pendingSalePayload);
+        setPendingSalePayload(null);
+      }
+
+      toast({ title: 'Sucesso', description: 'Venda registrada e impressão enfileirada.' });
+      setSelectedItems([]);
+      setCustomerName('');
+      setPayments([{ method: 'cash', amount: '' }]);
+      setSearchTerm('');
+      setShowPrintModal(false);
+      onClose();
+    } catch (err) {
+      console.error('Erro handlePrintFromDirectSale:', err);
+      toast({ title: 'Erro', description: 'Erro ao processar impressão.', variant: 'destructive' });
     }
   };
 
@@ -250,6 +312,7 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-6">
         <DialogHeader>
@@ -565,6 +628,13 @@ export const DirectSaleModal: React.FC<DirectSaleModalProps> = ({ isOpen, onClos
           </div>
         </div>
       </DialogContent>
-    </Dialog>
-  );
-};
+      </Dialog>
+      <PrintModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        items={selectedItems}
+        onPrint={handlePrintFromDirectSale}
+      />
+    </>
+    );
+  };

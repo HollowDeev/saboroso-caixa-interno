@@ -230,12 +230,12 @@ export const Sales = () => {
     const expensesHeader = '\n\n*DESPESAS*\nData | Descrição | Tipo | Valor | Motivo';
     const expensesText = currentExpenses.length > 0
       ? currentExpenses.map(expense => [
-          format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
-          expense.description,
-          getExpenseTypeLabel(expense.type),
-          `R$ ${expense.amount.toFixed(2)}`,
-          getExpenseReason(expense)
-        ].join(' | ')).join('\n')
+        format(new Date(expense.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+        expense.description,
+        getExpenseTypeLabel(expense.type),
+        `R$ ${expense.amount.toFixed(2)}`,
+        getExpenseReason(expense)
+      ].join(' | ')).join('\n')
       : 'Nenhuma despesa registrada.';
 
     const text = `*CAIXA*\n` +
@@ -319,8 +319,8 @@ export const Sales = () => {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="p-0 md:p-4 lg:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-4 md:px-0">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold">Financeiro</h1>
           {currentCashRegister && (
@@ -664,7 +664,7 @@ export const Sales = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSaleToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => saleToDelete && handleDeleteSale(saleToDelete)}
               disabled={isDeletingSale}
               className={cn(isDeletingSale && "opacity-50 cursor-not-allowed")}

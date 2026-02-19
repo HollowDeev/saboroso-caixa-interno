@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider } from "./contexts/AppContext";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./pages/Dashboard";
-import DiscountsPage from "./pages/Discounts";
+
 import { Orders } from "./pages/Orders";
 import { StockManagement } from "./pages/StockManagement";
 import { Sales } from "./pages/Sales";
@@ -14,8 +14,9 @@ import { Users } from "./pages/Users";
 import { Settings } from "./pages/Settings";
 import { ProfitCalculator } from "./pages/ProfitCalculator";
 import { CashRegisters } from "./pages/CashRegisters";
-  import { Billing } from "./pages/Billing";
+import { Billing } from "./pages/Billing";
 import { Login } from "./pages/Login";
+import { Diagnose } from "./pages/Diagnose";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 import { useState, useEffect } from "react";
@@ -124,10 +125,10 @@ const App = () => {
       localStorage.removeItem('supabase_session_expires');
       localStorage.removeItem('currentUser');
       setAdminData(null);
-      
+
       // Tentar fazer logout no Supabase
       await supabase.auth.signOut();
-      
+
       // Forçar reload da página para garantir limpeza completa
       window.location.href = '/';
     } catch (error) {
@@ -173,10 +174,6 @@ const App = () => {
           <AppProvider>
             <BrowserRouter>
               <Routes>
-                {/* Página de descontos SEM layout */}
-                {isEmployeeAdmin && (
-                  <Route path="/discounts" element={<DiscountsPage />} />
-                )}
                 {/* Demais páginas COM layout */}
                 <Route
                   path="*"
@@ -201,6 +198,7 @@ const App = () => {
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/calculator" element={<ProfitCalculator />} />
                             <Route path="/cash-registers" element={<CashRegisters />} />
+                            <Route path="/diagnose" element={<Diagnose />} />
                           </>
                         )}
                         {!isEmployeeAdmin && (
